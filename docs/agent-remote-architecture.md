@@ -41,6 +41,7 @@
 - SSH 认证：使用设备级 SSH key，并通过受控入口脚本限制可执行动作。
 - CLI 参数策略：`agent-remote` 负责统一管理操作；工具启动命令只消费明确的 session 命令，其余参数默认透传给远端原生工具。
 - 终端入口：首期不做 Web 终端，只支持本地 CLI + SSH + tmux。
+- 远端临时浏览器：管理端需要支持创建短期无痕浏览器会话，通过 VPS 节点网络、地区、时区和 locale 访问邮箱、Claude Web 等页面；该能力不持久化浏览器用户信息，也不作为 Web 终端使用。
 - 工具运行隔离：Docker sandbox。
 - 用户端语言：Rust。
 - 用户端本地数据库：如需要，使用 SQLite。
@@ -208,6 +209,52 @@ local fclaude launcher -> ssh -> remote tmux -> docker sandbox -> claude
 9. 临时绑定 sandbox 和 tmux session 被销毁。
 
 该方案确保工具登录态产生在实际运行地区和实际网络环境中，避免本地地区、浏览器、系统环境影响登录结果。
+
+### 5.6 远端临时浏览器
+
+管理端需要提供内嵌远端浏览器能力，用于用户在 VPS 网络和系统环境中临时访问网页，例如邮箱验证码、Claude Web 页面、账号安全确认页面等。
+
+该能力的定位：
+
+- 它是远端临时浏览器，不是 Web 终端。
+- 浏览器运行在目标 VPS 节点上的独立 Docker sandbox 中。
+- 管理端前端只嵌入浏览器画面和输入通道，不暴露宿主 shell。
+- 浏览器会话默认无痕、短时、一次性。
+- 默认不持久化 cookie、localStorage、浏览历史、密码、下载文件和浏览器 profile。
+- 会话结束后销毁容器和临时目录。
+
+创建流程：
+
+1. 用户在管理端选择创建浏览器会话。
+2. 用户可选择目标工具账户、地区、节点或目标 URL。
+3. 管理端根据工具账户地区、时区、locale 和节点亲和规则选择节点。
+4. 管理端创建 `create_browser_session` 节点任务。
+5. 节点端启动专用浏览器容器，注入时区、locale、浏览器语言和网络策略。
+6. 节点端返回一次性连接信息。
+7. 管理端前端在页面中嵌入该浏览器会话。
+8. 用户关闭或 TTL 到期后，管理端创建 `stop_browser_session` 任务并清理资源。
+
+推荐实现：
+
+- 浏览器运行时使用独立镜像，例如 `agent-remote/browser:latest`。
+- 首期可选择 Chromium + noVNC/websockify，后续可评估 WebRTC 低延迟方案。
+- 连接端点必须由管理端签发短期 token，禁止节点直接暴露公开访问入口。
+- 浏览器容器不挂载用户 workspace 和工具账户目录。
+- 如需要打开 Claude Web，默认只打开页面，不读取或保存 Claude CLI 账户目录。
+
+网络与检测规避要求：
+
+- 浏览器流量必须从目标 VPS 节点出口发出。
+- `timezone`、`locale`、浏览器语言、默认地区应与工具账户或用户选择的地区一致。
+- 同一工具账户发起浏览器会话时，优先使用该账户的 `affinity_node_id`，避免同一账户在不同出口 IP 间频繁切换。
+- 浏览器会话可以绑定 `tool_account_id`，但不自动复用工具账户登录态。
+
+安全边界：
+
+- 默认阻断访问控制面内网、节点本机管理端口、云厂商 metadata 地址和 WireGuard 管理网段中不必要的目标。
+- 默认禁用持久下载目录；如后续支持下载，必须进入专门的临时文件区并由用户显式导出。
+- 日志只记录会话生命周期、目标域名摘要、节点和用户，不记录页面内容、输入内容、cookie、token 或截图。
+- 管理员可以强制停止任意异常浏览器会话。
 
 ## 6. 初始架构边界
 
@@ -1160,6 +1207,8 @@ ssh agent-remote@{node_wg_ip} agent-remote-attach --session {session_id}
 - `create_binding_session`：创建工具账户绑定临时 session。
 - `create_tool_session`：创建工具运行 session。
 - `stop_session`：停止工具 session。
+- `create_browser_session`：创建远端临时浏览器会话。
+- `stop_browser_session`：停止远端临时浏览器会话。
 - `sync_ssh_keys`：同步受控 `authorized_keys`。
 - `prepare_workspace`：准备远端 workspace 目录。
 - `archive_account_config`：归档工具账户配置。
@@ -1248,6 +1297,7 @@ PostgreSQL 用途：
 - 工具账户地区、时区和节点亲和配置。
 - session 管理。
 - session 连接命令展示。
+- 远端临时浏览器创建、连接、停止和状态展示。
 - 节点健康展示。
 - 节点任务失败展示。
 - session 状态展示。
@@ -1358,7 +1408,11 @@ MVP 提供基础日志与观测能力，不首期接入完整监控平台。
     - session 生命周期事件。
     - 用于记录创建、attach、detach、停止、失败、节点对账等事件。
 
-15. `audit_logs`
+15. `browser_sessions`
+    - 远端临时浏览器会话。
+    - 保存用户、节点、可选工具账户、地区、时区、locale、状态、过期时间和连接状态。
+
+16. `audit_logs`
     - 安全和管理审计日志。
     - 记录登录、账户绑定、设备撤销、节点操作、管理员操作等。
 
@@ -1378,6 +1432,7 @@ nodes
   -> node_heartbeats
   -> node_tasks
   -> sessions
+  -> browser_sessions
 
 node_tasks
   -> node_task_results
@@ -1388,6 +1443,9 @@ user_devices
 
 sessions
   -> session_events
+
+browser_sessions
+  -> audit_logs
 ```
 
 设计要求：
@@ -1395,6 +1453,7 @@ sessions
 - `sessions` 必须以 `tool_type` 区分工具类型。
 - `tool_accounts` 是通用账户表，不创建 `claude_accounts` 作为核心表。
 - Claude 专属字段进入 `tool_account_profiles` 或后续专用 profile 表。
+- `browser_sessions` 不存储页面内容、cookie、浏览器 profile 或用户输入。
 - 敏感 profile 字段必须应用层加密。
 - 审计日志不可存储明文 token、cookie、私钥或登录态。
 
@@ -1499,8 +1558,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 22. 已确认：MVP 控制面使用 Docker Compose 部署；节点端 `agent-remote-node` 在各 VPS 以 systemd 服务运行。
 23. 已确认：核心模型必须面向扩展设计，使用 `ToolAccount`、`tool_type`、工具 profile、工具运行模板和工具启动器抽象；Claude 只是首期 `tool_type=claude` 实现。
 24. 已确认：工具账户绑定使用通用状态机，每个 `tool_type` 提供自己的登录态 verifier；Claude verifier 首期检测 `claude login` 结果。
-25. 已确认：MVP 管理端核心表包括 `users`、`user_devices`、`tool_accounts`、`tool_account_profiles`、`nodes`、`node_heartbeats`、`node_tasks`、`node_task_results`、`wireguard_peers`、`ssh_keys`、`workspaces`、`sync_sessions`、`sessions`、`session_events`、`audit_logs`。
-26. 已确认：管理端 API 模块包括 `/auth`、`/users`、`/devices`、`/tool-accounts`、`/nodes`、`/workspaces`、`/sync-sessions`、`/sessions`、`/audit-logs`、`/node-api`。
+25. 已确认：MVP 管理端核心表包括 `users`、`user_devices`、`tool_accounts`、`tool_account_profiles`、`nodes`、`node_heartbeats`、`node_tasks`、`node_task_results`、`wireguard_peers`、`ssh_keys`、`workspaces`、`sync_sessions`、`sessions`、`session_events`、`browser_sessions`、`audit_logs`。
+26. 已确认：管理端 API 模块包括 `/auth`、`/users`、`/devices`、`/tool-accounts`、`/nodes`、`/workspaces`、`/sync-sessions`、`/sessions`、`/browser-sessions`、`/audit-logs`、`/node-api`。
 27. 已确认：节点任务采用管理端持久任务 + 节点轮询 + 幂等 `task_id` 模型，任务结果写入 `node_task_results`。
 28. 已确认：Redis 是 MVP 必须依赖，用于缓存、短期任务状态、分布式锁和后台任务队列。
 29. 已确认：CLI 本地目录为 `~/.config/agent-remote/`，本地状态使用 SQLite；敏感值优先保存到系统 keychain/libsecret，SQLite 只保存引用；本地不保存工具账户登录态。
@@ -1508,6 +1567,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 31. 已确认：MVP 开发按 10 个里程碑推进：方案协议、管理端、节点端、CLI、WireGuard/SSH、Mutagen、Claude 绑定、Claude session、管理前端、打包部署与端到端测试。
 32. 已确认：需要实施级附录细化协议冻结内容，包含 OpenAPI、节点任务 payload、CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
 33. 已确认：需要在主方案补充风险清单和非目标清单，明确 MVP 不解决的问题和主要风险缓解措施。
+34. 已确认：管理端提供远端临时无痕浏览器会话，浏览器运行在 VPS 节点 Docker sandbox 中，使用节点出口网络和匹配的地区、时区、locale；会话不持久化浏览器用户信息，也不提供 shell。
 
 ## 8. 第一阶段建议范围
 
@@ -1539,10 +1599,11 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 24. 10 阶段 MVP 开发里程碑。
 25. 风险清单和非目标清单。
 26. 各端内置或托管安装外部运行依赖，不要求用户手动安装；CLI 托管 WireGuard/Mutagen，节点端托管 tmux/Mutagen/WireGuard helper 等。
+27. 管理端远端临时浏览器，用于访问邮箱、Claude Web 等页面；浏览器会话无痕、短期、容器化，走 VPS 节点网络和地区环境。
 
 暂不建议首期做：
 
-1. 浏览器 Web 终端。
+1. 浏览器内的 Web 终端或交互式 shell 代理。
 2. 复杂计费。
 3. 跨区域高可用控制面。
 4. 自动迁移正在运行的工具 session 到其他节点。
@@ -1608,6 +1669,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
    - 工具账户页面。
    - 节点状态页面。
    - session 页面。
+   - 远端临时浏览器页面。
    - 同步冲突和任务失败展示。
 
 10. 打包、部署文档、端到端测试
@@ -1728,13 +1790,29 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 工具特有逻辑放到 verifier 和 runtime template。
 - 核心 session 表不写入 Claude 专用字段。
 
+### 10.9 远端浏览器滥用与检测风险
+
+风险：
+
+- 远端浏览器可能被误用为普通代理浏览器。
+- 浏览器指纹、时区、语言、字体、WebRTC、DNS 等细节仍可能影响服务方检测结果。
+- 如果浏览器连接端点暴露不当，可能扩大管理端和节点端攻击面。
+
+缓解：
+
+- 浏览器会话默认短 TTL、无痕、一次性，不保存 profile。
+- 浏览器网络、时区、locale、语言与工具账户地区保持一致。
+- 默认禁用或限制 WebRTC、本地网络访问、下载持久化和宿主挂载。
+- 连接 URL 使用短期 token，由管理端鉴权后下发。
+- 日志只记录生命周期和域名摘要，不记录页面内容和用户输入。
+
 ## 11. 非目标清单
 
 MVP 明确不做：
 
 1. 商业 SaaS 级强多租户隔离。
 2. 每用户独立 Linux 系统用户。
-3. Web 终端。
+3. Web 终端或浏览器内 shell。
 4. 原生 Windows 客户端。
 5. WSL2 专项适配。
 6. Kubernetes 部署。
@@ -1750,6 +1828,7 @@ MVP 明确不做：
 16. 集中日志平台。
 17. 任意工具的通用自动适配。
 18. 允许普通用户任意指定 Docker 镜像或宿主挂载路径。
+19. 持久化远端浏览器 profile、密码管理器、浏览历史或下载目录。
 
 ## 12. 待确认结论记录
 
@@ -1761,7 +1840,8 @@ MVP 明确不做：
 - 首期 Claude 账户绑定采用远端临时 sandbox 交互式登录，登录态归档到该用户的账户目录。
 - 文件同步必须采用显式 workspace 模型，默认只同步当前目录，额外路径必须显式配置；首次遇到全新目录必须询问用户是否创建同步。
 - 工具配置、skills、插件、记忆、登录态等账户配置数据以远端账户目录为权威来源；本地 CLI 不默认覆盖远端账户配置。
-- 首期不做 Web 终端，只支持本地 CLI + SSH + tmux；管理端只展示 session 状态和连接命令。
+- 工具终端入口首期不做 Web 终端，只支持本地 CLI + SSH + tmux；管理端对工具 session 展示状态和连接命令。
+- 管理端提供远端临时无痕浏览器会话，用于通过 VPS 节点网络访问邮箱、Claude Web 等页面；该能力不提供 shell，不持久化浏览器用户信息。
 - 多节点调度采用综合评分模型，结合健康状态、负载、活跃 session、管理员权重和历史稳定性等因素。
 - 同一个工具账户允许多开，但同一账户的所有活跃 session 必须运行在同一 VPS 节点上，保证出口 IP 一致。
 - 用户端首期只支持 macOS + Linux，不支持原生 Windows。
@@ -1778,8 +1858,8 @@ MVP 明确不做：
 - MVP 控制面使用 Docker Compose 部署；节点端 `agent-remote-node` 在各 VPS 以 systemd 服务运行。
 - 核心模型面向多工具扩展设计，使用 `ToolAccount`、`tool_type`、工具 profile、工具运行模板和工具启动器抽象；Claude 只是首期 `tool_type=claude` 实现。
 - 工具账户绑定使用通用状态机，每个 `tool_type` 提供自己的登录态 verifier；Claude verifier 首期检测 `claude login` 结果。
-- MVP 管理端核心表包括 `users`、`user_devices`、`tool_accounts`、`tool_account_profiles`、`nodes`、`node_heartbeats`、`node_tasks`、`node_task_results`、`wireguard_peers`、`ssh_keys`、`workspaces`、`sync_sessions`、`sessions`、`session_events`、`audit_logs`。
-- 管理端 API 模块包括 `/auth`、`/users`、`/devices`、`/tool-accounts`、`/nodes`、`/workspaces`、`/sync-sessions`、`/sessions`、`/audit-logs`、`/node-api`。
+- MVP 管理端核心表包括 `users`、`user_devices`、`tool_accounts`、`tool_account_profiles`、`nodes`、`node_heartbeats`、`node_tasks`、`node_task_results`、`wireguard_peers`、`ssh_keys`、`workspaces`、`sync_sessions`、`sessions`、`session_events`、`browser_sessions`、`audit_logs`。
+- 管理端 API 模块包括 `/auth`、`/users`、`/devices`、`/tool-accounts`、`/nodes`、`/workspaces`、`/sync-sessions`、`/sessions`、`/browser-sessions`、`/audit-logs`、`/node-api`。
 - 节点任务采用管理端持久任务 + 节点轮询 + 幂等 `task_id` 模型，任务结果写入 `node_task_results`。
 - Redis 是 MVP 必须依赖，用于缓存、短期任务状态、分布式锁和后台任务队列。
 - CLI 本地目录为 `~/.config/agent-remote/`，本地状态使用 SQLite；敏感值优先保存到系统 keychain/libsecret，SQLite 只保存引用；本地不保存工具账户登录态。

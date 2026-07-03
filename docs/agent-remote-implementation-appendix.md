@@ -11,6 +11,7 @@ MVP 第一阶段需要冻结以下内容：
    - `ToolAccount`
    - `Workspace`
    - `Session`
+   - `BrowserSession`
    - `Node`
    - `NodeTask`
    - `WireGuardPeer`
@@ -25,6 +26,7 @@ MVP 第一阶段需要冻结以下内容：
    - `/workspaces`
    - `/sync-sessions`
    - `/sessions`
+   - `/browser-sessions`
    - `/audit-logs`
    - `/node-api`
 
@@ -315,14 +317,73 @@ Attach info response:
 }
 ```
 
-### 2.10 `/audit-logs`
+### 2.10 `/browser-sessions`
+
+```text
+GET    /api/v1/browser-sessions
+POST   /api/v1/browser-sessions
+GET    /api/v1/browser-sessions/{browser_session_id}
+POST   /api/v1/browser-sessions/{browser_session_id}/connect-info
+POST   /api/v1/browser-sessions/{browser_session_id}/stop
+```
+
+Create request:
+
+```json
+{
+  "tool_account_id": "acct_...",
+  "target_url": "https://claude.ai",
+  "region_code": "US",
+  "timezone": "America/Los_Angeles",
+  "locale": "en_US.UTF-8",
+  "ttl_seconds": 1800
+}
+```
+
+Create response:
+
+```json
+{
+  "data": {
+    "browser_session_id": "bsess_...",
+    "status": "starting",
+    "node_id": "node_...",
+    "expires_at": "2026-07-04T00:30:00Z"
+  },
+  "request_id": "req_..."
+}
+```
+
+Connect info response:
+
+```json
+{
+  "data": {
+    "browser_session_id": "bsess_...",
+    "status": "ready",
+    "embed_url": "https://agent.example.com/api/v1/browser-sessions/bsess_.../stream?token=short_lived_token",
+    "expires_at": "2026-07-04T00:30:00Z"
+  },
+  "request_id": "req_..."
+}
+```
+
+约束：
+
+- `tool_account_id` 可空；为空时必须显式给出地区、时区和 locale。
+- 有 `tool_account_id` 时，默认继承工具账户的 `region_code`、`timezone`、`locale` 和节点亲和。
+- 浏览器会话默认无痕，不持久化 cookie、localStorage、密码、浏览历史、下载目录或浏览器 profile。
+- `embed_url` 必须短期有效，并绑定当前用户、浏览器会话和 request scope。
+- 管理端不得把页面内容、输入内容、cookie 或截图写入日志。
+
+### 2.11 `/audit-logs`
 
 ```text
 GET /api/v1/audit-logs
 GET /api/v1/audit-logs/{audit_log_id}
 ```
 
-### 2.11 `/node-api`
+### 2.12 `/node-api`
 
 ```text
 POST /api/v1/node-api/register
@@ -424,7 +485,64 @@ Heartbeat request:
 }
 ```
 
-### 3.5 `sync_ssh_keys`
+### 3.5 `create_browser_session`
+
+```json
+{
+  "browser_session_id": "bsess_...",
+  "user_id": "user_...",
+  "tool_account_id": "acct_...",
+  "target_url": "https://claude.ai",
+  "region_code": "US",
+  "timezone": "America/Los_Angeles",
+  "locale": "en_US.UTF-8",
+  "ttl_seconds": 1800,
+  "browser": {
+    "image": "agent-remote/browser:latest",
+    "engine": "chromium",
+    "mode": "incognito",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    }
+  },
+  "network_policy": {
+    "egress": "node_default",
+    "deny_private_networks": true,
+    "deny_metadata_service": true,
+    "disable_webrtc_local_ip": true
+  }
+}
+```
+
+节点成功后返回：
+
+```json
+{
+  "browser_session_id": "bsess_...",
+  "container_id": "container_...",
+  "stream_endpoint": "node-local://browser/bsess_...",
+  "status": "ready"
+}
+```
+
+节点端要求：
+
+- 浏览器必须在独立容器中运行。
+- 容器不挂载 workspace 和工具账户目录。
+- 临时 profile 目录位于浏览器会话临时目录中，停止后删除。
+- 浏览器语言、时区和 locale 必须按 payload 注入。
+
+### 3.6 `stop_browser_session`
+
+```json
+{
+  "browser_session_id": "bsess_...",
+  "reason": "user_requested"
+}
+```
+
+### 3.7 `sync_ssh_keys`
 
 ```json
 {
@@ -438,15 +556,15 @@ Heartbeat request:
 }
 ```
 
-### 3.6 `reconcile_state`
+### 3.8 `reconcile_state`
 
 ```json
 {
-  "requested_sections": ["sessions", "containers", "tmux", "authorized_keys"]
+  "requested_sections": ["sessions", "browser_sessions", "containers", "tmux", "authorized_keys"]
 }
 ```
 
-### 3.7 任务结果
+### 3.9 任务结果
 
 Success:
 
@@ -631,13 +749,41 @@ fclaude -- <claude_args...>
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
 
-### 5.8 推荐索引
+### 5.8 `browser_sessions`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | uuid | 主键 |
+| user_id | uuid | FK users |
+| tool_account_id | uuid | FK tool_accounts，可空 |
+| node_id | uuid | FK nodes |
+| status | text | `starting` / `ready` / `stopping` / `stopped` / `failed` / `expired` |
+| region_code | text | 地区 |
+| timezone | text | 时区 |
+| locale | text | locale |
+| target_url | text | 初始 URL，可空 |
+| container_id | text | Docker 容器 ID |
+| stream_endpoint | text | 节点本地连接端点或引用，不直接暴露给用户 |
+| ttl_seconds | integer | 会话 TTL |
+| expires_at | timestamptz | 过期时间 |
+| stopped_at | timestamptz | 停止时间 |
+| created_at | timestamptz | 创建时间 |
+| updated_at | timestamptz | 更新时间 |
+
+字段约束：
+
+- 不保存 cookie、localStorage、浏览历史、页面内容、截图、输入内容或浏览器 profile 路径。
+- `stream_endpoint` 只能是服务端内部引用；前端使用的 `embed_url` 必须动态签发短期 token。
+
+### 5.9 推荐索引
 
 ```sql
 CREATE UNIQUE INDEX users_username_uidx ON users (username);
 CREATE INDEX tool_accounts_user_tool_idx ON tool_accounts (user_id, tool_type);
 CREATE INDEX sessions_project_idx ON sessions (user_id, tool_type, project_key, status);
 CREATE INDEX sessions_account_active_idx ON sessions (tool_account_id, status);
+CREATE INDEX browser_sessions_user_status_idx ON browser_sessions (user_id, status, created_at);
+CREATE INDEX browser_sessions_node_status_idx ON browser_sessions (node_id, status, expires_at);
 CREATE UNIQUE INDEX node_tasks_task_id_uidx ON node_tasks (task_id);
 CREATE INDEX node_tasks_poll_idx ON node_tasks (node_id, status, lease_until);
 CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
@@ -881,7 +1027,33 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 未解决前 `fclaude` 不 attach。
 - 解决后可以进入 session。
 
-### 6.11 节点断线与恢复对账
+### 6.11 远端临时浏览器
+
+目标：
+
+- 普通用户可在管理端创建远端临时浏览器。
+- 浏览器使用 VPS 节点网络、时区、locale 和浏览器语言。
+- 浏览器会话无痕，停止后不保留用户信息。
+
+步骤：
+
+1. 用户在管理端创建浏览器会话，选择 Claude 工具账户并打开 `https://claude.ai`。
+2. 管理端创建 `browser_sessions` 记录和 `create_browser_session` 节点任务。
+3. 节点启动浏览器容器。
+4. 管理端返回短期 `embed_url`。
+5. 用户在内嵌浏览器中访问 Claude Web 或邮箱。
+6. 用户关闭会话或等待 TTL 到期。
+7. 管理端下发 `stop_browser_session` 并清理资源。
+
+验收：
+
+- 浏览器出口 IP 为目标 VPS 节点。
+- 浏览器时区、locale、语言与工具账户地区一致。
+- 容器没有挂载 workspace 或工具账户目录。
+- 停止后临时 profile 目录被删除。
+- 日志不包含页面内容、输入内容、cookie、token 或截图。
+
+### 6.12 节点断线与恢复对账
 
 目标：
 
@@ -902,7 +1074,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 恢复后重新进入 `healthy` 或 `degraded`。
 - session 状态和节点本地 tmux/container 一致。
 
-### 6.12 设备撤销
+### 6.13 设备撤销
 
 目标：
 
@@ -932,6 +1104,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - PostgreSQL 和 Redis 由 Compose 提供。
 - 节点需要 Docker Engine、OpenSSH server 和 TUN/WireGuard 内核能力。
 - 节点端 tmux、Mutagen、WireGuard helper 等由 `agent-remote-node` 发布包或安装器托管。
+- 节点端浏览器运行时镜像和 noVNC/websockify 或后续 WebRTC 组件由 `agent-remote-node` 发布包、安装器或受控镜像托管。
 - 本地客户端为 macOS 或 Linux。
 - 本地客户端不要求用户手动安装 Mutagen 或 WireGuard；由 `agent-remote-cli` 托管。
 
@@ -1006,7 +1179,19 @@ agent.example.com {
 - 时区和 locale 注入。
 - 资源限制。
 
-### 7.8 本地 CLI 安装
+### 7.8 远端浏览器运行时
+
+文档应说明：
+
+- 浏览器镜像构建方式。
+- Chromium 版本和依赖固定方式。
+- noVNC/websockify 或 WebRTC 组件的受控版本。
+- 无痕 profile 和临时目录清理策略。
+- 时区、locale、浏览器语言和字体包配置。
+- 网络策略，包括禁止访问 metadata 地址和不必要内网段。
+- 管理端短期 `embed_url` 签发和过期策略。
+
+### 7.9 本地 CLI 安装
 
 文档应说明：
 
@@ -1020,7 +1205,7 @@ agent.example.com {
 - `fclaude` 基础使用。
 - keychain/libsecret 要求。
 
-### 7.9 首个 Claude 账户绑定
+### 7.10 首个 Claude 账户绑定
 
 文档应说明：
 
@@ -1030,7 +1215,7 @@ agent.example.com {
 - 执行 `claude login`。
 - verifier 成功后的状态。
 
-### 7.10 常见故障排查
+### 7.11 常见故障排查
 
 必须覆盖：
 
@@ -1043,8 +1228,9 @@ agent.example.com {
 - Mutagen 冲突。
 - Claude 登录态过期。
 - session 无法恢复。
+- 远端浏览器无法启动、无法连接、TTL 过期或出口环境不匹配。
 
-### 7.11 备份与恢复
+### 7.12 备份与恢复
 
 文档必须强调：
 
@@ -1054,7 +1240,7 @@ agent.example.com {
 - 主密钥丢失后无法恢复已加密登录态。
 - 节点本地账户目录需要按策略备份。
 
-### 7.12 升级
+### 7.13 升级
 
 文档应说明：
 
