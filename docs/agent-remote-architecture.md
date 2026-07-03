@@ -1564,7 +1564,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 28. 已确认：Redis 是 MVP 必须依赖，用于缓存、短期任务状态、分布式锁和后台任务队列。
 29. 已确认：CLI 本地目录为 `~/.config/agent-remote/`，本地状态使用 SQLite；敏感值优先保存到系统 keychain/libsecret，SQLite 只保存引用；本地不保存工具账户登录态。
 30. 已确认：MVP 使用结构化日志、`request_id`、`task_id`、`session_id` 做基础观测，日志默认脱敏；首期不接 Prometheus/Grafana/OpenTelemetry。
-31. 已确认：MVP 开发按 10 个里程碑推进：方案协议、管理端、节点端、CLI、WireGuard/SSH、Mutagen、Claude 绑定、Claude session、管理前端、打包部署与端到端测试。
+31. 已确认：项目按 Phase Roadmap 推进，从协议冻结、控制面、节点端、CLI、网络、同步、Claude 绑定、Claude session、远端浏览器、管理前端、打包部署到 E2E 发布逐步完成。
 32. 已确认：需要实施级附录细化协议冻结内容，包含 OpenAPI、节点任务 payload、CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
 33. 已确认：需要在主方案补充风险清单和非目标清单，明确 MVP 不解决的问题和主要风险缓解措施。
 34. 已确认：管理端提供远端临时无痕浏览器会话，浏览器运行在 VPS 节点 Docker sandbox 中，使用节点出口网络和匹配的地区、时区、locale；会话不持久化浏览器用户信息，也不提供 shell。
@@ -1596,7 +1596,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 21. 节点任务队列、幂等 `task_id`、任务结果和 Redis 必选依赖。
 22. CLI 本地状态 SQLite、配置目录和系统凭据存储集成。
 23. 结构化日志、关联 ID、脱敏和管理端基础健康展示。
-24. 10 阶段 MVP 开发里程碑。
+24. 分阶段实现路线图。
 25. 风险清单和非目标清单。
 26. 各端内置或托管安装外部运行依赖，不要求用户手动安装；CLI 托管 WireGuard/Mutagen，节点端托管 tmux/Mutagen/WireGuard helper 等。
 27. 管理端远端临时浏览器，用于访问邮箱、Claude Web 等页面；浏览器会话无痕、短期、容器化，走 VPS 节点网络和地区环境。
@@ -1614,69 +1614,490 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 9. Kubernetes 和高可用数据库部署。
 10. Prometheus、Grafana、OpenTelemetry 和集中日志平台。
 
-## 9. MVP 开发里程碑
+## 9. Phase Roadmap
 
-1. 方案与协议冻结
-   - 冻结核心术语、数据模型、API 模块、节点任务协议和 CLI 命令边界。
-   - 输出 OpenAPI schema 和节点任务类型定义。
-   - 实施级细节见 [agent-remote-implementation-appendix.md](agent-remote-implementation-appendix.md)。
+本项目按 Phase 推进。每个 Phase 必须满足以下规则：
 
-2. 管理端基础 API + 数据库迁移
-   - 建立 FastAPI 项目。
-   - 建立 PostgreSQL schema 和 Alembic 迁移。
-   - 完成用户、设备、工具账户、节点、session、审计等基础模型。
+- 先改 `agent-remote-protocol`，再改服务端、节点端、CLI 和前端。
+- 每个 Phase 都要有可运行的本地验证方式。
+- 跨仓库接口变更必须同时更新 OpenAPI、JSON Schema、服务端测试和调用方适配。
+- 未完成验收标准时，不进入依赖它的下一个 Phase。
+- Phase 可以在人员足够时并行，但只能并行实现不共享未冻结协议的部分。
 
-3. 节点端注册、心跳、任务轮询
-   - 实现 `agent-remote-node` 注册流程。
-   - 实现心跳上报。
-   - 实现 `/node-api/tasks/poll` 和任务结果上报。
-   - 实现幂等 `task_id` 处理。
+### 9.1 Phase 总览
 
-4. CLI 登录、设备注册、本地状态
-   - 实现 `agent-remote login/logout`。
-   - 实现设备注册。
-   - 实现本地 SQLite 状态。
-   - 集成 keychain/libsecret。
-   - 集成受控依赖目录和依赖版本检查。
+| Phase | 主要仓库 | 目标 | 完成标志 |
+| --- | --- | --- | --- |
+| Phase 0 | `agent-remote` / `agent-remote-protocol` | 冻结方案和协议基线 | 文档、OpenAPI、schema、示例 payload 已提交 |
+| Phase 1 | `agent-remote-server` | 控制面项目骨架 | FastAPI、配置、日志、健康检查、数据库迁移可运行 |
+| Phase 2 | `agent-remote-server` | 核心数据模型 | PostgreSQL 表、索引、Alembic 迁移和基础 repository/service 完成 |
+| Phase 3 | `agent-remote-server` / `agent-remote-cli` | 认证、用户、设备和密钥 | 管理员初始化、普通用户登录、CLI token、设备注册可用 |
+| Phase 4 | `agent-remote-node` / `agent-remote-server` | 节点注册、心跳和任务轮询 | 节点可注册、上报资源、拉取任务并回写结果 |
+| Phase 5 | `agent-remote-cli` | CLI 本地基础能力 | `agent-remote login/status/doctor`、SQLite、keychain/libsecret、托管依赖目录完成 |
+| Phase 6 | `agent-remote-cli` / `agent-remote-node` / `agent-remote-server` | WireGuard 与 SSH 受控连接 | 设备 peer、节点 peer、SSH forced command 和 attach 入口可用 |
+| Phase 7 | `agent-remote-cli` / `agent-remote-node` / `agent-remote-server` | Mutagen workspace 同步 | 首次同步确认、双向同步、冲突阻止进入 session 完成 |
+| Phase 8 | `agent-remote-server` / `agent-remote-node` | 工具账户抽象和 Claude 绑定 | `tool_type=claude` 账户创建、远端登录、verifier、配置归档完成 |
+| Phase 9 | `agent-remote-cli` / `agent-remote-node` / `agent-remote-server` | Claude 工具 session | `fclaude` 创建、恢复、停止、参数透传和同账户同节点约束完成 |
+| Phase 10 | `agent-remote-admin-web` / `agent-remote-node` / `agent-remote-server` | 远端临时浏览器 | `/browser-sessions`、浏览器容器、内嵌连接、TTL 清理完成 |
+| Phase 11 | `agent-remote-admin-web` | 管理前端 | 用户、设备、账号、节点、session、同步、浏览器和审计页面完成 |
+| Phase 12 | 全部仓库 | 打包与部署 | Docker Compose、systemd、CLI 安装包、节点安装器和升级文档完成 |
+| Phase 13 | 全部仓库 | 端到端验收和 MVP 发布 | 从空环境部署到 `fclaude` 可用的 E2E 测试通过 |
+| Phase 14 | 全部仓库 | v1.0 稳定化 | 安全加固、故障恢复、备份、升级兼容和文档补齐 |
+| Phase 15 | 全部仓库 | 多工具扩展验证 | 至少接入第二个工具原型，验证 `ToolAccount` 抽象可复用 |
 
-5. WireGuard/SSH key 管理
-   - 实现设备级 WireGuard peer 下发。
-   - 实现 CLI 托管 WireGuard helper。
-   - 实现设备级 SSH key 注册和撤销。
-   - 节点端实现受控 `authorized_keys` 和 `agent-remote-attach`。
+### 9.2 Phase 0：方案和协议基线
 
-6. Mutagen workspace 同步
-   - 实现 CLI 托管 Mutagen binary。
-   - 实现 workspace 首次确认。
-   - 实现 Mutagen session 创建、恢复和状态检查。
-   - 实现同步冲突检测和基础处理命令。
+目标：
 
-7. Claude 账户绑定
-   - 实现 `tool_type=claude`。
-   - 实现 Claude 绑定临时 sandbox。
-   - 实现 Claude verifier。
-   - 实现账户配置归档。
+- 将当前方案转化为跨仓库契约。
+- 避免各端先行实现导致接口反复返工。
 
-8. Claude session 创建/恢复/停止
-   - 实现 `fclaude`。
-   - 实现项目 key 绑定 session。
-   - 实现 tmux + Docker sandbox 启动。
-   - 实现 attach、new、list、stop。
-   - 实现参数透传到原生 `claude`。
+交付物：
 
-9. 管理前端基础页面
-   - 用户和设备页面。
-   - 工具账户页面。
-   - 节点状态页面。
-   - session 页面。
-   - 远端临时浏览器页面。
-   - 同步冲突和任务失败展示。
+- 主方案文档。
+- 实施级附录。
+- `agent-remote-protocol` 仓库。
+- OpenAPI 草案。
+- JSON Schema。
+- 节点任务 payload 示例。
+- 错误码、API 约定和版本策略。
 
-10. 打包、部署文档、端到端测试
-    - Docker Compose 控制面部署。
-    - systemd 节点端部署。
-    - CLI 安装方式。
-    - 从登录到 `fclaude` 可用的端到端测试。
+验收标准：
+
+- `agent-remote-protocol` 至少包含 `openapi/openapi.yaml`、`schemas/`、`docs/` 和 `examples/`。
+- JSON 示例可以被标准 JSON parser 解析。
+- OpenAPI YAML 可以被标准 YAML parser 解析。
+- 所有实现仓库都能以协议仓库作为开发参考。
+
+### 9.3 Phase 1：控制面项目骨架
+
+目标：
+
+- 建立 `agent-remote-server` 的可运行基础。
+- 为后续 API、数据库和任务系统提供统一工程结构。
+
+交付物：
+
+- FastAPI 项目结构。
+- 配置加载。
+- 结构化日志。
+- `request_id` middleware。
+- 健康检查接口。
+- PostgreSQL、Redis 连接检查。
+- Alembic 初始化。
+- 基础测试框架。
+- Dockerfile 和本地 Compose 开发环境。
+
+验收标准：
+
+- 本地执行服务后 `/healthz` 返回健康状态。
+- `DATABASE_URL` 和 `REDIS_URL` 错误时有明确错误。
+- 测试命令可以在干净环境运行。
+- CI 能执行 lint、type check 和测试。
+
+### 9.4 Phase 2：核心数据模型
+
+目标：
+
+- 建立管理端权威数据模型。
+- 确保多用户、多设备、多节点、多账户、多 session 的关系明确。
+
+交付物：
+
+- `users`
+- `user_devices`
+- `tool_accounts`
+- `tool_account_profiles`
+- `nodes`
+- `node_heartbeats`
+- `node_tasks`
+- `node_task_results`
+- `wireguard_peers`
+- `ssh_keys`
+- `workspaces`
+- `sync_sessions`
+- `sessions`
+- `session_events`
+- `browser_sessions`
+- `audit_logs`
+
+验收标准：
+
+- Alembic 可以从空库迁移到最新版本。
+- 关键唯一约束和索引存在。
+- 敏感字段有加密标记或加密封装。
+- 基础 repository/service 测试覆盖创建、查询、更新和约束冲突。
+
+### 9.5 Phase 3：认证、用户、设备和密钥
+
+目标：
+
+- 让管理员和普通用户能够安全进入系统。
+- 让 CLI 设备成为可撤销的受控身份。
+
+交付物：
+
+- 管理员 bootstrap。
+- 用户名/密码登录。
+- Argon2id 密码哈希。
+- 可选 TOTP 基础结构。
+- CLI device-code 或 browser login 流程。
+- CLI token 签发、刷新、撤销。
+- 设备注册。
+- SSH 公钥注册。
+- WireGuard peer 记录。
+- 审计日志。
+
+验收标准：
+
+- 第一个管理员可以初始化。
+- 普通用户可以登录管理端。
+- CLI 可以注册设备并拿到可撤销 token。
+- 禁用设备后 CLI token、SSH key 和 WireGuard peer 都进入不可用状态。
+- 审计日志不记录密码、token、私钥或登录态。
+
+### 9.6 Phase 4：节点注册、心跳和任务轮询
+
+目标：
+
+- 让 `agent-remote-node` 成为受控执行节点。
+- 建立管理端到节点端的持久任务模型。
+
+交付物：
+
+- Go 节点端项目骨架。
+- 节点配置文件。
+- 节点注册命令。
+- 节点 secret 管理。
+- 心跳上报。
+- 资源快照。
+- `/node-api/tasks/poll`。
+- task lease。
+- task start/complete/fail。
+- 节点本地 task ledger。
+- `reconcile_state` 基础实现。
+
+验收标准：
+
+- 节点可以用注册 token 加入控制面。
+- 管理端能看到节点在线、地区、标签、资源和支持工具。
+- 节点断线后管理端能标记 `offline`。
+- 节点恢复后能重新对账。
+- 重复投递同一 `task_id` 不会创建重复资源。
+
+### 9.7 Phase 5：CLI 本地基础能力
+
+目标：
+
+- 建立用户端统一管理命令。
+- 准备后续网络、同步和工具启动所需本地状态。
+
+交付物：
+
+- Rust CLI 项目结构。
+- `agent-remote login`
+- `agent-remote logout`
+- `agent-remote status`
+- `agent-remote doctor`
+- `agent-remote doctor --fix`
+- 本地目录 `~/.config/agent-remote/`。
+- 本地 SQLite。
+- keychain/libsecret 集成。
+- 托管依赖目录和 manifest。
+- Mutagen、WireGuard helper 的版本检查框架。
+
+验收标准：
+
+- macOS 和 Linux 上 CLI 能登录并持久化本地状态。
+- 敏感 token 优先进入系统凭据存储。
+- SQLite 不保存工具账户登录态。
+- `agent-remote doctor` 能输出服务端、设备、依赖和网络状态。
+- 用户不需要手动安装 Mutagen。
+
+### 9.8 Phase 6：WireGuard 与 SSH 受控连接
+
+目标：
+
+- 打通本地设备到 VPS 节点的受控网络和交互链路。
+- 保证 SSH 只能进入授权 session，不提供通用 shell。
+
+交付物：
+
+- WireGuard peer 生成、分配和撤销。
+- CLI 托管 WireGuard helper。
+- 节点 WireGuard 配置。
+- 设备 WireGuard 配置。
+- 节点受控 `authorized_keys`。
+- `agent-remote-attach`。
+- SSH forced command。
+- CLI 网络检查和 SSH 检查。
+
+验收标准：
+
+- CLI 能启动或检查 WireGuard。
+- 本地设备能访问节点 WireGuard IP。
+- SSH key 被禁用后无法连接。
+- SSH 不带授权 session 时无法获得 shell。
+- `agent-remote-attach` 校验用户、设备、节点和 session。
+
+### 9.9 Phase 7：Mutagen workspace 同步
+
+目标：
+
+- 保证本地项目文件与远端 workspace 双向同步。
+- 避免未确认目录被静默同步。
+
+交付物：
+
+- workspace 创建 API。
+- sync session 创建 API。
+- CLI workspace 首次确认。
+- Mutagen session 创建、暂停、恢复、重置。
+- 默认 ignore 规则。
+- 冲突检测。
+- `agent-remote sync status`
+- `agent-remote sync resolve`
+- 节点端远端目录准备。
+
+验收标准：
+
+- 新目录首次执行 `fclaude` 前必须询问是否同步。
+- 用户拒绝时不启动会写入该目录的远端 session。
+- 本地修改能同步远端。
+- 远端修改能同步本地。
+- 发生冲突时默认阻止进入工具 session。
+
+### 9.10 Phase 8：工具账户抽象和 Claude 绑定
+
+目标：
+
+- 实现通用 `ToolAccount` 账户模型。
+- 完成 Claude 作为首个工具类型的绑定闭环。
+
+交付物：
+
+- `tool_type` registry。
+- 工具运行模板。
+- 工具登录态 verifier 接口。
+- Claude verifier。
+- `agent-remote account create`。
+- `agent-remote account bind`。
+- 绑定临时 sandbox。
+- 绑定临时 tmux session。
+- 账户配置归档。
+- 账户地区、时区、locale 配置。
+- 同账户节点亲和记录。
+
+验收标准：
+
+- 普通用户可以创建多个 Claude 账户。
+- 绑定过程发生在远端目标节点和目标地区环境。
+- Claude 登录态归档到远端账户目录。
+- 登录态不落到本地 CLI。
+- verifier 成功后账户状态变为 `active`。
+
+### 9.11 Phase 9：Claude session 和 `fclaude`
+
+目标：
+
+- 让用户通过 `fclaude` 获得接近原生 `claude` 的体验。
+- 保证 session 与项目路径绑定，断线可恢复。
+
+交付物：
+
+- `fclaude`
+- `fclaude new`
+- `fclaude list`
+- `fclaude attach`
+- `fclaude stop`
+- 参数透传。
+- 项目 key 生成。
+- session 创建 API。
+- attach-info API。
+- 节点端 Docker sandbox。
+- 节点端 tmux session。
+- 工具账户配置注入。
+- 同账户多开同节点约束。
+
+验收标准：
+
+- 在项目目录执行 `fclaude` 可以进入 Claude。
+- SSH 断开后 tmux session 继续运行。
+- 同一路径再次执行 `fclaude` 恢复当前项目最近 session。
+- 不是恢复全局最近 session。
+- `fclaude -- <args>` 原样透传给远端 `claude`。
+- 同一 Claude 账户多个活跃 session 位于同一节点。
+
+### 9.12 Phase 10：远端临时浏览器
+
+目标：
+
+- 在管理端提供内嵌远端无痕浏览器。
+- 支持用户通过 VPS 节点网络访问邮箱、Claude Web 和账号确认页面。
+
+交付物：
+
+- `/browser-sessions` API。
+- `browser_sessions` 表。
+- `create_browser_session` 节点任务。
+- `stop_browser_session` 节点任务。
+- 浏览器运行时镜像。
+- noVNC/websockify 或 WebRTC 连接方案。
+- 管理端短期 `embed_url` 签发。
+- TTL 自动清理。
+- 浏览器网络策略。
+- 时区、locale、浏览器语言注入。
+
+验收标准：
+
+- 浏览器出口 IP 是目标 VPS 节点。
+- 浏览器时区、locale 和语言匹配工具账户或显式配置。
+- 浏览器容器不挂载 workspace 和工具账户目录。
+- 会话结束后临时 profile 被删除。
+- 日志不包含页面内容、用户输入、cookie、token 或截图。
+- 该能力不提供 Web 终端或 shell。
+
+### 9.13 Phase 11：管理前端
+
+目标：
+
+- 让管理员和普通用户可以通过 Web 管理系统。
+- 把核心运维、账号、节点和 session 状态可视化。
+
+交付物：
+
+- React + Vite 项目。
+- 登录页。
+- 用户和设备页面。
+- 工具账户页面。
+- 节点列表与节点详情。
+- session 列表与详情。
+- sync session 和冲突页面。
+- 远端浏览器页面。
+- 节点任务失败展示。
+- 审计日志页面。
+- 基础设置页面。
+
+验收标准：
+
+- 管理员可以管理用户、节点、设备和异常任务。
+- 普通用户只能查看和管理自己的账户、设备、workspace、session 和浏览器会话。
+- 前端所有操作调用正式 API，不使用临时 mock。
+- 关键危险操作有确认。
+- 失败状态能给出可执行的修复提示。
+
+### 9.14 Phase 12：打包、安装和部署
+
+目标：
+
+- 让自部署用户能按文档完成安装。
+- 各端外部依赖由发布包或安装器托管，减少手动安装。
+
+交付物：
+
+- 控制面 Docker Compose。
+- `agent-remote-server` 镜像。
+- `agent-remote-admin-web` 静态构建。
+- PostgreSQL 和 Redis Compose 服务。
+- Caddy 或 Nginx 示例。
+- `agent-remote-node` systemd service。
+- 节点安装器。
+- CLI macOS 包。
+- CLI Linux 包。
+- 托管 Mutagen、WireGuard helper、tmux、浏览器运行时依赖。
+- 部署文档。
+- 升级文档。
+- 备份与恢复文档。
+
+验收标准：
+
+- 新控制面服务器可按文档完成部署。
+- 新 VPS 节点可按文档加入集群。
+- 新 macOS/Linux 客户端可安装 CLI 并登录。
+- `agent-remote doctor` 能检查关键依赖。
+- Docker/OpenSSH/TUN 等系统级依赖缺失时，安装器给出明确处理方式。
+
+### 9.15 Phase 13：端到端验收和 MVP 发布
+
+目标：
+
+- 证明项目从空环境到可用体验完整闭环。
+- 冻结 MVP release。
+
+交付物：
+
+- E2E 测试脚本。
+- 手工验收清单。
+- release notes。
+- 已知限制。
+- 故障排查文档。
+- 最小演示环境。
+
+验收标准：
+
+- 从空控制面部署到第一个管理员创建通过。
+- 节点注册和心跳通过。
+- CLI 登录和设备注册通过。
+- WireGuard 和 SSH 可达性通过。
+- Mutagen 同步通过。
+- Claude 账户绑定通过。
+- `fclaude` 创建、恢复、停止通过。
+- 远端浏览器访问 Claude Web 或邮箱通过。
+- 设备撤销和节点断线恢复测试通过。
+
+### 9.16 Phase 14：v1.0 稳定化
+
+目标：
+
+- 将 MVP 从可用提升到可长期自部署维护。
+- 降低升级、故障恢复和安全误配置风险。
+
+交付物：
+
+- 数据库迁移回滚策略。
+- 协议版本兼容检查。
+- 节点滚动升级策略。
+- CLI 版本兼容提示。
+- 备份恢复演练。
+- 密钥丢失风险检查。
+- 更完整的审计事件。
+- 默认安全配置检查。
+- 性能和资源限制基线。
+
+验收标准：
+
+- 小版本升级不会破坏已有账户、session 和节点注册。
+- 文档能覆盖常见故障排查。
+- 控制面重启后任务和 session 状态可对账。
+- 节点重启后容器、tmux、浏览器会话和目录状态可对账。
+- 管理员能明确知道哪些密钥和数据必须备份。
+
+### 9.17 Phase 15：多工具扩展验证
+
+目标：
+
+- 验证架构不是 Claude 专用。
+- 用第二个工具证明 `ToolAccount`、runtime template、verifier 和启动器抽象可复用。
+
+推荐验证对象：
+
+- Codex。
+
+交付物：
+
+- `tool_type=codex` profile。
+- Codex runtime template。
+- Codex verifier。
+- `fcodex` 启动命令。
+- Codex session E2E。
+- 文档补充工具接入指南。
+
+验收标准：
+
+- 接入 Codex 不需要修改 `sessions` 核心表结构。
+- 接入 Codex 不需要复制 Claude 专用业务模型。
+- `fcodex` 与 `fclaude` 拥有一致的项目 key、同步、节点调度和 session 恢复模型。
+- 工具差异只落在 profile、template、verifier 和 launcher 层。
 
 ## 10. 风险清单
 
@@ -1864,7 +2285,7 @@ MVP 明确不做：
 - Redis 是 MVP 必须依赖，用于缓存、短期任务状态、分布式锁和后台任务队列。
 - CLI 本地目录为 `~/.config/agent-remote/`，本地状态使用 SQLite；敏感值优先保存到系统 keychain/libsecret，SQLite 只保存引用；本地不保存工具账户登录态。
 - MVP 使用结构化日志、`request_id`、`task_id`、`session_id` 做基础观测，日志默认脱敏；首期不接 Prometheus/Grafana/OpenTelemetry。
-- MVP 开发按 10 个里程碑推进：方案协议、管理端、节点端、CLI、WireGuard/SSH、Mutagen、Claude 绑定、Claude session、管理前端、打包部署与端到端测试。
+- 项目按 Phase Roadmap 推进，从协议冻结、控制面、节点端、CLI、网络、同步、Claude 绑定、Claude session、远端浏览器、管理前端、打包部署到 E2E 发布逐步完成。
 - 已创建实施级附录，细化 OpenAPI、节点任务 payload、CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
 - 已补充风险清单和非目标清单，明确 MVP 不解决强多租户、Web 终端、Windows、Kubernetes、高可用、自动迁移、自研同步、SSO、计费、KMS/Vault、完整监控等问题。
 - 各端必须内置或托管安装外部运行依赖，不要求用户手动安装；CLI 托管 WireGuard/Mutagen，节点端托管 tmux/Mutagen/WireGuard helper 等；系统级 Docker/OpenSSH/TUN 能力由安装器检测和引导。
