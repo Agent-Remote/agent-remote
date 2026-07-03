@@ -1678,6 +1678,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 建立 `agent-remote-server` 的可运行基础。
 - 为后续 API、数据库和任务系统提供统一工程结构。
 
+完成记录见 [phase-1-completion.md](phase-1-completion.md)。
+
 交付物：
 
 - FastAPI 项目结构。
