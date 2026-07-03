@@ -1732,6 +1732,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 敏感字段有加密标记或加密封装。
 - 基础 repository/service 测试覆盖创建、查询、更新和约束冲突。
 
+完成记录见 [phase-2-completion.md](phase-2-completion.md)。
+
 ### 9.5 Phase 3：认证、用户、设备和密钥
 
 目标：
