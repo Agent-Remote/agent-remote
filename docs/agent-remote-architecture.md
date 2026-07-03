@@ -1652,6 +1652,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 将当前方案转化为跨仓库契约。
 - 避免各端先行实现导致接口反复返工。
 
+完成记录见 [phase-0-completion.md](phase-0-completion.md)。
+
 交付物：
 
 - 主方案文档。
