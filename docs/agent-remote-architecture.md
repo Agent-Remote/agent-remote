@@ -1771,6 +1771,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 让 `agent-remote-node` 成为受控执行节点。
 - 建立管理端到节点端的持久任务模型。
 
+完成记录见 [phase-4-completion.md](phase-4-completion.md)。
+
 交付物：
 
 - Go 节点端项目骨架。
