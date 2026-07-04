@@ -1887,6 +1887,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 ### 9.10 Phase 8：工具账户抽象和 Claude 绑定
 
+完成记录见 [phase-8-completion.md](phase-8-completion.md)。
+
 目标：
 
 - 实现通用 `ToolAccount` 账户模型。

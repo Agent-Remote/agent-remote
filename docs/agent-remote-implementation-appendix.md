@@ -465,7 +465,7 @@ Heartbeat request:
   "timezone": "America/Los_Angeles",
   "locale": "en_US.UTF-8",
   "template": {
-    "image": "agent-remote/claude:latest",
+    "sandbox_agent": "claude",
     "command": ["claude", "login"]
   }
 }
