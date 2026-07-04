@@ -1762,6 +1762,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 禁用设备后 CLI token、SSH key 和 WireGuard peer 都进入不可用状态。
 - 审计日志不记录密码、token、私钥或登录态。
 
+完成记录见 [phase-3-completion.md](phase-3-completion.md)。
+
 ### 9.6 Phase 4：节点注册、心跳和任务轮询
 
 目标：
