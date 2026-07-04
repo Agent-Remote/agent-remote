@@ -1858,6 +1858,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 ### 9.9 Phase 7：Mutagen workspace 同步
 
+完成记录见 [phase-7-completion.md](phase-7-completion.md)。
+
 目标：
 
 - 保证本地项目文件与远端 workspace 双向同步。
