@@ -23,6 +23,7 @@
 
 - 项目性质：开源自部署。
 - 项目名称：`agent-remote`。
+- 项目许可证：所有仓库统一使用 `GPL-3.0-only`。
 - 本地统一管理命令：`agent-remote`。
 - Claude 专用启动命令：`fclaude`。
 - 后续工具启动命令按工具扩展，例如 `fcodex`。
@@ -35,6 +36,7 @@
 - WireGuard 拓扑：本地设备和 VPS 节点均作为 peer，由管理端生成、分发和撤销配置。
 - 文件同步：Mutagen。
 - 外部依赖策略：各端发布包应内置或托管运行所需外部程序，避免用户手动安装和自行处理版本兼容。
+- 第三方许可证策略：WireGuard、Mutagen 等托管或内置外部程序必须在发布产物中标明实际 artifact 的许可证、来源、版本和 checksum。
 - 管理端与节点端通信：节点端主动连接管理端，管理端不要求节点暴露公网 API 端口。
 - 远端长期 shell：tmux。
 - 远程交互：SSH 直连 tmux，尽量减少 Claude 上方的中间层。
@@ -1801,6 +1803,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 - 建立用户端统一管理命令。
 - 准备后续网络、同步和工具启动所需本地状态。
+
+完成记录见 [phase-5-completion.md](phase-5-completion.md)。
 
 交付物：
 
