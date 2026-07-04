@@ -1830,6 +1830,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 ### 9.8 Phase 6：WireGuard 与 SSH 受控连接
 
+完成记录见 [phase-6-completion.md](phase-6-completion.md)。
+
 目标：
 
 - 打通本地设备到 VPS 节点的受控网络和交互链路。
