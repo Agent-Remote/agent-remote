@@ -1979,6 +1979,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 ### 9.13 Phase 11：管理前端
 
+完成记录见 [phase-11-completion.md](phase-11-completion.md)。
+
 目标：
 
 - 让管理员和普通用户可以通过 Web 管理系统。
