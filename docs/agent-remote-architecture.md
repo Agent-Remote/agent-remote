@@ -238,7 +238,7 @@ local fclaude launcher -> ssh -> remote tmux -> docker sandbox -> claude
 
 推荐实现：
 
-- 浏览器运行时使用独立镜像，例如 `agent-remote/browser:latest`。
+- 浏览器运行时使用独立且可配置的现成镜像，MVP 默认 `kasmweb/chrome:1.18.0`。
 - 首期可选择 Chromium + noVNC/websockify，后续可评估 WebRTC 低延迟方案。
 - 连接端点必须由管理端签发短期 token，禁止节点直接暴露公开访问入口。
 - 浏览器容器不挂载用户 workspace 和工具账户目录。

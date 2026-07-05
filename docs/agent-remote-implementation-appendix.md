@@ -517,7 +517,7 @@ Heartbeat request:
   "locale": "en_US.UTF-8",
   "ttl_seconds": 1800,
   "browser": {
-    "image": "agent-remote/browser:latest",
+    "image": "kasmweb/chrome:1.18.0",
     "engine": "chromium",
     "mode": "incognito",
     "viewport": {
