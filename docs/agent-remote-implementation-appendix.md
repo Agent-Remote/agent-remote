@@ -16,6 +16,7 @@ MVP 第一阶段需要冻结以下内容：
    - `NodeTask`
    - `WireGuardPeer`
    - `SshKey`
+   - `DeveloperCredentialProfile`
 
 2. 管理端 OpenAPI 模块
    - `/auth`
@@ -27,6 +28,7 @@ MVP 第一阶段需要冻结以下内容：
    - `/sync-sessions`
    - `/sessions`
    - `/browser-sessions`
+   - `/developer-credential-profiles`
    - `/audit-logs`
    - `/node-api`
 
@@ -58,7 +60,7 @@ MVP 第一阶段需要冻结以下内容：
 | --- | --- |
 | Phase 0：方案和协议基线 | 第 1 节协议冻结范围、第 2 节 OpenAPI、第 3 节节点任务 payload |
 | Phase 1-3：控制面、数据模型、认证设备 | 第 2 节 OpenAPI、第 5 节数据库字段草案、第 6.1-6.3 节验收场景 |
-| Phase 4：节点注册和任务轮询 | 第 2.12 节 `/node-api`、第 3 节节点任务 payload、第 6.2 节验收场景 |
+| Phase 4：节点注册和任务轮询 | 第 2.13 节 `/node-api`、第 3 节节点任务 payload、第 6.2 节验收场景 |
 | Phase 5：CLI 本地基础能力 | 第 4 节 CLI 命令规范、第 6.3 和 6.3.1 节验收场景 |
 | Phase 6：WireGuard 与 SSH | 第 2 节设备和节点 API、第 6.4 节验收场景、第 7.5 和 7.6 节部署大纲 |
 | Phase 7：Mutagen 同步 | 第 2.7 和 2.8 节、第 6.5 和 6.10 节验收场景 |
@@ -66,7 +68,7 @@ MVP 第一阶段需要冻结以下内容：
 | Phase 9：Claude session 和 `fclaude` | 第 2.9 节、第 3.3 和 3.4 节、第 4.2 节、第 6.7-6.9 节验收场景 |
 | Phase 10：远端临时浏览器 | 第 2.10 节、第 3.5 和 3.6 节、第 5.8 节、第 6.11 节验收场景 |
 | Phase 11：管理前端 | 第 2 节全部用户侧 API、第 6 节端到端场景 |
-| Phase 12-14：部署、发布、稳定化 | 第 7 节部署文档大纲、第 6 节端到端测试场景 |
+| Phase 12-14：部署、发布、稳定化 | 第 2.11 节、第 7 节部署文档大纲、第 6 节端到端测试场景 |
 | Phase 15：多工具扩展验证 | 第 1 节核心术语、第 2.5 和 2.9 节、第 3 节任务协议 |
 
 ## 2. OpenAPI 草案
@@ -210,6 +212,8 @@ GET    /api/v1/tool-accounts/{account_id}
 PATCH  /api/v1/tool-accounts/{account_id}
 POST   /api/v1/tool-accounts/{account_id}/bind/start
 GET    /api/v1/tool-accounts/{account_id}/bind/status
+POST   /api/v1/tool-accounts/{account_id}/config-imports
+GET    /api/v1/tool-accounts/{account_id}/config-imports/{import_id}
 POST   /api/v1/tool-accounts/{account_id}/disable
 POST   /api/v1/tool-accounts/{account_id}/migrate-node
 ```
@@ -241,6 +245,44 @@ Binding status response:
   "request_id": "req_..."
 }
 ```
+
+Config import request:
+
+```json
+{
+  "tool_type": "claude",
+  "source": "local_cli",
+  "include": [
+    "~/.claude/settings.json",
+    "~/.claude/CLAUDE.md",
+    "~/.claude/agents"
+  ],
+  "exclude": [
+    "~/.claude.json",
+    "~/.claude/cache",
+    "~/.claude/logs"
+  ],
+  "files": [
+    {
+      "path": "~/.claude/settings.json",
+      "content_base64": "eyJ0aGVtZSI6ImRhcmsifQo=",
+      "mode": 384
+    }
+  ],
+  "include_resume_history": false,
+  "dry_run": false
+}
+```
+
+约束：
+
+- 配置导入必须由 CLI 先做 allowlist 过滤和用户确认。
+- `dry_run=true` 时只提交路径给 server 做计划；`dry_run=false` 时 CLI 必须提交已确认文件内容。
+- server 只负责校验、审计和创建 `import_tool_account_config` 节点任务；实际文件由 node 原子写入目标账户目录。
+- 服务端不得接受 OAuth token、cookies、refresh token、私钥或完整 `~/.claude.json`。
+- 导入结果只写入目标工具账户目录，不写入 workspace 目录。
+- `include_resume_history=true` 时才允许导入 `projects/`、`sessions/`、`history.jsonl`、`file-history/`、`plans/`、`tasks/` 等历史状态。
+- resume 历史导入必须展示隐私风险和数据体积，且不得开启本地与远端自动双向同步。
 
 ### 2.6 `/nodes`
 
@@ -282,7 +324,14 @@ Create request:
   "device_id": "dev_...",
   "project_key": "sha256:...",
   "local_start_path": "/Users/rem/project",
-  "display_name": "project"
+  "display_name": "project",
+  "sync_git": true,
+  "git_sync_policy": {
+    "exclude_hooks": true,
+    "exclude_locks": true,
+    "require_clean_git_lock": true,
+    "warn_concurrent_git": true
+  }
 }
 ```
 
@@ -297,6 +346,34 @@ POST   /api/v1/sync-sessions/{sync_session_id}/resume
 POST   /api/v1/sync-sessions/{sync_session_id}/resolve
 POST   /api/v1/sync-sessions/{sync_session_id}/reset
 ```
+
+Create request:
+
+```json
+{
+  "workspace_id": "ws_...",
+  "mode": "two_way",
+  "sync_git": true,
+  "exclude": [
+    ".git/**/*.lock",
+    ".git/hooks",
+    ".git/worktrees",
+    "node_modules",
+    "target",
+    "dist",
+    ".venv",
+    "__pycache__"
+  ]
+}
+```
+
+约束：
+
+- `sync_git` 默认 `true`。
+- 用户关闭 `.git/` 同步时，CLI 必须把 `.git` 加入 exclude。
+- `sync_git=true` 时仍必须默认排除 Git lock 文件。
+- `.git/hooks/` 默认排除，除非用户显式允许。
+- 创建和 attach 前必须检查本地和远端 Git lock 文件。
 
 ### 2.9 `/sessions`
 
@@ -395,14 +472,51 @@ Connect info response:
 - `embed_url` 必须短期有效，并绑定当前用户、浏览器会话和 request scope。
 - 管理端不得把页面内容、输入内容、cookie 或截图写入日志。
 
-### 2.11 `/audit-logs`
+### 2.11 `/developer-credential-profiles`
+
+```text
+GET    /api/v1/developer-credential-profiles
+POST   /api/v1/developer-credential-profiles
+GET    /api/v1/developer-credential-profiles/{profile_id}
+PATCH  /api/v1/developer-credential-profiles/{profile_id}
+POST   /api/v1/developer-credential-profiles/{profile_id}/disable
+POST   /api/v1/tool-accounts/{account_id}/developer-credential-profile
+DELETE /api/v1/tool-accounts/{account_id}/developer-credential-profile
+```
+
+Create request:
+
+```json
+{
+  "display_name": "personal",
+  "git_identity": {
+    "user_name": "Alice",
+    "user_email": "alice@example.com"
+  },
+  "github_cli": {
+    "mode": "remote_login"
+  },
+  "ssh": {
+    "mode": "agent_forwarding"
+  }
+}
+```
+
+约束：
+
+- profile 可表达 `git` identity、`gh` auth 模式、SSH 注入方式和后续 npm/pip 等凭据。
+- API 响应不得返回 token、私钥或完整 credential helper 配置。
+- `gh` 推荐 `remote_login`，即用户在远端账户环境内登录一次。
+- `ssh` 推荐 `agent_forwarding` 或 agent-remote 专用 deploy key，不默认复制本地 `~/.ssh`。
+
+### 2.12 `/audit-logs`
 
 ```text
 GET /api/v1/audit-logs
 GET /api/v1/audit-logs/{audit_log_id}
 ```
 
-### 2.12 `/node-api`
+### 2.13 `/node-api`
 
 ```text
 POST /api/v1/node-api/register
@@ -484,7 +598,14 @@ Heartbeat request:
   "argv": ["--model", "opus"],
   "paths": {
     "workspace_remote_path": "/var/lib/agent-remote/users/user_.../workspaces/ws_.../files",
-    "account_remote_path": "/var/lib/agent-remote/users/user_.../accounts/acct_..."
+    "account_remote_path": "/var/lib/agent-remote/users/user_.../tool-accounts/claude/acct_...",
+    "developer_credential_profile_path": "/var/lib/agent-remote/users/user_.../developer-credential-profiles/profile_..."
+  },
+  "developer_credentials": {
+    "profile_id": "profile_...",
+    "git_identity": true,
+    "gh_mode": "remote_login",
+    "ssh_mode": "agent_forwarding"
   },
   "runtime": {
     "timezone": "America/Los_Angeles",
@@ -631,13 +752,24 @@ agent-remote device revoke <device_id>
 agent-remote account list
 agent-remote account create --tool claude --name "Claude US" --region US --timezone America/Los_Angeles
 agent-remote account bind <account_id>
+agent-remote account import-config --tool claude --account <account_id>
+agent-remote account import-config --tool claude --account <account_id> --include-resume-history
+agent-remote account export-config --tool claude --account <account_id>
 agent-remote account disable <account_id>
+
+agent-remote credentials list
+agent-remote credentials create --name personal
+agent-remote credentials bind --account <account_id> --profile <profile_id>
+agent-remote credentials unbind --account <account_id>
 
 agent-remote sync status
 agent-remote sync pause
 agent-remote sync resume
 agent-remote sync resolve
 agent-remote sync reset
+agent-remote sync git enable
+agent-remote sync git disable
+agent-remote sync git check
 ```
 
 ### 4.2 `fclaude`
@@ -661,6 +793,9 @@ fclaude -- <claude_args...>
 - `fclaude` 只消费明确 session 命令。
 - 其他参数默认透传给原生 `claude`。
 - `fclaude -- <args>` 强制透传。
+- `fclaude new` 复用当前项目已有 workspace 同步关系，只创建新的工具 session。
+- 同一 workspace 的多个 Claude session 挂载同一个远端项目目录。
+- 同一 Claude 账户的多个 session 挂载同一个远端账户配置目录。
 
 ## 5. 数据库字段草案
 
@@ -708,6 +843,30 @@ fclaude -- <claude_args...>
 | affinity_node_id | uuid | FK nodes，可空 |
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
+
+### 5.3.1 `developer_credential_profiles`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | uuid | 主键 |
+| user_id | uuid | FK users |
+| display_name | text | 显示名 |
+| status | text | `active` / `disabled` |
+| git_identity | jsonb | 非敏感 git identity 和安全配置 |
+| github_cli_mode | text | `remote_login` / `import_token` / `disabled` |
+| ssh_mode | text | `agent_forwarding` / `deploy_key` / `disabled` |
+| secret_ref | text | 加密凭据引用，不直接暴露 |
+| created_at | timestamptz | 创建时间 |
+| updated_at | timestamptz | 更新时间 |
+
+### 5.3.2 `tool_account_developer_credential_profiles`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | uuid | 主键 |
+| tool_account_id | uuid | FK tool_accounts |
+| developer_credential_profile_id | uuid | FK developer_credential_profiles |
+| created_at | timestamptz | 创建时间 |
 
 ### 5.4 `tool_account_profiles`
 

@@ -626,13 +626,22 @@ include = [
 ]
 
 exclude = [
-  ".git",
+  ".git/**/*.lock",
+  ".git/hooks",
+  ".git/worktrees",
   "node_modules",
   "target",
   "dist",
   ".venv",
   "__pycache__",
 ]
+
+[workspace.git]
+mode = "full-sync"
+exclude_hooks = true
+exclude_locks = true
+require_clean_git_lock = true
+warn_concurrent_git = true
 ```
 
 Mutagen 同步规则：
@@ -640,9 +649,22 @@ Mutagen 同步规则：
 - 每个 workspace 对应独立 Mutagen session。
 - Mutagen session 名称应包含用户 ID、workspace ID、节点 ID 和 session ID。
 - 同步模式首期建议使用双向同步。
+- `.git/` 默认同步，让远端 Claude 可以直接读取分支、提交历史、remote 和工作区状态。
+- 用户可以显式关闭 `.git/` 同步，此时远端只能编辑项目文件，Git 操作由本地完成。
 - 对常见构建产物、依赖目录、缓存目录提供默认 exclude。
+- `.git/**/*.lock` 必须默认排除，避免同步 Git 锁文件。
+- `.git/hooks/` 必须默认排除，除非用户显式允许同步可执行 hook。
 - CLI 在 attach tmux 前必须确认同步 session 存在且健康。
 - 如果同步异常，CLI 应先提示并尝试修复，再进入工具 session。
+
+Git 目录同步风险控制：
+
+- `.git/` 默认同步是为了优先保证远端 Claude 原生 Git 体验。
+- 同一 workspace 同一时间只应在一端执行 Git 写操作，例如 `commit`、`checkout`、`merge`、`rebase`、`pull`、`push`、`gc`。
+- CLI 启动或 attach 前应检查本地和远端是否存在常见 Git lock 文件。
+- 检测到 `.git/index.lock`、`.git/HEAD.lock`、`.git/config.lock`、`.git/packed-refs.lock` 或 refs lock 时，应阻止启动并提示用户处理。
+- CLI 应扫描 `.git/config`，提示 credential helper、本机绝对路径、含 token remote URL、custom filter 和 signing key 等风险项。
+- 如果用户关闭 `.git/` 同步，Mutagen exclude 必须加入 `.git`，并在远端 session 中提示 Git metadata 不可用。
 
 冲突处理：
 
@@ -670,6 +692,206 @@ Mutagen 同步规则：
         {workspace_id}/
           files/
 ```
+
+### 6.8.1 Workspace 共享挂载模型
+
+同一个项目需要启动多个 Claude session 时，项目文件只同步一份。
+
+设计结论：
+
+- 一个 `workspace_id` 在一个目标节点上只维护一个远端项目目录。
+- 本地设备和远端节点之间只创建一个 Mutagen sync session。
+- 同一项目的多个 Claude 容器都挂载同一个远端 `workspaces/{workspace_id}/files` 目录。
+- 多个 Claude session 不各自创建独立项目文件副本。
+- `fclaude new` 只创建新的工具 session，不创建新的 workspace 同步关系。
+
+远端挂载示例：
+
+```text
+/var/lib/agent-remote/
+  users/
+    {user_id}/
+      workspaces/
+        {workspace_id}/
+          files/                 # Mutagen 双向同步目录，挂载到容器工作目录
+      tool-accounts/
+        claude/
+          {tool_account_id}/
+            home/                # 账户级 Claude home
+            config/              # 账户级配置归档
+            state/               # 登录态和运行态持久化
+```
+
+容器挂载规则：
+
+- workspace 文件目录以读写方式挂载到容器内项目工作目录。
+- Claude 账户目录以读写方式挂载到容器内 Claude 用户配置位置。
+- 同一 `workspace_id` 的所有活跃 session 必须调度到同一节点。
+- 同一 `tool_account_id` 的所有活跃 session 也必须调度到同一节点。
+- 如果 workspace 和账户亲和节点不一致，创建 session 前必须重新调度或拒绝创建。
+
+安全边界：
+
+- Mutagen 只感知本地和远端项目目录之间的同步，不感知每个 Claude 容器。
+- 多个容器同时写同一文件时，本质是同一远端文件系统内的并发写，无法靠 Mutagen 自动解决。
+- agent-remote 应在 session 列表中明确显示同一 workspace 的并发 session。
+- 后续可增加 workspace 写锁或只读副 session，但 MVP 允许用户自行承担同项目多写者风险。
+
+### 6.8.2 Claude 配置和记忆同步模型
+
+Claude 配置不能盲目全量同步本地 `~/.claude`。
+
+Claude Code 官方配置模型区分 user、project 和 local scope：
+
+- user scope：`~/.claude/settings.json`、`~/.claude/agents/`、`~/.claude/CLAUDE.md` 等。
+- project scope：项目内 `.claude/settings.json`、`.claude/agents/`、`CLAUDE.md`、`.claude/CLAUDE.md`、`.mcp.json` 等。
+- local scope：项目内 `.claude/settings.local.json`、`CLAUDE.local.md` 等。
+- `~/.claude.json` 包含 OAuth session、MCP 配置、per-project state、allowed tools、trust state 和缓存。
+
+参考：
+
+- Claude Code settings：https://docs.anthropic.com/en/docs/claude-code/settings
+- Claude Code memory：https://docs.anthropic.com/en/docs/claude-code/memory
+
+agent-remote 的规则：
+
+- 项目级 Claude 配置跟随 workspace 文件同步。
+- 账户级 Claude 配置归档到远端 `tool-accounts/claude/{tool_account_id}`。
+- 本地旧配置导入必须是显式命令，不默认自动导入。
+- 远端账户目录是运行时权威来源；Claude session 运行期间直接读写该目录。
+- 账户目录不通过 workspace Mutagen session 同步，避免配置和项目文件生命周期混在一起。
+
+首期建议同步或导入：
+
+- `~/.claude/settings.json`：用户级设置和偏好。
+- `~/.claude/CLAUDE.md`：用户级长期指令。
+- `~/.claude/agents/`：用户级 subagents。
+- `~/.claude/skills/`：用户级 skills，如本地实际存在该目录。
+- `~/.claude/plugins/` 或官方插件相关配置：仅同步声明性配置，不同步下载缓存。
+- `~/.claude/hooks/`：仅在用户确认后导入，因为 hook 可以执行命令。
+- `~/.claude/rules/`：如本地实际存在该目录，可作为用户级规则导入。
+
+显式 resume 历史导入：
+
+- Claude 原生 `resume` 依赖会话历史、项目历史和 transcript 状态。
+- 远端 Claude 后续产生的 resume 历史必须保留在远端账户目录中，并随同一账户的多个容器共享。
+- 本地旧 resume 历史默认不导入；用户必须显式使用 `--include-resume-history` 或等价确认。
+- 导入 resume 历史时，CLI 必须展示将导入的历史体积、文件数量和隐私风险。
+- 导入 resume 历史前，CLI 应确认目标 Claude 账户、workspace 和节点，避免把私人历史导入错误账户。
+- resume 历史不做本地和远端自动双向同步；远端运行后以远端账户目录为权威来源。
+
+首期不建议自动同步：
+
+- `~/.claude.json` 全文件。
+- OAuth token、session token、cookies、refresh token。
+- telemetry、logs、crash reports、debug logs。
+- cache、tmp、downloads、update artifacts。
+- per-project trust state、allowed tools 和绝对路径缓存。
+- shell history 或 terminal transcript。
+- 任意包含本机绝对路径、机器 ID、设备 ID 的运行态缓存。
+
+本地 `~/.claude` 常见文件分类：
+
+| 路径 | 默认处理 | 原因 |
+| --- | --- | --- |
+| `CLAUDE.md` | 导入 | 用户级长期记忆和指令。 |
+| `settings.json` | 导入 | 用户级设置和偏好。 |
+| `skills/` | 导入 | 用户级 skills，属于期望一致的工具能力。 |
+| `plugins/` | 询问后导入 | 插件可能包含可执行代码；仅导入声明和源码，不导入下载缓存。 |
+| `RTK.md` 等根目录自定义 Markdown | 询问后导入 | 可能被 `CLAUDE.md` 引用，也可能只是用户私有笔记。 |
+| `settings.json.backup`、`settings.json.bak` | 不导入 | 备份文件，不应参与运行配置。 |
+| `backups/` | 不导入 | 备份目录，不是当前有效配置。 |
+| `cache/`、`paste-cache/`、`stats-cache.json` | 不导入 | 缓存和统计状态。 |
+| `chrome/` | 不导入 | 浏览器或扩展运行态。 |
+| `debug/` | 不导入 | 调试输出。 |
+| `downloads/` | 不导入 | 下载文件。 |
+| `file-history/`、`history.jsonl` | 默认不导入；resume 模式询问后导入 | 历史记录和 transcript，隐私风险高，但可能参与 Claude 原生 `resume`。 |
+| `ide/` | 不导入 | 本机 IDE 集成状态，通常包含机器路径。 |
+| `mcp-needs-auth-cache.json` | 不导入 | MCP 认证缓存状态，不是 MCP 声明配置。 |
+| `plans/`、`tasks/` | 默认不导入；resume 模式询问后导入 | 运行期任务和计划状态，可能与历史恢复相关，但不属于稳定配置。 |
+| `projects/` | 默认不导入；resume 模式询问后导入 | per-project 运行态和路径映射；项目配置应放在 workspace 内同步。 |
+| `session-env/`、`sessions/` | 默认不导入；resume 模式询问后导入 | 会话运行环境和登录/session 状态，可能参与 Claude 原生 `resume`。 |
+| `shell-snapshots/` | 不导入 | shell 快照和机器状态。 |
+| `transcripts/` | 不导入 | 会话 transcript，隐私风险高且体积大。 |
+| `.last-cleanup`、`.last-update-result.json` | 不导入 | 维护状态文件。 |
+
+`~/.claude.json` 处理方式：
+
+- 不能整文件双向同步。
+- 绑定 Claude 账户时由远端 sandbox 自己生成 OAuth 登录态。
+- 如需导入 MCP server、插件 marketplace、非敏感用户设置，CLI 必须解析 JSON 后按 allowlist 提取。
+- per-project MCP 应优先放在 workspace 的 `.mcp.json`，随项目文件同步。
+- per-project trust、allowed tools 等本机判断状态不从本地搬到远端，远端首次使用时重新建立。
+
+配置同步方向：
+
+- 首次绑定账户前，CLI 可提供 `agent-remote account import-config --tool claude --account <id>`。
+- 导入旧 Claude resume 历史时，CLI 可提供 `agent-remote account import-config --tool claude --account <id> --include-resume-history`。
+- 导入前展示将导入和将忽略的路径清单，要求用户确认。
+- `dry_run=true` 只生成导入计划；`dry_run=false` 时 CLI 读取用户确认的文件内容，server 校验白名单并创建 `import_tool_account_config` 节点任务，由 node 原子写入目标节点账户目录。
+- Claude 在远端运行后产生的登录态、记忆和配置更新保留在远端账户目录。
+- MVP 不把远端账户目录自动反向同步回本地 `~/.claude`，避免污染用户原生 Claude 环境。
+- 后续可以提供显式 `agent-remote account export-config`，由用户手动选择导出项。
+
+多 Claude 容器共享配置：
+
+- 同一个 `tool_account_id` 使用同一个远端账户目录。
+- 同一账户多个 Claude session 挂载同一账户目录，保证登录态、用户设置、skills、plugins 和记忆一致。
+- 同一项目多个 Claude session 还会挂载同一个 workspace 目录，保证项目级 `CLAUDE.md`、`.claude/` 和 `.mcp.json` 一致。
+- 不同 Claude 账户必须使用不同账户目录，避免 OAuth 登录态和个人偏好串号。
+- 不同 VPS 节点上的同一账户目录不做自动多主同步；调度规则应保证同一账户同一时间只在一个节点活跃。
+
+对用户思路的判断：
+
+- “项目级文件只同步一份，多个 Claude 容器挂载同一远端项目目录”是正确方向。
+- “同一个项目多个 Claude 在同一 VPS 上共享一个项目目录和一个账户配置目录”也是正确方向。
+- “多台 VPS 上同一项目或同一账户不考虑同步”在 MVP 内成立，但必须通过调度亲和约束保证不会同时把同一账户或同一 workspace 分配到多个节点。
+
+### 6.8.3 Git 和 GitHub CLI 凭据模型
+
+容器内需要能正常使用 `git` 和 `gh`，但不能盲目挂载宿主用户整个 home。
+
+基础工具：
+
+- Claude runtime 镜像或 sandbox 基础环境必须包含 `git`、`openssh-client`、`gh`。
+- 节点安装器或镜像构建必须校验这些命令可用。
+- 容器内 `git` 默认工作目录为挂载后的 workspace。
+
+Git 配置：
+
+- `.git/` 默认随 workspace 同步。
+- 远端容器默认可直接看到 remotes、branches、commit history、index 和工作区状态。
+- `.git/hooks/` 默认不随 workspace 同步，避免本地 hook 在远端环境中被执行。
+- `.git/**/*.lock` 默认不随 workspace 同步，避免锁文件造成另一端误判。
+- 用户可以在 workspace 配置中关闭 `.git/` 同步。
+- 如果关闭 `.git/` 同步，远端只能编辑文件；提交、分支切换和 push 由本地完成，或由用户在远端重新 clone/初始化 Git metadata。
+- 用户级 `.gitconfig` 不默认全量同步。
+- CLI 提供显式导入选项，将安全的 `user.name`、`user.email`、`init.defaultBranch`、`pull.rebase`、`core.autocrlf` 等写入远端账户级 git config。
+- `includeIf`、credential helper、signing key、custom hooks、filter driver 等可能执行命令或引用本机路径，默认不导入，除非用户逐项确认。
+
+SSH 凭据：
+
+- 不把用户本地 `~/.ssh` 私钥复制到 VPS 或容器。
+- 推荐使用本地 SSH agent 转发到远端 tmux/container，或由 agent-remote 为工具账户生成专用 deploy key。
+- SSH agent 转发必须是按 session 授权，默认最小化暴露时间和目标节点。
+- 专用 deploy key 应保存在远端账户目录或节点安全存储中，并在管理端记录指纹和用途。
+- 容器内 `GIT_SSH_COMMAND` 应指向受控 SSH wrapper，限制 known_hosts、identity 和交互行为。
+
+GitHub CLI：
+
+- 不默认复制本地 `~/.config/gh/hosts.yml`。
+- 推荐用户在远端账户环境内执行一次 `gh auth login`，生成远端专用 GitHub CLI 登录态。
+- 远端 `gh` 登录态归档在工具账户目录，例如 `tool-accounts/{tool_account_id}/home/.config/gh/`。
+- 如果用户显式选择导入本地 `gh` token，CLI 必须提示风险，并只导入 GitHub host/token 必需字段。
+- 多个 Claude 账户默认不共享同一份 `gh` token，除非用户显式绑定同一个开发凭据 profile。
+
+开发凭据 profile：
+
+- agent-remote 应抽象 `DeveloperCredentialProfile`，用于挂载或注入 git/gh/npm/pip 等开发凭据。
+- `ToolAccount` 可以绑定一个开发凭据 profile。
+- 同一用户可以有多个 profile，例如 personal、work、readonly。
+- session 创建时把 profile 注入容器，而不是把本地 home 直接挂进去。
+- 审计日志只记录 profile ID、指纹和注入动作，不记录 token 或私钥内容。
 
 ### 6.9 项目与 session 生命周期模型
 
@@ -2282,7 +2504,13 @@ MVP 明确不做：
 - 管理端用户分为管理员和普通用户；普通用户可以在管理端绑定和管理自己的工具账户。
 - 首期 Claude 账户绑定采用远端临时 sandbox 交互式登录，登录态归档到该用户的账户目录。
 - 文件同步必须采用显式 workspace 模型，默认只同步当前目录，额外路径必须显式配置；首次遇到全新目录必须询问用户是否创建同步。
+- `.git/` 默认随 workspace 同步，用户可以显式关闭；Git lock 文件和 hooks 默认排除，进入 session 前必须检查 Git lock 风险。
 - 工具配置、skills、插件、记忆、登录态等账户配置数据以远端账户目录为权威来源；本地 CLI 不默认覆盖远端账户配置。
+- 同一项目多个 Claude session 只维护一个 Mutagen workspace 同步关系，多个容器共享挂载同一个远端项目目录。
+- 同一 Claude 账户多个 session 共享同一个远端账户配置目录；不同 Claude 账户必须使用不同配置目录，避免登录态串号。
+- 本地旧 `~/.claude` 配置只允许通过显式导入迁移；不得默认全量同步 `~/.claude` 或整文件同步 `~/.claude.json`。
+- Claude 项目级配置、`CLAUDE.md`、项目 `.claude/` 和 `.mcp.json` 跟随 workspace；OAuth token、cookies、cache、logs、per-project trust state 等运行态不从本地自动导入。
+- `git` 和 `gh` 凭据采用显式开发凭据 profile 或远端重新登录模型；不默认挂载本地 home、复制 `~/.ssh` 私钥或复制完整 `~/.config/gh`。
 - 工具终端入口首期不做 Web 终端，只支持本地 CLI + SSH + tmux；管理端对工具 session 展示状态和连接命令。
 - 管理端提供远端临时无痕浏览器会话，用于通过 VPS 节点网络访问邮箱、Claude Web 等页面；该能力不提供 shell，不持久化浏览器用户信息。
 - 多节点调度采用综合评分模型，结合健康状态、负载、活跃 session、管理员权重和历史稳定性等因素。
