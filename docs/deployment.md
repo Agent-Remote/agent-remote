@@ -95,7 +95,12 @@ The browser runtime defaults to the external `kasmweb/chrome:1.18.0` image. Depl
 
 ## Automated Releases
 
-Every repository uses `v*` tags as the release trigger.
+Every repository uses a two-step release flow:
+
+1. Run the `prepare-release` workflow on `main` with the target version.
+2. Let the pushed `v*` tag trigger the release build.
+
+The prepare workflow updates repository-owned version files, commits `chore: release vX.Y.Z`, pushes `main`, and then pushes the matching tag. Tag-triggered release workflows only build and publish artifacts; they do not modify source files.
 
 - `agent-remote` publishes a deployment bundle containing `deploy/`, `docs/`, and license notices.
 - `agent-remote-protocol` publishes a protocol bundle containing OpenAPI, JSON Schema, examples, docs, and notices.
@@ -104,9 +109,12 @@ Every repository uses `v*` tags as the release trigger.
 - `agent-remote-node` publishes Linux release archives.
 - `agent-remote-cli` publishes macOS and Linux release archives with managed Mutagen and the WireGuard helper.
 
-Create a release by tagging the same version in the repositories that need to ship together:
+Create a release from GitHub Actions by running `prepare-release` in the repositories that need to ship together. For local manual releases, run the repository's prepare script first, then commit and tag the same version:
 
 ```sh
+scripts/prepare-release.sh 0.1.0
+git add .
+git commit -m "chore: release v0.1.0"
 git tag v0.1.0
 git push origin v0.1.0
 ```
