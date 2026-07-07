@@ -22,7 +22,6 @@ Phase 12：打包、安装和部署，状态为完成。
 - CLI 新增 macOS/Linux release 打包脚本，包含 Mutagen 下载和托管依赖 manifest。
 - 新增 GitHub Actions：
   - 主仓库校验 Compose，并在 `v*` tag 发布部署包。
-  - protocol 校验 OpenAPI/JSON Schema，并在 `v*` tag 发布协议包。
   - server 在 `v*` tag 构建并推送 GHCR 镜像。
   - admin-web 在 `v*` tag 构建并推送 GHCR 镜像。
   - node 在 `v*` tag 构建 Linux 节点归档。

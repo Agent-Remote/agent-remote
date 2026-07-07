@@ -138,11 +138,6 @@
    - 部署在各个 VPS 节点。
    - 负责 Docker sandbox、tmux session、节点心跳、资源上报、节点本地账号环境管理。
 
-5. `agent-remote-protocol`
-   - 可选。
-   - 放置 OpenAPI schema、共享协议、事件定义、错误码、配置规范。
-   - 如果团队规模较小，初期可并入 `agent-remote-server`，等协议稳定后再拆。
-
 ## 5. 核心运行链路草案
 
 ### 5.1 首次使用
@@ -1789,7 +1784,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 29. 已确认：CLI 本地目录为 `~/.config/agent-remote/`，本地状态使用 SQLite；敏感值优先保存到系统 keychain/libsecret，SQLite 只保存引用；本地不保存工具账户登录态。
 30. 已确认：MVP 使用结构化日志、`request_id`、`task_id`、`session_id` 做基础观测，日志默认脱敏；首期不接 Prometheus/Grafana/OpenTelemetry。
 31. 已确认：项目按 Phase Roadmap 推进，从协议冻结、控制面、节点端、CLI、网络、同步、Claude 绑定、Claude session、远端浏览器、管理前端、打包部署到 E2E 发布逐步完成。
-32. 已确认：需要实施级附录细化协议冻结内容，包含 OpenAPI、节点任务 payload、CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
+32. 已确认：需要实施级附录细化协议冻结内容，包含 CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
 33. 已确认：需要在主方案补充风险清单和非目标清单，明确 MVP 不解决的问题和主要风险缓解措施。
 34. 已确认：管理端提供远端临时无痕浏览器会话，浏览器运行在 VPS 节点 Docker sandbox 中，使用节点出口网络和匹配的地区、时区、locale；会话不持久化浏览器用户信息，也不提供 shell。
 
@@ -1842,9 +1837,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 本项目按 Phase 推进。每个 Phase 必须满足以下规则：
 
-- 先改 `agent-remote-protocol`，再改服务端、节点端、CLI 和前端。
 - 每个 Phase 都要有可运行的本地验证方式。
-- 跨仓库接口变更必须同时更新 OpenAPI、JSON Schema、服务端测试和调用方适配。
+- 跨仓库接口变更必须同时更新服务端测试和调用方适配。
 - 未完成验收标准时，不进入依赖它的下一个 Phase。
 - Phase 可以在人员足够时并行，但只能并行实现不共享未冻结协议的部分。
 
@@ -1852,7 +1846,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 | Phase | 主要仓库 | 目标 | 完成标志 |
 | --- | --- | --- | --- |
-| Phase 0 | `agent-remote` / `agent-remote-protocol` | 冻结方案和协议基线 | 文档、OpenAPI、schema、示例 payload 已提交 |
+| Phase 0 | `agent-remote` | 冻结方案基线 | 架构文档和实施路线已提交 |
 | Phase 1 | `agent-remote-server` | 控制面项目骨架 | FastAPI、配置、日志、健康检查、数据库迁移可运行 |
 | Phase 2 | `agent-remote-server` | 核心数据模型 | PostgreSQL 表、索引、Alembic 迁移和基础 repository/service 完成 |
 | Phase 3 | `agent-remote-server` / `agent-remote-cli` | 认证、用户、设备和密钥 | 管理员初始化、普通用户登录、CLI token、设备注册可用 |
@@ -1869,31 +1863,23 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 | Phase 14 | 全部仓库 | v1.0 稳定化 | 安全加固、故障恢复、备份、升级兼容和文档补齐 |
 | Phase 15 | 全部仓库 | 多工具扩展验证 | 至少接入第二个工具原型，验证 `ToolAccount` 抽象可复用 |
 
-### 9.2 Phase 0：方案和协议基线
+### 9.2 Phase 0：方案基线
 
 目标：
 
-- 将当前方案转化为跨仓库契约。
+- 将当前方案转化为可执行的仓库拆分和实施路线。
 - 避免各端先行实现导致接口反复返工。
-
-完成记录见 [phase-0-completion.md](phase-0-completion.md)。
 
 交付物：
 
 - 主方案文档。
 - 实施级附录。
-- `agent-remote-protocol` 仓库。
-- OpenAPI 草案。
-- JSON Schema。
-- 节点任务 payload 示例。
-- 错误码、API 约定和版本策略。
+- Phase Roadmap。
 
 验收标准：
 
-- `agent-remote-protocol` 至少包含 `openapi/openapi.yaml`、`schemas/`、`docs/` 和 `examples/`。
-- JSON 示例可以被标准 JSON parser 解析。
-- OpenAPI YAML 可以被标准 YAML parser 解析。
-- 所有实现仓库都能以协议仓库作为开发参考。
+- 主仓库文档已提交。
+- 后续接口变更以实现仓库代码、测试和跨端调用适配为准。
 
 ### 9.3 Phase 1：控制面项目骨架
 
@@ -2536,7 +2522,7 @@ MVP 明确不做：
 - CLI 本地目录为 `~/.config/agent-remote/`，本地状态使用 SQLite；敏感值优先保存到系统 keychain/libsecret，SQLite 只保存引用；本地不保存工具账户登录态。
 - MVP 使用结构化日志、`request_id`、`task_id`、`session_id` 做基础观测，日志默认脱敏；首期不接 Prometheus/Grafana/OpenTelemetry。
 - 项目按 Phase Roadmap 推进，从协议冻结、控制面、节点端、CLI、网络、同步、Claude 绑定、Claude session、远端浏览器、管理前端、打包部署到 E2E 发布逐步完成。
-- 已创建实施级附录，细化 OpenAPI、节点任务 payload、CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
+- 已创建实施级附录，细化 CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
 - 已补充风险清单和非目标清单，明确 MVP 不解决强多租户、Web 终端、Windows、Kubernetes、高可用、自动迁移、自研同步、SSO、计费、KMS/Vault、完整监控等问题。
 - 各端必须内置或托管安装外部运行依赖，不要求用户手动安装；CLI 托管 WireGuard/Mutagen，节点端托管 tmux/Mutagen/WireGuard helper 等；系统级 Docker/OpenSSH/TUN 能力由安装器检测和引导。
 - 安全模型按自部署可信管理员 + 基础安全加固设计，不按商业 SaaS 强多租户模型设计。

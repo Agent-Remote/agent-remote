@@ -72,8 +72,6 @@ Phase 10：远端临时浏览器，状态为完成。
   - iframe 内嵌短期 `embed_url`。
 - 构建产物和 TypeScript 缓存已加入 `.gitignore`。
 
-### `agent-remote-protocol`
-
 - 浏览器任务示例默认镜像更新为 `kasmweb/chrome:1.18.0`。
 
 ### `agent-remote`
@@ -92,9 +90,6 @@ Phase 10：远端临时浏览器，状态为完成。
   - `go test ./...`
 - `agent-remote-admin-web`
   - `npm run build`
-- `agent-remote-protocol`
-  - OpenAPI YAML 解析通过
-
 当前 server 测试仍存在 1 个上游依赖 warning：FastAPI/Starlette `TestClient` 提示未来应迁移到 `httpx2`。该 warning 不影响 Phase 10 验收。
 
 ## 注意事项

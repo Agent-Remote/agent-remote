@@ -79,9 +79,6 @@ Phase 9：Claude session 和 `fclaude`，状态为完成。
   - `agent-remote account default get --tool claude`
   - `agent-remote account default clear --tool claude`
 
-### agent-remote-protocol
-
-- 同步 OpenAPI session API：
   - session 创建。
   - 当前项目恢复。
   - attach。
@@ -128,11 +125,6 @@ cargo test
 结果：CLI 全部测试通过。
 
 ```bash
-cd /Users/rem/Documents/Git/agent-remote-protocol
-ruby -e 'require "yaml"; YAML.load_file("openapi/openapi.yaml"); puts "yaml ok"'
-python -m json.tool schemas/node-task.schema.json
-python -m json.tool schemas/session.schema.json
-python -m json.tool examples/create-tool-session-task.json
 ```
 
 结果：协议 YAML 和 JSON 均可解析。

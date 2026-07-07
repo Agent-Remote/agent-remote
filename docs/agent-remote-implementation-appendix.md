@@ -1,741 +1,8 @@
 # agent-remote 实施级附录
 
-## 1. 协议冻结范围
+## 1. CLI 命令规范草案
 
-MVP 第一阶段需要冻结以下内容：
-
-1. 核心术语
-   - `User`
-   - `Device`
-   - `ToolType`
-   - `ToolAccount`
-   - `Workspace`
-   - `Session`
-   - `BrowserSession`
-   - `Node`
-   - `NodeTask`
-   - `WireGuardPeer`
-   - `SshKey`
-   - `DeveloperCredentialProfile`
-
-2. 管理端 OpenAPI 模块
-   - `/auth`
-   - `/users`
-   - `/devices`
-   - `/tool-accounts`
-   - `/nodes`
-   - `/workspaces`
-   - `/sync-sessions`
-   - `/sessions`
-   - `/browser-sessions`
-   - `/developer-credential-profiles`
-   - `/audit-logs`
-   - `/node-api`
-
-3. 节点任务协议
-   - 任务类型。
-   - 任务 payload schema。
-   - 任务状态。
-   - 幂等 `task_id` 规则。
-   - 节点任务结果 schema。
-
-4. CLI 命令规范
-   - `agent-remote` 管理命令。
-   - `fclaude` Claude 启动命令。
-   - 参数透传规则。
-   - 本地状态目录和 SQLite schema。
-
-5. 数据库字段草案
-   - 核心表字段。
-   - 索引。
-   - 唯一约束。
-   - 外键关系。
-   - 敏感字段加密标记。
-
-### 1.1 Phase 与附录章节映射
-
-完整 Phase Roadmap 见 [agent-remote-architecture.md](agent-remote-architecture.md) 第 9 节。本附录用于支撑各 Phase 的具体实现。
-
-| Phase | 需要优先参考的附录内容 |
-| --- | --- |
-| Phase 0：方案和协议基线 | 第 1 节协议冻结范围、第 2 节 OpenAPI、第 3 节节点任务 payload |
-| Phase 1-3：控制面、数据模型、认证设备 | 第 2 节 OpenAPI、第 5 节数据库字段草案、第 6.1-6.3 节验收场景 |
-| Phase 4：节点注册和任务轮询 | 第 2.13 节 `/node-api`、第 3 节节点任务 payload、第 6.2 节验收场景 |
-| Phase 5：CLI 本地基础能力 | 第 4 节 CLI 命令规范、第 6.3 和 6.3.1 节验收场景 |
-| Phase 6：WireGuard 与 SSH | 第 2 节设备和节点 API、第 6.4 节验收场景、第 7.5 和 7.6 节部署大纲 |
-| Phase 7：Mutagen 同步 | 第 2.7 和 2.8 节、第 6.5 和 6.10 节验收场景 |
-| Phase 8：Claude 账户绑定 | 第 2.5 节、第 3.2 节、第 6.6 节验收场景 |
-| Phase 9：Claude session 和 `fclaude` | 第 2.9 节、第 3.3 和 3.4 节、第 4.2 节、第 6.7-6.9 节验收场景 |
-| Phase 10：远端临时浏览器 | 第 2.10 节、第 3.5 和 3.6 节、第 5.8 节、第 6.11 节验收场景 |
-| Phase 11：管理前端 | 第 2 节全部用户侧 API、第 6 节端到端场景 |
-| Phase 12-14：部署、发布、稳定化 | 第 2.11 节、第 7 节部署文档大纲、第 6 节端到端测试场景 |
-| Phase 15：多工具扩展验证 | 第 1 节核心术语、第 2.5 和 2.9 节、第 3 节任务协议 |
-
-## 2. OpenAPI 草案
-
-### 2.1 通用约定
-
-路径前缀：
-
-```text
-/api/v1
-```
-
-认证：
-
-- 用户/CLI/前端 API 使用 Bearer token。
-- `/node-api` 使用节点凭证。
-- 节点凭证和用户 token 不可互用。
-
-通用响应：
-
-```json
-{
-  "data": {},
-  "request_id": "req_..."
-}
-```
-
-通用错误：
-
-```json
-{
-  "error": {
-    "code": "string",
-    "message": "string",
-    "details": {}
-  },
-  "request_id": "req_..."
-}
-```
-
-### 2.2 `/auth`
-
-```text
-POST /api/v1/auth/login
-POST /api/v1/auth/logout
-POST /api/v1/auth/refresh
-POST /api/v1/auth/cli/start
-POST /api/v1/auth/cli/complete
-POST /api/v1/auth/totp/setup
-POST /api/v1/auth/totp/verify
-```
-
-`POST /auth/login` request:
-
-```json
-{
-  "username": "alice",
-  "password": "secret",
-  "totp_code": "123456"
-}
-```
-
-`POST /auth/cli/start` response:
-
-```json
-{
-  "data": {
-    "device_code": "dev_...",
-    "user_code": "ABCD-EFGH",
-    "verification_url": "https://example.com/cli",
-    "expires_in": 600,
-    "interval": 5
-  },
-  "request_id": "req_..."
-}
-```
-
-### 2.3 `/users`
-
-```text
-GET    /api/v1/users/me
-PATCH  /api/v1/users/me
-GET    /api/v1/users
-POST   /api/v1/users
-GET    /api/v1/users/{user_id}
-PATCH  /api/v1/users/{user_id}
-POST   /api/v1/users/{user_id}/disable
-```
-
-`POST /users` request:
-
-```json
-{
-  "username": "alice",
-  "display_name": "Alice",
-  "role": "user",
-  "password": "initial-secret"
-}
-```
-
-### 2.4 `/devices`
-
-```text
-GET    /api/v1/devices
-POST   /api/v1/devices/register
-GET    /api/v1/devices/{device_id}
-POST   /api/v1/devices/{device_id}/disable
-POST   /api/v1/devices/{device_id}/rotate-token
-```
-
-`POST /devices/register` request:
-
-```json
-{
-  "device_name": "rem-macbook",
-  "platform": "macos",
-  "ssh_public_key": "ssh-ed25519 ...",
-  "wireguard_public_key": "..."
-}
-```
-
-Response:
-
-```json
-{
-  "data": {
-    "device_id": "dev_...",
-    "wireguard_peer_id": "wg_...",
-    "ssh_key_id": "ssh_..."
-  },
-  "request_id": "req_..."
-}
-```
-
-### 2.5 `/tool-accounts`
-
-```text
-GET    /api/v1/tool-accounts
-POST   /api/v1/tool-accounts
-GET    /api/v1/tool-accounts/{account_id}
-PATCH  /api/v1/tool-accounts/{account_id}
-POST   /api/v1/tool-accounts/{account_id}/bind/start
-GET    /api/v1/tool-accounts/{account_id}/bind/status
-POST   /api/v1/tool-accounts/{account_id}/config-imports
-GET    /api/v1/tool-accounts/{account_id}/config-imports/{import_id}
-POST   /api/v1/tool-accounts/{account_id}/disable
-POST   /api/v1/tool-accounts/{account_id}/migrate-node
-```
-
-`POST /tool-accounts` request:
-
-```json
-{
-  "tool_type": "claude",
-  "display_name": "Claude US",
-  "region_code": "US",
-  "timezone": "America/Los_Angeles",
-  "locale": "en_US.UTF-8",
-  "preferred_node_tags": ["us"]
-}
-```
-
-Binding status response:
-
-```json
-{
-  "data": {
-    "account_id": "acct_...",
-    "status": "binding_waiting_user_login",
-    "node_id": "node_...",
-    "session_id": "sess_...",
-    "connect_command": "agent-remote attach-binding bind_..."
-  },
-  "request_id": "req_..."
-}
-```
-
-Config import request:
-
-```json
-{
-  "tool_type": "claude",
-  "source": "local_cli",
-  "include": [
-    "~/.claude/settings.json",
-    "~/.claude/CLAUDE.md",
-    "~/.claude/agents"
-  ],
-  "exclude": [
-    "~/.claude.json",
-    "~/.claude/cache",
-    "~/.claude/logs"
-  ],
-  "files": [
-    {
-      "path": "~/.claude/settings.json",
-      "content_base64": "eyJ0aGVtZSI6ImRhcmsifQo=",
-      "mode": 384
-    }
-  ],
-  "include_resume_history": false,
-  "dry_run": false
-}
-```
-
-约束：
-
-- 配置导入必须由 CLI 先做 allowlist 过滤和用户确认。
-- `dry_run=true` 时只提交路径给 server 做计划；`dry_run=false` 时 CLI 必须提交已确认文件内容。
-- server 只负责校验、审计和创建 `import_tool_account_config` 节点任务；实际文件由 node 原子写入目标账户目录。
-- 服务端不得接受 OAuth token、cookies、refresh token、私钥或完整 `~/.claude.json`。
-- 导入结果只写入目标工具账户目录，不写入 workspace 目录。
-- `include_resume_history=true` 时才允许导入 `projects/`、`sessions/`、`history.jsonl`、`file-history/`、`plans/`、`tasks/` 等历史状态。
-- resume 历史导入必须展示隐私风险和数据体积，且不得开启本地与远端自动双向同步。
-
-### 2.6 `/nodes`
-
-```text
-GET    /api/v1/nodes
-POST   /api/v1/nodes
-GET    /api/v1/nodes/{node_id}
-PATCH  /api/v1/nodes/{node_id}
-POST   /api/v1/nodes/{node_id}/registration-token
-POST   /api/v1/nodes/{node_id}/maintenance
-POST   /api/v1/nodes/{node_id}/disable
-```
-
-Node create request:
-
-```json
-{
-  "name": "us-west-1",
-  "region_code": "US",
-  "tags": ["us", "west"],
-  "weight": 100,
-  "supported_tool_types": ["claude"]
-}
-```
-
-### 2.7 `/workspaces`
-
-```text
-GET    /api/v1/workspaces
-POST   /api/v1/workspaces
-GET    /api/v1/workspaces/{workspace_id}
-PATCH  /api/v1/workspaces/{workspace_id}
-```
-
-Create request:
-
-```json
-{
-  "device_id": "dev_...",
-  "project_key": "sha256:...",
-  "local_start_path": "/Users/rem/project",
-  "display_name": "project",
-  "sync_git": true,
-  "git_sync_policy": {
-    "exclude_hooks": true,
-    "exclude_locks": true,
-    "require_clean_git_lock": true,
-    "warn_concurrent_git": true
-  }
-}
-```
-
-### 2.8 `/sync-sessions`
-
-```text
-GET    /api/v1/sync-sessions
-POST   /api/v1/sync-sessions
-GET    /api/v1/sync-sessions/{sync_session_id}
-POST   /api/v1/sync-sessions/{sync_session_id}/pause
-POST   /api/v1/sync-sessions/{sync_session_id}/resume
-POST   /api/v1/sync-sessions/{sync_session_id}/resolve
-POST   /api/v1/sync-sessions/{sync_session_id}/reset
-```
-
-Create request:
-
-```json
-{
-  "workspace_id": "ws_...",
-  "mode": "two_way",
-  "sync_git": true,
-  "exclude": [
-    ".git/**/*.lock",
-    ".git/hooks",
-    ".git/worktrees",
-    "node_modules",
-    "target",
-    "dist",
-    ".venv",
-    "__pycache__"
-  ]
-}
-```
-
-约束：
-
-- `sync_git` 默认 `true`。
-- 用户关闭 `.git/` 同步时，CLI 必须把 `.git` 加入 exclude。
-- `sync_git=true` 时仍必须默认排除 Git lock 文件。
-- `.git/hooks/` 默认排除，除非用户显式允许。
-- 创建和 attach 前必须检查本地和远端 Git lock 文件。
-
-### 2.9 `/sessions`
-
-```text
-GET    /api/v1/sessions
-POST   /api/v1/sessions
-GET    /api/v1/sessions/current-project
-GET    /api/v1/sessions/{session_id}
-POST   /api/v1/sessions/{session_id}/attach-info
-POST   /api/v1/sessions/{session_id}/stop
-```
-
-Create request:
-
-```json
-{
-  "tool_type": "claude",
-  "tool_account_id": "acct_...",
-  "workspace_id": "ws_...",
-  "project_key": "sha256:...",
-  "argv": ["--model", "opus"]
-}
-```
-
-Attach info response:
-
-```json
-{
-  "data": {
-    "session_id": "sess_...",
-    "node_id": "node_...",
-    "node_wg_ip": "10.42.0.10",
-    "ssh_username": "agent-remote",
-    "attach_command": "ssh agent-remote@10.42.0.10 agent-remote-attach --session sess_..."
-  },
-  "request_id": "req_..."
-}
-```
-
-### 2.10 `/browser-sessions`
-
-```text
-GET    /api/v1/browser-sessions
-POST   /api/v1/browser-sessions
-GET    /api/v1/browser-sessions/{browser_session_id}
-POST   /api/v1/browser-sessions/{browser_session_id}/connect-info
-POST   /api/v1/browser-sessions/{browser_session_id}/stop
-```
-
-Create request:
-
-```json
-{
-  "tool_account_id": "acct_...",
-  "target_url": "https://claude.ai",
-  "region_code": "US",
-  "timezone": "America/Los_Angeles",
-  "locale": "en_US.UTF-8",
-  "ttl_seconds": 1800
-}
-```
-
-Create response:
-
-```json
-{
-  "data": {
-    "browser_session_id": "bsess_...",
-    "status": "starting",
-    "node_id": "node_...",
-    "expires_at": "2026-07-04T00:30:00Z"
-  },
-  "request_id": "req_..."
-}
-```
-
-Connect info response:
-
-```json
-{
-  "data": {
-    "browser_session_id": "bsess_...",
-    "status": "ready",
-    "embed_url": "https://agent.example.com/api/v1/browser-sessions/bsess_.../stream?token=short_lived_token",
-    "expires_at": "2026-07-04T00:30:00Z"
-  },
-  "request_id": "req_..."
-}
-```
-
-约束：
-
-- `tool_account_id` 可空；为空时必须显式给出地区、时区和 locale。
-- 有 `tool_account_id` 时，默认继承工具账户的 `region_code`、`timezone`、`locale` 和节点亲和。
-- 浏览器会话默认无痕，不持久化 cookie、localStorage、密码、浏览历史、下载目录或浏览器 profile。
-- `embed_url` 必须短期有效，并绑定当前用户、浏览器会话和 request scope。
-- 管理端不得把页面内容、输入内容、cookie 或截图写入日志。
-
-### 2.11 `/developer-credential-profiles`
-
-```text
-GET    /api/v1/developer-credential-profiles
-POST   /api/v1/developer-credential-profiles
-GET    /api/v1/developer-credential-profiles/{profile_id}
-PATCH  /api/v1/developer-credential-profiles/{profile_id}
-POST   /api/v1/developer-credential-profiles/{profile_id}/disable
-POST   /api/v1/tool-accounts/{account_id}/developer-credential-profile
-DELETE /api/v1/tool-accounts/{account_id}/developer-credential-profile
-```
-
-Create request:
-
-```json
-{
-  "display_name": "personal",
-  "git_identity": {
-    "user_name": "Alice",
-    "user_email": "alice@example.com"
-  },
-  "github_cli": {
-    "mode": "remote_login"
-  },
-  "ssh": {
-    "mode": "agent_forwarding"
-  }
-}
-```
-
-约束：
-
-- profile 可表达 `git` identity、`gh` auth 模式、SSH 注入方式和后续 npm/pip 等凭据。
-- API 响应不得返回 token、私钥或完整 credential helper 配置。
-- `gh` 推荐 `remote_login`，即用户在远端账户环境内登录一次。
-- `ssh` 推荐 `agent_forwarding` 或 agent-remote 专用 deploy key，不默认复制本地 `~/.ssh`。
-
-### 2.12 `/audit-logs`
-
-```text
-GET /api/v1/audit-logs
-GET /api/v1/audit-logs/{audit_log_id}
-```
-
-### 2.13 `/node-api`
-
-```text
-POST /api/v1/node-api/register
-POST /api/v1/node-api/heartbeat
-POST /api/v1/node-api/tasks/poll
-POST /api/v1/node-api/tasks/{task_id}/start
-POST /api/v1/node-api/tasks/{task_id}/complete
-POST /api/v1/node-api/tasks/{task_id}/fail
-POST /api/v1/node-api/reconcile
-```
-
-Heartbeat request:
-
-```json
-{
-  "node_id": "node_...",
-  "version": "0.0.2",
-  "supported_tool_types": ["claude"],
-  "resources": {
-    "cpu_load": 0.42,
-    "memory_used_bytes": 1073741824,
-    "memory_total_bytes": 4294967296,
-    "disk_used_bytes": 21474836480,
-    "disk_total_bytes": 85899345920
-  },
-  "runtime": {
-    "docker_ok": true,
-    "tmux_ok": true,
-    "active_sessions": 3,
-    "containers": 3
-  }
-}
-```
-
-## 3. 节点任务 Payload 草案
-
-### 3.1 通用任务 envelope
-
-```json
-{
-  "task_id": "task_...",
-  "node_id": "node_...",
-  "task_type": "create_tool_session",
-  "idempotency_key": "task_...",
-  "payload": {},
-  "created_at": "2026-07-04T00:00:00Z",
-  "expires_at": "2026-07-04T00:10:00Z"
-}
-```
-
-### 3.2 `create_binding_session`
-
-```json
-{
-  "binding_id": "bind_...",
-  "tool_account_id": "acct_...",
-  "tool_type": "claude",
-  "user_id": "user_...",
-  "region_code": "US",
-  "timezone": "America/Los_Angeles",
-  "locale": "en_US.UTF-8",
-  "template": {
-    "sandbox_agent": "claude",
-    "command": ["claude", "login"]
-  }
-}
-```
-
-### 3.3 `create_tool_session`
-
-```json
-{
-  "session_id": "sess_...",
-  "tool_type": "claude",
-  "tool_account_id": "acct_...",
-  "workspace_id": "ws_...",
-  "user_id": "user_...",
-  "project_key": "sha256:...",
-  "argv": ["--model", "opus"],
-  "paths": {
-    "workspace_remote_path": "/var/lib/agent-remote/users/user_.../workspaces/ws_.../files",
-    "account_remote_path": "/var/lib/agent-remote/users/user_.../tool-accounts/claude/acct_...",
-    "developer_credential_profile_path": "/var/lib/agent-remote/users/user_.../developer-credential-profiles/profile_..."
-  },
-  "developer_credentials": {
-    "profile_id": "profile_...",
-    "git_identity": true,
-    "gh_mode": "remote_login",
-    "ssh_mode": "agent_forwarding"
-  },
-  "runtime": {
-    "timezone": "America/Los_Angeles",
-    "locale": "en_US.UTF-8",
-    "cpu_limit": "2",
-    "memory_limit": "4g"
-  }
-}
-```
-
-### 3.4 `stop_tool_session`
-
-```json
-{
-  "session_id": "sess_...",
-  "reason": "user_requested"
-}
-```
-
-### 3.5 `create_browser_session`
-
-```json
-{
-  "browser_session_id": "bsess_...",
-  "user_id": "user_...",
-  "tool_account_id": "acct_...",
-  "target_url": "https://claude.ai",
-  "region_code": "US",
-  "timezone": "America/Los_Angeles",
-  "locale": "en_US.UTF-8",
-  "ttl_seconds": 1800,
-  "browser": {
-    "image": "kasmweb/chrome:1.18.0",
-    "engine": "chromium",
-    "mode": "incognito",
-    "viewport": {
-      "width": 1440,
-      "height": 900
-    }
-  },
-  "network_policy": {
-    "egress": "node_default",
-    "deny_private_networks": true,
-    "deny_metadata_service": true,
-    "disable_webrtc_local_ip": true
-  }
-}
-```
-
-节点成功后返回：
-
-```json
-{
-  "browser_session_id": "bsess_...",
-  "container_id": "container_...",
-  "stream_endpoint": "node-local://browser/bsess_...",
-  "status": "ready"
-}
-```
-
-节点端要求：
-
-- 浏览器必须在独立容器中运行。
-- 容器不挂载 workspace 和工具账户目录。
-- 临时 profile 目录位于浏览器会话临时目录中，停止后删除。
-- 浏览器语言、时区和 locale 必须按 payload 注入。
-
-### 3.6 `stop_browser_session`
-
-```json
-{
-  "browser_session_id": "bsess_...",
-  "reason": "user_requested"
-}
-```
-
-### 3.7 `sync_ssh_keys`
-
-```json
-{
-  "authorized_keys": [
-    {
-      "ssh_key_id": "ssh_...",
-      "public_key": "ssh-ed25519 ...",
-      "forced_command": "agent-remote-attach"
-    }
-  ]
-}
-```
-
-### 3.8 `reconcile_state`
-
-```json
-{
-  "requested_sections": ["sessions", "browser_sessions", "containers", "tmux", "authorized_keys"]
-}
-```
-
-### 3.9 任务结果
-
-Success:
-
-```json
-{
-  "task_id": "task_...",
-  "status": "succeeded",
-  "result": {
-    "session_id": "sess_...",
-    "tmux_session_name": "ar_sess_...",
-    "container_id": "..."
-  }
-}
-```
-
-Failure:
-
-```json
-{
-  "task_id": "task_...",
-  "status": "failed",
-  "error": {
-    "code": "docker_create_failed",
-    "message": "failed to create container"
-  }
-}
-```
-
-## 4. CLI 命令规范草案
-
-### 4.1 `agent-remote`
+### 1.1 `agent-remote`
 
 ```text
 agent-remote login --server https://example.com
@@ -772,7 +39,7 @@ agent-remote sync git disable
 agent-remote sync git check
 ```
 
-### 4.2 `fclaude`
+### 1.2 `fclaude`
 
 ```text
 fclaude
@@ -797,11 +64,11 @@ fclaude -- <claude_args...>
 - 同一 workspace 的多个 Claude session 挂载同一个远端项目目录。
 - 同一 Claude 账户的多个 session 挂载同一个远端账户配置目录。
 
-## 5. 数据库字段草案
+## 2. 数据库字段草案
 
 字段类型以 PostgreSQL 为准，具体长度可在迁移实现时调整。
 
-### 5.1 `users`
+### 2.1 `users`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -815,7 +82,7 @@ fclaude -- <claude_args...>
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
 
-### 5.2 `user_devices`
+### 2.2 `user_devices`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -827,7 +94,7 @@ fclaude -- <claude_args...>
 | last_seen_at | timestamptz | 最近使用 |
 | created_at | timestamptz | 创建时间 |
 
-### 5.3 `tool_accounts`
+### 2.3 `tool_accounts`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -844,7 +111,7 @@ fclaude -- <claude_args...>
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
 
-### 5.3.1 `developer_credential_profiles`
+### 2.3.1 `developer_credential_profiles`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -859,7 +126,7 @@ fclaude -- <claude_args...>
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
 
-### 5.3.2 `tool_account_developer_credential_profiles`
+### 2.3.2 `tool_account_developer_credential_profiles`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -868,7 +135,7 @@ fclaude -- <claude_args...>
 | developer_credential_profile_id | uuid | FK developer_credential_profiles |
 | created_at | timestamptz | 创建时间 |
 
-### 5.4 `tool_account_profiles`
+### 2.4 `tool_account_profiles`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -880,7 +147,7 @@ fclaude -- <claude_args...>
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
 
-### 5.5 `nodes`
+### 2.5 `nodes`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -895,7 +162,7 @@ fclaude -- <claude_args...>
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
 
-### 5.6 `node_tasks`
+### 2.6 `node_tasks`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -910,7 +177,7 @@ fclaude -- <claude_args...>
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
 
-### 5.7 `sessions`
+### 2.7 `sessions`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -927,7 +194,7 @@ fclaude -- <claude_args...>
 | created_at | timestamptz | 创建时间 |
 | updated_at | timestamptz | 更新时间 |
 
-### 5.8 `browser_sessions`
+### 2.8 `browser_sessions`
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -953,7 +220,7 @@ fclaude -- <claude_args...>
 - 不保存 cookie、localStorage、浏览历史、页面内容、截图、输入内容或浏览器 profile 路径。
 - `stream_endpoint` 只能是服务端内部引用；前端使用的 `embed_url` 必须动态签发短期 token。
 
-### 5.9 推荐索引
+### 2.9 推荐索引
 
 ```sql
 CREATE UNIQUE INDEX users_username_uidx ON users (username);
@@ -967,9 +234,9 @@ CREATE INDEX node_tasks_poll_idx ON node_tasks (node_id, status, lease_until);
 CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 ```
 
-## 6. 端到端测试场景
+## 3. 端到端测试场景
 
-### 6.1 首次部署与管理员初始化
+### 3.1 首次部署与管理员初始化
 
 目标：
 
@@ -993,7 +260,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 数据库迁移版本正确。
 - Redis 连接正常。
 
-### 6.2 节点注册与心跳
+### 3.2 节点注册与心跳
 
 目标：
 
@@ -1017,7 +284,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 节点支持工具类型包含 `claude`。
 - 节点端受控依赖版本记录在节点 manifest 中。
 
-### 6.3 CLI 登录与设备注册
+### 3.3 CLI 登录与设备注册
 
 目标：
 
@@ -1040,7 +307,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 管理端可看到设备。
 - 设备有 WireGuard peer 和 SSH key。
 
-### 6.3.1 CLI 托管依赖检查
+### 3.3.1 CLI 托管依赖检查
 
 目标：
 
@@ -1060,7 +327,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 用户不需要手动执行包管理器安装 Mutagen/WireGuard。
 - 依赖版本记录在本地 manifest 中。
 
-### 6.4 WireGuard 与 SSH 可达性
+### 3.4 WireGuard 与 SSH 可达性
 
 目标：
 
@@ -1081,7 +348,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - SSH 不能进入普通 shell。
 - SSH 只能进入受控 `agent-remote-attach`。
 
-### 6.5 Workspace 首次同步确认
+### 3.5 Workspace 首次同步确认
 
 目标：
 
@@ -1103,7 +370,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 确认后 `sync_sessions` 有记录。
 - Mutagen session 健康。
 
-### 6.6 Claude 账户绑定
+### 3.6 Claude 账户绑定
 
 目标：
 
@@ -1127,7 +394,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 日志不含 token/cookie。
 - 临时 sandbox 被清理。
 
-### 6.7 Claude session 创建与恢复
+### 3.7 Claude session 创建与恢复
 
 目标：
 
@@ -1149,7 +416,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 不是全局最近 session。
 - tmux session 未因 SSH 断开而停止。
 
-### 6.8 参数透传
+### 3.8 参数透传
 
 目标：
 
@@ -1166,7 +433,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 非 fclaude session 参数原样传给远端 `claude`。
 - 参数顺序保持不变。
 
-### 6.9 同账户多开同节点
+### 3.9 同账户多开同节点
 
 目标：
 
@@ -1185,7 +452,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 两个 session 的 `node_id` 相同。
 - 出口 IP 一致。
 
-### 6.10 Mutagen 冲突阻止进入
+### 3.10 Mutagen 冲突阻止进入
 
 目标：
 
@@ -1205,7 +472,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 未解决前 `fclaude` 不 attach。
 - 解决后可以进入 session。
 
-### 6.11 远端临时浏览器
+### 3.11 远端临时浏览器
 
 目标：
 
@@ -1231,7 +498,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 停止后临时 profile 目录被删除。
 - 日志不包含页面内容、输入内容、cookie、token 或截图。
 
-### 6.12 节点断线与恢复对账
+### 3.12 节点断线与恢复对账
 
 目标：
 
@@ -1252,7 +519,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 恢复后重新进入 `healthy` 或 `degraded`。
 - session 状态和节点本地 tmux/container 一致。
 
-### 6.13 设备撤销
+### 3.13 设备撤销
 
 目标：
 
@@ -1271,9 +538,9 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - SSH key 被节点移除。
 - 相关操作写入审计日志。
 
-## 7. 部署文档大纲
+## 4. 部署文档大纲
 
-### 7.1 前置要求
+### 4.1 前置要求
 
 - 一台控制面服务器。
 - 一台或多台 VPS 节点。
@@ -1286,7 +553,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 本地客户端为 macOS 或 Linux。
 - 本地客户端不要求用户手动安装 Mutagen 或 WireGuard；由 `agent-remote-cli` 托管。
 
-### 7.2 控制面部署
+### 4.2 控制面部署
 
 1. 下载 `agent-remote-server`、`agent-remote-admin-web` 和 Compose 文件。
 2. 创建 `.env`。
@@ -1297,7 +564,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 7. 创建第一个管理员。
 8. 登录管理端。
 
-### 7.3 反向代理与 HTTPS
+### 4.3 反向代理与 HTTPS
 
 推荐 Caddy：
 
@@ -1315,7 +582,7 @@ agent.example.com {
 - 上传大小限制。
 - 超时设置。
 
-### 7.4 节点端部署
+### 4.4 节点端部署
 
 1. 安装或检查系统级依赖：Docker Engine、OpenSSH server、TUN/WireGuard 能力。
 2. 下载 `agent-remote-node`。
@@ -1327,7 +594,7 @@ agent.example.com {
 8. 启动节点服务。
 9. 在管理端确认节点健康。
 
-### 7.5 WireGuard 配置
+### 4.5 WireGuard 配置
 
 文档应说明：
 
@@ -1337,7 +604,7 @@ agent.example.com {
 - 如何撤销设备 peer。
 - 防火墙建议。
 
-### 7.6 SSH forced command 配置
+### 4.6 SSH forced command 配置
 
 文档应说明：
 
@@ -1346,7 +613,7 @@ agent.example.com {
 - 用户不得手工编辑受控段。
 - `agent-remote-attach` 如何校验 session。
 
-### 7.7 Claude 工具镜像
+### 4.7 Claude 工具镜像
 
 文档应说明：
 
@@ -1357,7 +624,7 @@ agent.example.com {
 - 时区和 locale 注入。
 - 资源限制。
 
-### 7.8 远端浏览器运行时
+### 4.8 远端浏览器运行时
 
 文档应说明：
 
@@ -1369,7 +636,7 @@ agent.example.com {
 - 网络策略，包括禁止访问 metadata 地址和不必要内网段。
 - 管理端短期 `embed_url` 签发和过期策略。
 
-### 7.9 本地 CLI 安装
+### 4.9 本地 CLI 安装
 
 文档应说明：
 
@@ -1383,7 +650,7 @@ agent.example.com {
 - `fclaude` 基础使用。
 - keychain/libsecret 要求。
 
-### 7.10 首个 Claude 账户绑定
+### 4.10 首个 Claude 账户绑定
 
 文档应说明：
 
@@ -1393,7 +660,7 @@ agent.example.com {
 - 执行 `claude login`。
 - verifier 成功后的状态。
 
-### 7.11 常见故障排查
+### 4.11 常见故障排查
 
 必须覆盖：
 
@@ -1408,7 +675,7 @@ agent.example.com {
 - session 无法恢复。
 - 远端浏览器无法启动、无法连接、TTL 过期或出口环境不匹配。
 
-### 7.12 备份与恢复
+### 4.12 备份与恢复
 
 文档必须强调：
 
@@ -1418,7 +685,7 @@ agent.example.com {
 - 主密钥丢失后无法恢复已加密登录态。
 - 节点本地账户目录需要按策略备份。
 
-### 7.13 升级
+### 4.13 升级
 
 文档应说明：
 

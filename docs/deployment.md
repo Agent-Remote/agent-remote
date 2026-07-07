@@ -103,7 +103,6 @@ Every repository uses a two-step release flow:
 The prepare workflow updates repository-owned version files, commits `chore: release vX.Y.Z`, pushes `main`, and then pushes the matching tag. Tag-triggered release workflows only build and publish artifacts; they do not modify source files.
 
 - `agent-remote` publishes a deployment bundle containing `deploy/`, `docs/`, and license notices.
-- `agent-remote-protocol` publishes a protocol bundle containing OpenAPI, JSON Schema, examples, docs, and notices.
 - `agent-remote-server` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-server`.
 - `agent-remote-admin-web` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-admin-web`.
 - `agent-remote-node` publishes Linux release archives.

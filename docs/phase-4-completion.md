@@ -20,12 +20,9 @@ Phase 4 的目标是让 `agent-remote-node` 成为可注册、可认证、可心
 - [x] 节点本地 task ledger
 - [x] `reconcile_state` 基础实现
 - [x] 管理端节点创建、更新、维护、禁用和注册 token 轮换
-- [x] OpenAPI 契约同步
 - [x] 服务端迁移、模型、repository、service、route 和测试
 
 ## 仓库提交
-
-`agent-remote-protocol`：
 
 ```text
 5611080 docs: extend node api contract
@@ -44,8 +41,6 @@ Phase 4 的目标是让 `agent-remote-node` 成为可注册、可认证、可心
 ```
 
 ## API 范围
-
-已同步到 OpenAPI 并在服务端实现的主要接口：
 
 - `GET /api/v1/nodes`
 - `POST /api/v1/nodes`
@@ -104,11 +99,6 @@ Phase 4 的目标是让 `agent-remote-node` 成为可注册、可认证、可心
 
 ## 验证命令
 
-在 `agent-remote-protocol` 仓库执行：
-
-```sh
-ruby -e 'require "yaml"; YAML.load_file("openapi/openapi.yaml"); puts "yaml ok"'
-```
 
 ```sh
 git diff --check
@@ -151,8 +141,6 @@ docker build -t agent-remote-node:phase4 .
 
 ## 当前验证结果
 
-- `agent-remote-protocol` OpenAPI YAML 解析通过
-- `agent-remote-protocol` `git diff --check` 通过
 - `agent-remote-server` `scripts/run-quality-checks.sh` 通过
 - `ruff format --check .` 通过
 - `ruff check .` 通过
@@ -173,7 +161,6 @@ docker build -t agent-remote-node:phase4 .
 
 Phase 5 可以开始，前提是：
 
-- 协议仓库 OpenAPI 已包含节点管理和节点端专用 API
 - server 仓库节点 API、任务 lease、节点认证和断线标记均有测试
 - node 仓库可以从配置注册、上报心跳、轮询任务并回写任务结果
 - 节点 token、注册 token 只保存哈希

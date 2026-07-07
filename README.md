@@ -9,7 +9,6 @@ The project is designed for individuals and small teams that want Claude Code fi
 ## Repositories
 
 - `agent-remote`: project-level deployment bundle, architecture, and cross-repository documentation.
-- `agent-remote-protocol`: OpenAPI, JSON Schema, node task contracts, and shared terminology.
 - `agent-remote-server`: Python 3.13 control-plane API for users, devices, nodes, sessions, sync, browser tasks, and audit data.
 - `agent-remote-admin-web`: React/Vite administrative console.
 - `agent-remote-node`: Go node runtime deployed on VPS hosts.
@@ -35,7 +34,7 @@ The project is designed for individuals and small teams that want Claude Code fi
 
 Each repository has a `prepare-release` workflow. Running it with a version updates repository-owned version files, updates `CHANGELOG.md`, commits `chore: release vX.Y.Z`, pushes the tag, and dispatches the release workflow.
 
-Release workflows publish deployment archives, CLI/node binaries, protocol bundles, GHCR images, and GitHub Release notes.
+Release workflows publish deployment archives, CLI/node binaries, GHCR images, and GitHub Release notes.
 
 ## License
 

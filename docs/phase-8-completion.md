@@ -28,8 +28,6 @@ Phase 8：工具账户抽象和 Claude 绑定，状态为完成。
 - [x] `agent-remote account status`
 - [x] `agent-remote account list`
 - [x] `agent-remote account disable`
-- [x] OpenAPI 合约更新
-
 ## 控制面能力
 
 新增 API：
