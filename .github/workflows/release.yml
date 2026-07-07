@@ -1,0 +1,27 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deployment bundle
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          package="agent-remote-deploy-${version}"
+          mkdir -p "dist/${package}"
+          cp -R deploy docs README.md LICENSE THIRD_PARTY_NOTICES.md "dist/${package}/"
+          tar -C dist -czf "dist/${package}.tar.gz" "${package}"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.tar.gz
+

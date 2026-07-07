@@ -1,0 +1,28 @@
+{$AGENT_REMOTE_DOMAIN} {
+  encode zstd gzip
+
+  handle /api/* {
+    reverse_proxy server:8000
+  }
+
+  handle /docs* {
+    reverse_proxy server:8000
+  }
+
+  handle /redoc* {
+    reverse_proxy server:8000
+  }
+
+  handle /openapi.json {
+    reverse_proxy server:8000
+  }
+
+  handle /healthz {
+    reverse_proxy server:8000
+  }
+
+  handle {
+    reverse_proxy admin-web:80
+  }
+}
+

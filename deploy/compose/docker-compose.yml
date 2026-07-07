@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agent_remote
+      POSTGRES_USER: agent_remote
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_remote -d agent_remote"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  server:
+    image: ${SERVER_IMAGE:-ghcr.io/agent-remote/agent-remote-server:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      AGENT_REMOTE_ENV: production
+      AGENT_REMOTE_SECRET_KEY: ${AGENT_REMOTE_SECRET_KEY:?AGENT_REMOTE_SECRET_KEY is required}
+      PUBLIC_BASE_URL: ${AGENT_REMOTE_PUBLIC_BASE_URL:?AGENT_REMOTE_PUBLIC_BASE_URL is required}
+      DATABASE_URL: postgresql+asyncpg://agent_remote:${POSTGRES_PASSWORD}@postgres:5432/agent_remote
+      REDIS_URL: redis://redis:6379/0
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-["https://agent-remote.example.com"]}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    expose:
+      - "8000"
+
+  admin-web:
+    image: ${ADMIN_WEB_IMAGE:-ghcr.io/agent-remote/agent-remote-admin-web:latest}
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - server
+      - admin-web
+    environment:
+      AGENT_REMOTE_DOMAIN: ${AGENT_REMOTE_DOMAIN:?AGENT_REMOTE_DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  redis-data:
+  caddy-data:
+  caddy-config:
+
