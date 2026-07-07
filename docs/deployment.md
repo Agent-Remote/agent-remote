@@ -115,6 +115,6 @@ Create a release from GitHub Actions by running `prepare-release` in the reposit
 scripts/prepare-release.sh 0.1.0
 git add .
 git commit -m "chore: release v0.1.0"
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.0.2
+git push origin v0.0.2
 ```
