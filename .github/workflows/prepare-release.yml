@@ -9,6 +9,7 @@ on:
         type: string
 
 permissions:
+  actions: write
   contents: write
 
 jobs:
@@ -51,3 +52,6 @@ jobs:
           git tag "v${version}"
           git push origin HEAD:${GITHUB_REF_NAME}
           git push origin "v${version}"
+          gh workflow run release.yml --ref main -f version="${version}"
+        env:
+          GH_TOKEN: ${{ github.token }}
