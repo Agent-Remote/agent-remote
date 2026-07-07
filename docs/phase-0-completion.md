@@ -48,7 +48,6 @@ docs/browser-session-protocol.md
 docs/cli-contract.md
 docs/error-codes.md
 docs/node-task-protocol.md
-docs/phase-0-completion.md
 docs/terminology.md
 docs/versioning.md
 ```

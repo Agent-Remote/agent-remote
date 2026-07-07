@@ -16,7 +16,7 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
       - name: Normalize version
@@ -36,7 +36,7 @@ jobs:
           echo "value=${version}" >> "$GITHUB_OUTPUT"
       - name: Prepare version files
         run: scripts/prepare-release.sh "${{ steps.version.outputs.value }}"
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4.2.0
       - name: Validate compose bundle
         run: docker compose --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml config --quiet
       - name: Commit and tag
@@ -46,7 +46,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet; then
-            git add docs/deployment.md
+            git add docs/deployment.md CHANGELOG.md
             git commit -m "chore: release v${version}"
           fi
           git tag "v${version}"

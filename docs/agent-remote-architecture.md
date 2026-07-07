@@ -1430,13 +1430,13 @@ ssh agent-remote@{node_wg_ip} agent-remote-attach --session {session_id}
 
 - `create_binding_session`：创建工具账户绑定临时 session。
 - `create_tool_session`：创建工具运行 session。
-- `stop_session`：停止工具 session。
+- `stop_tool_session`：停止工具 session。
 - `create_browser_session`：创建远端临时浏览器会话。
 - `stop_browser_session`：停止远端临时浏览器会话。
 - `sync_ssh_keys`：同步受控 `authorized_keys`。
 - `prepare_workspace`：准备远端 workspace 目录。
-- `archive_account_config`：归档工具账户配置。
-- `inject_account_config`：注入工具账户配置。
+- `verify_tool_account`：验证工具账户远端配置。
+- `import_tool_account_config`：导入工具账户配置。
 - `cleanup_resources`：清理异常容器、tmux 和临时目录。
 - `reconcile_state`：节点状态对账。
 

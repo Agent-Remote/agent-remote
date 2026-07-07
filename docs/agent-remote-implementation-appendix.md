@@ -533,7 +533,7 @@ Heartbeat request:
 ```json
 {
   "node_id": "node_...",
-  "version": "0.1.0",
+  "version": "0.0.2",
   "supported_tool_types": ["claude"],
   "resources": {
     "cpu_load": 0.42,
@@ -616,7 +616,7 @@ Heartbeat request:
 }
 ```
 
-### 3.4 `stop_session`
+### 3.4 `stop_tool_session`
 
 ```json
 {

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   echo "Usage: $0 <version>" >&2
-  echo "Example: $0 0.1.0" >&2
+  echo "Example: $0 0.0.2" >&2
 }
 
 if [[ $# -ne 1 ]]; then
@@ -32,5 +32,7 @@ text = re.sub(r"git tag v[0-9A-Za-z.+-]+", f"git tag v{version}", text)
 text = re.sub(r"git push origin v[0-9A-Za-z.+-]+", f"git push origin v{version}", text)
 deployment.write_text(text)
 PY
+
+scripts/update-changelog.sh "$VERSION"
 
 echo "Prepared agent-remote deployment bundle v${VERSION}"

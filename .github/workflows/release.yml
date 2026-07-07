@@ -18,7 +18,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.0
       - name: Resolve release version
         id: version
         env:
@@ -34,9 +34,10 @@ jobs:
           version="${{ steps.version.outputs.value }}"
           package="agent-remote-deploy-${version}"
           mkdir -p "dist/${package}"
-          cp -R deploy docs README.md LICENSE THIRD_PARTY_NOTICES.md "dist/${package}/"
+          cp -R deploy docs README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md "dist/${package}/"
           tar -C dist -czf "dist/${package}.tar.gz" "${package}"
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3.0.1
         with:
           tag_name: v${{ steps.version.outputs.value }}
+          generate_release_notes: true
           files: dist/*.tar.gz
