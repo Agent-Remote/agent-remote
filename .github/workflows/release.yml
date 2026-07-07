@@ -34,7 +34,7 @@ jobs:
           version="${{ steps.version.outputs.value }}"
           package="agent-remote-deploy-${version}"
           mkdir -p "dist/${package}"
-          cp -R deploy docs README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md "dist/${package}/"
+          cp -R deploy docs scripts README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md "dist/${package}/"
           tar -C dist -czf "dist/${package}.tar.gz" "${package}"
       - uses: softprops/action-gh-release@v3.0.1
         with:

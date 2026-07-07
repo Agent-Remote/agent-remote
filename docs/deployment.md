@@ -1,6 +1,6 @@
 # Deployment
 
-Phase 12 provides a self-hosted deployment path for the control plane, admin web, node runtime, and local CLI packages.
+agent-remote provides a self-hosted deployment path for the control plane, admin web, node runtime, and local CLI packages.
 
 ## Control Plane
 
@@ -55,7 +55,7 @@ The node installer checks these dependencies and prints explicit warnings when t
 Install the node:
 
 ```sh
-curl -fsSL https://example.com/agent-remote-node/install-node.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main/scripts/install.sh | sudo bash
 ```
 
 Register the node from a registration token created in the admin web:
@@ -71,7 +71,13 @@ sudo systemctl enable --now agent-remote-node
 
 ## CLI
 
-Install the packaged CLI for macOS or Linux, then run:
+Install the packaged CLI for macOS or Linux:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-cli/main/scripts/install.sh | bash
+```
+
+Initialize it:
 
 ```sh
 agent-remote init
@@ -102,18 +108,24 @@ Every repository uses a two-step release flow:
 
 The prepare workflow updates repository-owned version files, commits `chore: release vX.Y.Z`, pushes `main`, and then pushes the matching tag. Tag-triggered release workflows only build and publish artifacts; they do not modify source files.
 
-- `agent-remote` publishes a deployment bundle containing `deploy/`, `docs/`, and license notices.
+- `agent-remote` publishes a deployment bundle containing `deploy/`, `docs/`, `scripts/`, and license notices.
 - `agent-remote-server` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-server`.
 - `agent-remote-admin-web` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-admin-web`.
 - `agent-remote-node` publishes Linux release archives.
 - `agent-remote-cli` publishes macOS and Linux release archives with managed Mutagen and the WireGuard helper.
 
-Create a release from GitHub Actions by running `prepare-release` in the repositories that need to ship together. For local manual releases, run the repository's prepare script first, then commit and tag the same version:
+Create a release from GitHub Actions by running `prepare-release` in the repositories that need to ship together:
 
 ```sh
-scripts/prepare-release.sh 0.0.2
+gh workflow run prepare-release.yml --ref main -f version=0.0.3
+```
+
+For local manual releases, run the repository's prepare script first, then commit and tag the same version:
+
+```sh
+scripts/prepare-release.sh 0.0.3
 git add .
-git commit -m "chore: release v0.0.2"
+git commit -m "chore: release v0.0.3"
 git tag v0.0.3
-git push origin v0.0.3
+git push origin main v0.0.3
 ```

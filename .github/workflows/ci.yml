@@ -13,4 +13,5 @@ jobs:
       - uses: docker/setup-buildx-action@v4.2.0
       - name: Validate compose bundle
         run: docker compose --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml config --quiet
-
+      - name: Run local E2E smoke checks
+        run: AGENT_REMOTE_SMOKE_NETWORK=0 scripts/e2e-smoke.sh
