@@ -26,6 +26,21 @@ from pathlib import Path
 
 version = sys.argv[1]
 
+script = Path("scripts/prepare-release.sh")
+text = script.read_text()
+text = re.sub(r"Example: \$0 [0-9A-Za-z.+-]+", f"Example: $0 {version}", text)
+script.write_text(text)
+
+smoke = Path("scripts/e2e-smoke.sh")
+text = smoke.read_text()
+text = re.sub(r'VERSION="\$\{AGENT_REMOTE_VERSION:-[0-9A-Za-z.+-]+\}"', f'VERSION="${{AGENT_REMOTE_VERSION:-{version}}}"', text)
+smoke.write_text(text)
+
+acceptance = Path("docs/e2e-acceptance.md")
+text = acceptance.read_text()
+text = re.sub(r"AGENT_REMOTE_VERSION=[0-9A-Za-z.+-]+ scripts/e2e-smoke\.sh", f"AGENT_REMOTE_VERSION={version} scripts/e2e-smoke.sh", text)
+acceptance.write_text(text)
+
 deployment = Path("docs/deployment.md")
 text = deployment.read_text()
 text = re.sub(r"gh workflow run prepare-release\.yml --ref main -f version=[0-9A-Za-z.+-]+", f"gh workflow run prepare-release.yml --ref main -f version={version}", text)
