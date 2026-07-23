@@ -21,7 +21,9 @@ python3 - "$VERSION" <<'PY'
 from __future__ import annotations
 
 import re
+import stat
 import sys
+import tempfile
 from pathlib import Path
 
 version = sys.argv[1]
@@ -29,7 +31,14 @@ version = sys.argv[1]
 script = Path("scripts/prepare-release.sh")
 text = script.read_text()
 text = re.sub(r"Example: \$0 [0-9A-Za-z.+-]+", f"Example: $0 {version}", text)
-script.write_text(text)
+mode = stat.S_IMODE(script.stat().st_mode)
+with tempfile.NamedTemporaryFile(
+    mode="w", encoding="utf-8", dir=script.parent, delete=False
+) as temporary:
+    temporary.write(text)
+replacement = Path(temporary.name)
+replacement.chmod(mode)
+replacement.replace(script)
 
 smoke = Path("scripts/e2e-smoke.sh")
 text = smoke.read_text()
