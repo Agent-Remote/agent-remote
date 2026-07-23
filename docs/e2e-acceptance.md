@@ -20,7 +20,7 @@ scripts/e2e-smoke.sh
 常用选项：
 
 ```sh
-AGENT_REMOTE_VERSION=0.0.3 scripts/e2e-smoke.sh
+AGENT_REMOTE_VERSION=0.0.4 scripts/e2e-smoke.sh
 AGENT_REMOTE_SMOKE_NETWORK=0 scripts/e2e-smoke.sh
 AGENT_REMOTE_SMOKE_IMAGES=1 scripts/e2e-smoke.sh
 ```
@@ -43,17 +43,23 @@ AGENT_REMOTE_SMOKE_IMAGES=1 scripts/e2e-smoke.sh
 
 ### 节点
 
-- 在 VPS 节点安装 Docker、OpenSSH server、tmux、TUN 支持和 Docker Sandbox CLI。
-- 安装 Node runtime：
+- 准备 Debian 12+ 或 Ubuntu 22.04+ VPS，确认 Linux 5.15+、systemd 249+、cgroup v2；WireGuard 部署还需要 TUN。
+- 在管理端创建节点，配置允许的 backend、默认 backend 和 runtime policy，并保存 node ID 与一次性 registration token。
+- 使用一个命令安装 Native Runtime、Claude、注册节点并启动服务：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main/scripts/install.sh | \
+  bash -s -- \
+  --server-url https://agent-remote.example.com \
+  --node-id <node-id> \
+  --registration-token <registration-token>
 ```
 
-- 在管理端创建节点注册 token。
-- 使用 server URL、node ID 和 registration token 执行 `agent-remote-node register`。
-- 启动节点服务。
-- 确认节点显示在线，heartbeat 时间持续更新。
+- 确认 `agent-remote-runtime` 和 `agent-remote-node` 均为 active。
+- 确认 runtime probe 报告 `native` 可用，Claude version/checksum、Bubblewrap、cgroup v2、namespace、nftables、locale 和 systemd 检查通过。
+- 确认节点显示在线，heartbeat 时间持续更新，available backend 是管理员 allowlist 与 capability 的交集。
+- 重复执行相同安装命令，确认复用已有 node token 且服务保持健康。
+- 如需兼容 Docker Sandbox，先安装 Docker Sandbox CLI，再使用 `--runtime-backends native,docker_sandbox` 重跑安装并分别验证两个 capability；禁止失败时静默切换 backend。
 
 ### 本地 CLI
 
@@ -92,10 +98,12 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-cli/main/
 
 - 在管理端绑定 Claude 工具账户。
 - 确认账户具备地区、时区、locale 和节点放置策略配置。
+- 确认首次绑定后 `runtime_backend` 被固定，后续 node 默认值变化不会隐式迁移账户。
 - 执行 `fclaude`，并在需要时手动完成 Claude 登录。
 - 确认 Claude 登录状态存储在账户级远端配置目录。
 - 使用同一项目和同一账户启动另一个 `fclaude` session。
-- 确认容器挂载共享项目 workspace 和共享 Claude 配置目录。
+- 确认隔离 runtime 只暴露共享项目 workspace、当前账户 Claude 配置和固定版本 Claude runtime。
+- 对 Native session 确认目标时区/locale、独立 Linux UID、systemd 资源限制、network namespace 和 nftables 出口策略。
 - 执行 Claude `resume`，确认能看到预期历史。
 
 ### Agent Session 生命周期
@@ -106,6 +114,8 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-cli/main/
 - 确认默认恢复当前项目绑定的 tmux session。
 - 显式启动一个新 session，确认它可以与已有 session 共存。
 - 通过 CLI 停止 session，并确认节点状态变为 stopped。
+- 重启 Native session 所在 VPS，确认缺失的活跃 session 被标记为 `interrupted`，`fclaude` 创建带 `replaces_session_id` 的替代 session，且不会自动重放旧命令。
+- 在无活跃 session 时执行一次管理员 backend migration，确认目标 capability 校验、成功提交以及失败时保留原 backend。
 
 ### 远端浏览器
 
@@ -131,8 +141,8 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-cli/main/
 - Claude OAuth 和账户验证仍然需要用户手动完成。
 - 真实 WireGuard 配置需要主机网络权限，不同操作系统可能有差异。
 - 浏览器 session 是临时无痕用途，不设计为持久保存用户 cookie。
-- 节点注册和 Claude runtime 验收需要真实 VPS 类主机，并具备 Docker、tmux、SSH 和 TUN 支持。
-- Docker Sandbox CLI 和上游浏览器镜像是外部运行依赖，可能独立变化。
+- 节点注册和 Native Claude runtime 验收需要真实 systemd VPS；容器内测试不能替代 namespace、nftables、cgroup 和 SSH gateway 验收。
+- Docker Sandbox CLI 只在启用兼容 backend 时需要；上游 Docker Sandbox 与浏览器镜像可能独立变化。
 - Windows 不是 MVP 支持目标。
 
 ## 故障排查

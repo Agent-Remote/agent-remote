@@ -1,5 +1,7 @@
 # agent-remote 远端 AI Agent 运行平台方案
 
+> 0.0.4 架构修订：系统现已支持 `native` 与 `docker_sandbox` 两个显式 backend。Native Runtime 是新节点安装器的默认值，使用独立 Linux UID/GID、systemd cgroup、Bubblewrap、network namespace、nftables 和受管 Claude runtime，不依赖 KVM 或 Docker。管理员配置 node allowlist 与默认 backend，工具账户首次绑定后固定 backend；客户端不能选择或静默降级。本文较后位置保留的 Docker-only 内容记录原始 MVP backend 设计，凡与本修订或 `docs/native-runtime-design.md` 冲突之处，以本修订和 Native Runtime 文档为准。
+
 ## 1. 项目目标
 
 本项目用于将 Claude 等 AI Agent 工具运行在 VPS 等国外可信环境中，通过可控的网络、时区、系统环境和命令执行环境，满足工具自身的地区限制要求，同时让本地用户获得接近原生命令行的使用体验。
@@ -12,7 +14,7 @@
 
 1. 选择合适的远端 VPS 节点。
 2. 建立或复用本地到远端的 WireGuard 隧道。
-3. 准备远端 Docker sandbox 运行环境。
+3. 按工具账户固定的 backend 准备 Native Runtime 或 Docker Sandbox 运行环境。
 4. 同步项目文件、工具配置、skills、插件、记忆等状态。
 5. 通过 SSH 连接到远端 tmux session。
 6. 在 tmux 中启动或恢复目标工具 shell。
@@ -29,7 +31,7 @@
 - 后续工具启动命令按工具扩展，例如 `fcodex`。
 - 目标用户：个人用户和小团队。
 - 管理端用户角色：管理员和普通用户。
-- 远端用户隔离：所有 agent-remote 用户共用节点上的同一个 Linux 系统用户，通过 Docker sandbox、目录规范和应用层权限做隔离。
+- 远端用户隔离：Native Runtime 为每个控制面用户创建稳定的独立 Linux UID/GID；Docker Sandbox 兼容后端继续依赖容器边界和受控目录。
 - 文件同步范围：默认只同步用户当前 workspace，额外路径必须显式配置；不得默认同步用户 home、磁盘根目录或其他大范围目录。
 - session 恢复范围：工具启动命令默认只恢复当前启动路径对应项目和工具类型的最近可用 session。
 - 本地与服务器隧道：WireGuard。
@@ -44,7 +46,7 @@
 - CLI 参数策略：`agent-remote` 负责统一管理操作；工具启动命令只消费明确的 session 命令，其余参数默认透传给远端原生工具。
 - 终端入口：首期不做 Web 终端，只支持本地 CLI + SSH + tmux。
 - 远端临时浏览器：管理端需要支持创建短期无痕浏览器会话，通过 VPS 节点网络、地区、时区和 locale 访问邮箱、Claude Web 等页面；该能力不持久化浏览器用户信息，也不作为 Web 终端使用。
-- 工具运行隔离：Docker sandbox。
+- 工具运行隔离：管理员允许并由节点 capability 探测确认的 `native` 或 `docker_sandbox` backend；账户绑定后固定 backend，不静默切换。
 - 用户端语言：Rust。
 - 用户端本地数据库：如需要，使用 SQLite。
 - 用户端首期支持平台：macOS + Linux。
@@ -136,7 +138,7 @@
 4. `agent-remote-node`
    - Go 节点端 Agent。
    - 部署在各个 VPS 节点。
-   - 负责 Docker sandbox、tmux session、节点心跳、资源上报、节点本地账号环境管理。
+   - 负责 Native Runtime、Docker Sandbox、tmux session、节点心跳、资源上报和节点本地账户环境管理。
 
 ## 5. 核心运行链路草案
 
@@ -150,7 +152,7 @@
 6. CLI 建立 WireGuard 隧道。
 7. CLI 为当前 workspace 创建 Mutagen 同步 session。
 8. CLI 请求管理端分配一个节点和 Claude 运行实例。
-9. 管理端调度节点端创建 Docker sandbox 和 tmux session。
+9. 管理端按账户固定 backend 调度节点端创建隔离 runtime 和 tmux session。
 10. CLI 通过 SSH 连接到该 tmux session。
 11. 用户进入 Claude 原生命令行体验。
 
@@ -170,7 +172,7 @@
 实际进入 Claude session 的方式固定为：
 
 ```text
-local fclaude launcher -> ssh -> remote tmux -> docker sandbox -> claude
+local fclaude launcher -> ssh -> remote tmux -> native runtime | docker sandbox -> claude
 ```
 
 管理端前端只负责展示：
@@ -197,13 +199,13 @@ local fclaude launcher -> ssh -> remote tmux -> docker sandbox -> claude
 
 1. 普通用户在管理端创建工具账户绑定请求，选择 `tool_type`。
 2. 管理端选择一个可用节点，创建临时绑定任务。
-3. 节点端创建临时 Docker sandbox 和临时 tmux session。
+3. 节点端按账户固定 backend 创建临时隔离 runtime 和 tmux session。
 4. 用户通过 CLI 或管理端提供的连接指令进入该临时 session。
 5. 用户在远端环境内执行目标工具的登录命令，例如 Claude 使用 `claude login`。
 6. 节点端通过该工具的 verifier 检测登录是否完成。
 7. 节点端将生成的工具配置、登录态、必要缓存归档到该用户的账户目录。
 8. 管理端将该工具账户状态标记为 `active`。
-9. 临时绑定 sandbox 和 tmux session 被销毁。
+9. 临时绑定 runtime 和 tmux session 被销毁。
 
 该方案确保工具登录态产生在实际运行地区和实际网络环境中，避免本地地区、浏览器、系统环境影响登录结果。
 
@@ -259,10 +261,10 @@ local fclaude launcher -> ssh -> remote tmux -> docker sandbox -> claude
 
 项目首期采用轻量隔离模型：
 
-- 每个 VPS 节点只要求准备一个运行 agent-remote-node 的 Linux 用户。
-- 所有 agent-remote 用户共享这个宿主 Linux 用户。
+- 每个 VPS 节点准备一个非特权 `agent-remote-node` worker 用户和一个 root runtime helper。
+- Native Runtime 为每个控制面用户派生稳定、相互隔离的宿主 Linux UID/GID。
 - 每个 agent-remote 用户在节点上拥有独立的数据根目录。
-- 每个工具 session 运行在独立 Docker sandbox 中。
+- 每个工具 session 运行在独立 Native Runtime systemd unit 或 Docker Sandbox 中。
 - tmux session、workspace、工具配置目录、Mutagen 同步目录都按用户 ID、账户 ID、session ID 分层命名。
 - 管理端负责校验用户只能访问自己的 session、账号和同步目录。
 

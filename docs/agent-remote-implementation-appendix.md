@@ -271,17 +271,18 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 步骤：
 
 1. 管理端创建节点并生成注册 token。
-2. VPS 准备 Docker、OpenSSH server 和 TUN/WireGuard 内核能力。
-3. `agent-remote-node` 安装器准备 tmux、Mutagen、WireGuard helper 等受控依赖。
-4. 安装并启动 `agent-remote-node` systemd 服务。
-5. 节点使用注册 token 注册。
-6. 管理端查看节点状态。
+2. 为节点配置允许的 runtime backend、默认 backend 和调度策略。
+3. 在 Debian/Ubuntu VPS 上运行节点一键安装命令；Docker 仅在启用兼容 backend 时需要。
+4. 安装器准备 OpenSSH、tmux、Bubblewrap、nftables、iproute2、ACL、locale 和受控 Claude 等依赖。
+5. 安装并启动 `agent-remote-node` 与特权 `agent-remote-runtime` systemd 服务，并使用 token 注册。
+6. 管理端查看节点状态、runtime probe 和能力上报。
 
 验收：
 
 - 节点状态为 `healthy`。
 - `node_heartbeats` 有持续记录。
 - 节点支持工具类型包含 `claude`。
+- 节点上报 Native/Docker runtime 的可用性和缺失能力。
 - 节点端受控依赖版本记录在节点 manifest 中。
 
 ### 3.3 CLI 登录与设备注册
@@ -383,7 +384,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 1. 执行 `agent-remote account create --tool claude ...`。
 2. 执行 `agent-remote account bind <account_id>`。
 3. CLI 或管理端展示连接指令。
-4. 用户进入临时绑定 session。
+4. 用户进入账户固定 backend 上的临时绑定 session。
 5. 用户执行 `claude login`。
 6. 节点 verifier 检测登录态。
 
@@ -392,7 +393,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 状态流转到 `active`。
 - 登录态只保存在远端账户目录。
 - 日志不含 token/cookie。
-- 临时 sandbox 被清理。
+- 临时 runtime 被清理。
 
 ### 3.7 Claude session 创建与恢复
 
@@ -405,7 +406,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 步骤：
 
 1. 在项目目录执行 `fclaude`。
-2. 等待 Docker sandbox 和 tmux 创建。
+2. 等待账户固定 backend 的 runtime 和 tmux 创建。
 3. 进入 Claude。
 4. 断开 SSH。
 5. 在同一路径再次执行 `fclaude`。
@@ -415,6 +416,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 第二次恢复的是当前项目最近 session。
 - 不是全局最近 session。
 - tmux session 未因 SSH 断开而停止。
+- 节点重启或本地 Native runtime 丢失后，原 session 标记为 `interrupted`；再次执行 `fclaude` 创建 replacement session，不自动重放命令。
 
 ### 3.8 参数透传
 
@@ -545,10 +547,11 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 一台控制面服务器。
 - 一台或多台 VPS 节点。
 - 域名和 HTTPS。
-- Docker 和 Docker Compose。
+- 控制面需要 Docker 和 Docker Compose。
 - PostgreSQL 和 Redis 由 Compose 提供。
-- 节点需要 Docker Engine、OpenSSH server 和 TUN/WireGuard 内核能力。
-- 节点端 tmux、Mutagen、WireGuard helper 等由 `agent-remote-node` 发布包或安装器托管。
+- Native 节点使用 Debian/Ubuntu、systemd、cgroup v2，以及支持 user/mount/network namespace 的 Linux 内核；不要求 KVM 或 Docker。
+- 节点端 OpenSSH、tmux、Bubblewrap、nftables、iproute2、ACL、locale、Claude、Mutagen 和 WireGuard helper 等由 `agent-remote-node` 发布包或安装器托管。
+- Docker Engine 仅在节点显式启用 Docker Sandbox 兼容 backend 时需要。
 - 节点端浏览器运行时镜像和 noVNC/websockify 或后续 WebRTC 组件由 `agent-remote-node` 发布包、安装器或受控镜像托管。
 - 本地客户端为 macOS 或 Linux。
 - 本地客户端不要求用户手动安装 Mutagen 或 WireGuard；由 `agent-remote-cli` 托管。
@@ -584,15 +587,11 @@ agent.example.com {
 
 ### 4.4 节点端部署
 
-1. 安装或检查系统级依赖：Docker Engine、OpenSSH server、TUN/WireGuard 能力。
-2. 下载 `agent-remote-node`。
-3. 运行节点安装器，准备受控 tmux、Mutagen、WireGuard helper 等依赖。
-4. 创建 `/etc/agent-remote/node.toml`。
-5. 在管理端创建节点并获取注册 token。
-6. 运行节点注册命令。
-7. 安装 systemd service。
-8. 启动节点服务。
-9. 在管理端确认节点健康。
+1. 在管理端创建节点，配置 backend 策略并获取注册 token。
+2. 在 VPS 上执行发布页提供的一键安装命令，传入控制面 URL、节点 ID 和注册 token。
+3. 安装器校验平台、安装依赖与受控 Claude、写入配置和 sudoers，并启动 `agent-remote-node`、`agent-remote-runtime`。
+4. 在管理端确认节点健康、runtime probe 正常且所需 backend 可调度。
+5. 升级或修复时重复运行同一命令；安装流程保持幂等并复用已有注册信息。
 
 ### 4.5 WireGuard 配置
 
@@ -613,16 +612,16 @@ agent.example.com {
 - 用户不得手工编辑受控段。
 - `agent-remote-attach` 如何校验 session。
 
-### 4.7 Claude 工具镜像
+### 4.7 Claude Runtime
 
 文档应说明：
 
-- Claude 基础镜像构建方式。
-- 非 root 用户。
-- 默认工作目录。
-- 配置目录挂载。
-- 时区和 locale 注入。
-- 资源限制。
+- Native Runtime 使用安装器固定并校验的 Claude 可执行文件。
+- 每个账户使用独立 Linux UID/GID、home、workspace 和配置目录。
+- Bubblewrap、cgroup v2、network namespace 与 nftables 的隔离边界。
+- 时区、locale、DNS/出口策略和资源限制的注入方式。
+- 特权 runtime helper 与非特权 worker 的调用边界及 sudoers 白名单。
+- Docker Sandbox 作为显式启用的兼容 backend，使用固定镜像和同等控制面状态机。
 
 ### 4.8 远端浏览器运行时
 

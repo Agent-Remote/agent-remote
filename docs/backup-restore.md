@@ -12,6 +12,7 @@ Node:
 
 - `/etc/agent-remote-node/config.json`.
 - `/var/lib/agent-remote/users`.
+- `/opt/agent-remote/runtimes/claude` metadata or the exact pinned Claude version and checksum needed to reinstall it.
 - `/var/lib/agent-remote/browser-sessions` only if active browser troubleshooting is required.
 
 Client:
@@ -40,11 +41,10 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.y
 
 ## Node Restore
 
-Restore `/etc/agent-remote-node/config.json` and `/var/lib/agent-remote/users`, then:
+Restore `/etc/agent-remote-node/config.json` and `/var/lib/agent-remote/users`, reinstall the same managed Claude runtime, then:
 
 ```sh
-sudo systemctl restart agent-remote-node
+sudo systemctl restart agent-remote-runtime agent-remote-node
 ```
 
-If Docker containers were not restored, running sessions should be treated as lost and recreated from the control plane.
-
+Do not restore `/var/lib/agent-remote-runtime` as live process state. If Native systemd units or Docker containers were not restored, running sessions should be reconciled as `interrupted` or lost and recreated from the control plane; commands must not be replayed automatically.

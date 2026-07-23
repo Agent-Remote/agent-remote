@@ -44,30 +44,24 @@ Bootstrap the first administrator from the admin web. The normal CLI initializat
 
 Requirements on each VPS node:
 
-- Docker with the Docker Sandbox CLI available.
-- OpenSSH server.
-- `tmux`.
-- `mutagen` if the node runs node-side sync commands.
-- TUN support for WireGuard networking.
+- Debian 12+ or Ubuntu 22.04+ with Linux 5.15+, systemd 249+, and cgroup v2.
+- Root access, or a regular account with `sudo` access.
+- TUN support for WireGuard networking when the deployment uses WireGuard.
+- Docker with the Docker Sandbox CLI only when `docker_sandbox` compatibility is enabled.
 
-The node installer checks these dependencies and prints explicit warnings when they are missing. It does not silently install Docker or OpenSSH because those packages usually require host-specific firewall, group, and daemon policy decisions.
+The one-command installer installs missing Native Runtime packages, installs and pins Claude Code through Anthropic's official installer, configures the restricted SSH gateway and root runtime helper, registers the node, starts both systemd services, and verifies the runtime probe and control-plane heartbeat. It does not proactively upgrade packages already installed and does not install Docker.
 
 Install the node:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main/scripts/install.sh | sudo bash
-```
-
-Register the node from a registration token created in the admin web:
-
-```sh
-sudo agent-remote-node register \
-  --config /etc/agent-remote-node/config.json \
+curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main/scripts/install.sh | \
+  bash -s -- \
   --server-url https://agent-remote.example.com \
   --node-id <node-id> \
   --registration-token <registration-token>
-sudo systemctl enable --now agent-remote-node
 ```
+
+The default backend is `native`. Add `--runtime-backends native,docker_sandbox` only after installing a Docker CLI that provides `docker sandbox`. Re-running the same command upgrades managed binaries and Claude while reusing the existing node token.
 
 ## CLI
 
@@ -95,7 +89,8 @@ Release packages should include or install:
 - `fclaude`.
 - `agent-remote-wireguard` helper.
 - Mutagen binary and license notice.
-- Node binaries: `agent-remote-node`, `agent-remote-attach`.
+- Node binaries: `agent-remote-node`, `agent-remote-attach`, and `agent-remote-runtime`.
+- A versioned managed Claude Code runtime on Native nodes.
 
 The browser runtime defaults to the external `kasmweb/chrome:1.18.0` image. Deployments that mirror or redistribute that image must keep the exact image digest and notices.
 
@@ -117,15 +112,15 @@ The prepare workflow updates repository-owned version files, commits `chore: rel
 Create a release from GitHub Actions by running `prepare-release` in the repositories that need to ship together:
 
 ```sh
-gh workflow run prepare-release.yml --ref main -f version=0.0.3
+gh workflow run prepare-release.yml --ref main -f version=0.0.4
 ```
 
 For local manual releases, run the repository's prepare script first, then commit and tag the same version:
 
 ```sh
-scripts/prepare-release.sh 0.0.3
+scripts/prepare-release.sh 0.0.4
 git add .
-git commit -m "chore: release v0.0.3"
-git tag v0.0.3
-git push origin main v0.0.3
+git commit -m "chore: release v0.0.4"
+git tag v0.0.4
+git push origin main v0.0.4
 ```

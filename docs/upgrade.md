@@ -24,20 +24,23 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.y
 
 ## Node
 
-Upgrade node binaries with the node installer, then restart:
+Re-run the same one-command installer used for registration. It upgrades all three node binaries and the managed Claude runtime, refreshes systemd/SSH configuration, reuses the existing node token, and verifies the helper probe and heartbeat:
 
 ```sh
-sudo systemctl stop agent-remote-node
-sudo install -m 0755 agent-remote-node /usr/local/bin/agent-remote-node
-sudo install -m 0755 agent-remote-attach /usr/local/bin/agent-remote-attach
-sudo systemctl start agent-remote-node
+curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main/scripts/install.sh | \
+  bash -s -- \
+  --server-url https://agent-remote.example.com \
+  --node-id <node-id> \
+  --registration-token <original-registration-token>
 ```
 
 Confirm:
 
 ```sh
-sudo systemctl status agent-remote-node
+sudo systemctl status agent-remote-runtime agent-remote-node
 ```
+
+Use `--force-register` only when intentionally replacing the node token. Before changing an account's pinned backend, stop all active sessions and use the explicit runtime migration action; changing a node default does not migrate existing accounts.
 
 ## CLI
 
@@ -49,4 +52,3 @@ agent-remote status --online
 ```
 
 Do not delete `~/.config/agent-remote` during upgrades unless you intentionally want to remove local device identity and sync metadata.
-
