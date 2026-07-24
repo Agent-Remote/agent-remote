@@ -115,7 +115,9 @@ agent-remote attach --session-id <session-id> --print-only
 2. forced command 启动 `agent-remote-attach`。
 3. `agent-remote-attach` 使用节点 token 请求控制面验证。
 4. 控制面返回可 attach 的 tmux session name。
-5. 节点端执行 `tmux attach-session -t <name>`。
+5. 节点端配置 tmux 使用最新客户端尺寸，并执行 `tmux attach-session -d -t <name>`，让当前终端接管会话和窗口尺寸。
+
+CLI 和控制面生成的连接命令使用 `ssh -tt` 强制分配 PTY。SSH 会持续转发本地窗口变化，tmux 对 Claude 等全屏程序启用 `window-size latest` 和 `aggressive-resize`，因此在 Warp 与系统终端之间切换或调整窗口时会重新计算行列数并触发应用重绘。
 
 节点端新增 `install-ssh` 命令，用于初始化受控 authorized_keys 文件：
 
@@ -142,10 +144,10 @@ agent-remote-node --config config.json install-ssh
 写入的 SSH key 默认携带：
 
 ```text
-command="agent-remote-attach ...",no-agent-forwarding,no-X11-forwarding,no-port-forwarding,no-pty
+command="agent-remote-attach ...",no-agent-forwarding,no-X11-forwarding,no-port-forwarding
 ```
 
-因此 SSH 入口不能获得普通 shell，只能走控制面授权后的 attach 流程。
+PTY 用于传递终端尺寸和运行交互式工具；forced command 仍确保 SSH 入口不能获得普通 shell，只能走控制面授权后的 attach 流程。
 
 ## 验证命令
 
