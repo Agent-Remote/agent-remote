@@ -94,6 +94,17 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-cli/main/
 - 远端修改文件，确认本地项目目录同步更新。
 - 确认 `.git` 同步遵循用户配置的开启或关闭状态。
 
+### Git、GitHub CLI 与 SSH agent
+
+- 创建 `gh_mode=remote_login`、`ssh_mode=agent_forwarding` 的 developer credential profile，并绑定到工具账户。
+- 确认本机 `ssh-add -l` 至少列出一个 GitHub 可用 key，然后启动新的 Native session。
+- 在远端确认 `git`、`gh` 和 `ssh` 均可执行，`git config --get user.name` 与 `user.email` 符合 profile。
+- 确认 `/etc/passwd` 能解析当前 runtime UID，`SSH_AUTH_SOCK` 非空，`ssh-add -l` 显示本机 agent 中的 key。
+- 执行 `ssh -T git@github.com` 和 SSH URL 的 `git ls-remote`，确认不复制私钥即可访问 GitHub。
+- 在远端执行一次 `gh auth login`，断开并新建同账户 session，确认 `gh auth status` 仍有效。
+- 使用未绑定 profile 或 `ssh_mode=disabled` 的账户新建 session，确认 attach 命令不包含 `-A` 且 runtime 不暴露可用 agent socket。
+- 断开 SSH 后确认代理 socket 不再可连接；重新 attach 后确认访问恢复。
+
 ### Claude 配置
 
 - 在管理端绑定 Claude 工具账户。

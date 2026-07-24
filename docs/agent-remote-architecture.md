@@ -873,14 +873,17 @@ SSH 凭据：
 - SSH agent 转发必须是按 session 授权，默认最小化暴露时间和目标节点。
 - 专用 deploy key 应保存在远端账户目录或节点安全存储中，并在管理端记录指纹和用途。
 - 容器内 `GIT_SSH_COMMAND` 应指向受控 SSH wrapper，限制 known_hosts、identity 和交互行为。
+- Native Runtime 为启用 `agent_forwarding` 的 session 预挂载稳定代理 socket 目录。控制面在每次 attach 时重新授权，CLI 仅在获准时使用 `ssh -A`，节点 forced command 将当前连接的 agent socket 临时代理到 runtime；SSH 断开后代理立即失效，私钥不会写入节点磁盘。
+- SSH gateway 继续禁止 TCP、X11 和用户 rc，仅开放 forced command 所需的 PTY 与 agent forwarding；节点必须在 forced command 二次校验 profile 后才能接入 agent。
 
 GitHub CLI：
 
 - 不默认复制本地 `~/.config/gh/hosts.yml`。
 - 推荐用户在远端账户环境内执行一次 `gh auth login`，生成远端专用 GitHub CLI 登录态。
-- 远端 `gh` 登录态归档在工具账户目录，例如 `tool-accounts/{tool_account_id}/home/.config/gh/`。
+- 远端 `gh` 登录态归档在绑定的开发凭据 profile，例如 `developer-credential-profiles/{profile_id}/gh/`；显式共享同一 profile 的工具账户会共享该登录态。
 - 如果用户显式选择导入本地 `gh` token，CLI 必须提示风险，并只导入 GitHub host/token 必需字段。
 - 多个 Claude 账户默认不共享同一份 `gh` token，除非用户显式绑定同一个开发凭据 profile。
+- Native Runtime 将 profile 的 `gh/` 目录作为 `GH_CONFIG_DIR`，将 `home/.gitconfig` 作为 `GIT_CONFIG_GLOBAL`，并为 runtime 提供只包含当前隔离 UID 的 passwd/group 视图。
 
 开发凭据 profile：
 

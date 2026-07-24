@@ -34,6 +34,10 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main
   --registration-token <original-registration-token>
 ```
 
+The installer also ensures Native developer tooling (`git`, `gh`, and the OpenSSH client) is present. Sessions created before an upgrade that adds runtime mounts or developer credential injection must be stopped and recreated; an existing Bubblewrap process cannot acquire new mounts.
+
+For the SSH agent forwarding rollout, upgrade the node first, then the control plane and CLI. Trigger one attach so the versioned `sync_ssh_keys` task refreshes the gateway entry, wait for the node to consume it, and create a new Native session for validation.
+
 Confirm:
 
 ```sh
