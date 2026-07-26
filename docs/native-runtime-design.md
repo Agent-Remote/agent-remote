@@ -212,6 +212,9 @@ CleanupSession
 5. node 启动后对账 backend 资源；不存在的活跃 session 上报为 `interrupted`。
 6. `fclaude` 遇到 `interrupted` session 时创建 `replaces_session_id` 指向旧 session的新 session，不自动重放原命令。
 7. `cleanup_resources` 只接受显式的 `runtime_backend=native` 和最多 100 个 `session_ids`，逐个幂等停止；未知 task type 必须失败，不允许以 noop 成功。
+8. node 按 heartbeat 周期持续对账 runtime session，而不是只在启动时对账一次。
+9. Native supervisor 在同一 boot 内观察到 Claude 主进程正常退出时写入不含终端内容的退出标记；Docker sandbox 则通过 root 管理的最小会话清单对账 tmux。控制面收到 `process_exited` 后创建幂等 stop task，状态依次进入 `stopping`、`stopped` 并执行标准资源清理。
+10. SSH detach 不结束 tmux，也不产生退出证据；boot ID 改变、unit 异常消失或没有可信退出证据时仍标记为 `interrupted`，不得当作正常退出。
 
 ## 9. 安装与 capability
 

@@ -2160,6 +2160,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 不是恢复全局最近 session。
 - `fclaude -- <args>` 原样透传给远端 `claude`。
 - 同一 Claude 账户多个活跃 session 位于同一节点。
+- `fclaude list` 展示 workspace 工作目录（优先本地起始目录，缺失时回退远端目录），并支持 `--running`、`--stopped` 以及可重复的 `--status <status>` 服务端过滤。
+- Claude 在 tmux 内通过 `/exit`、EOF 或实际生效的中断信号退出主进程后，node 持续对账会触发标准 stop task；普通 SSH 断开不改变 session 状态。
 
 ### 9.12 Phase 10：远端临时浏览器
 
