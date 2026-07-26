@@ -224,6 +224,7 @@ Native backend 安装器检查：
 - nftables、iproute2、tmux、locale、TUN 和磁盘水位。
 - root runtime socket/service。
 - 固定版本 Claude runtime 和 checksum。
+- 经过 checksum 校验的受管 Node.js 22 runtime，以及 npm、npx 和常用 AI 开发命令基线。
 
 Docker、Docker Sandboxes 和 KVM 不再是 node systemd unit 的强依赖。浏览器、Docker Sandbox 和 Native Runtime 分别上报 capability。
 

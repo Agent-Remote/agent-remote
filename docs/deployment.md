@@ -49,7 +49,7 @@ Requirements on each VPS node:
 - TUN support for WireGuard networking when the deployment uses WireGuard.
 - Docker with the Docker Sandbox CLI only when `docker_sandbox` compatibility is enabled.
 
-The one-command installer installs missing Native Runtime packages, installs and pins Claude Code through Anthropic's official installer, configures the restricted SSH gateway and root runtime helper, registers the node, starts both systemd services, and verifies the runtime probe and control-plane heartbeat. It does not proactively upgrade packages already installed and does not install Docker.
+The one-command installer installs missing Native Runtime packages and a consistent AI development command baseline, installs and pins Claude Code through Anthropic's official installer, installs a checksum-verified Node.js 22 runtime with npm and npx, configures the restricted SSH gateway and root runtime helper, registers the node, starts both systemd services, and verifies the runtime probe and control-plane heartbeat. It does not proactively upgrade OS packages already installed and does not install Docker.
 
 Install the node:
 
