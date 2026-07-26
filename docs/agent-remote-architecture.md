@@ -49,7 +49,7 @@
 - 工具运行隔离：管理员允许并由节点 capability 探测确认的 `native` 或 `docker_sandbox` backend；账户绑定后固定 backend，不静默切换。
 - 用户端语言：Rust。
 - 用户端本地数据库：如需要，使用 SQLite。
-- 用户端首期支持平台：macOS + Linux。
+- 用户端支持平台：Windows x64/ARM64、macOS 与 Linux。
 - 管理端语言：Python。
 - 安全模型：自部署可信管理员 + 基础安全加固，不按商业 SaaS 强多租户模型设计。
 - 首期主要支持 Claude，后续需要支持其他 AI Agent 工具。
@@ -62,7 +62,7 @@
 ### 3.1 用户端
 
 - 语言：Rust。
-- 首期平台：macOS + Linux。
+- 支持平台：Windows x64/ARM64、macOS 与 Linux。
 - CLI 框架：`clap`。
 - 本地状态：SQLite，建议使用 `sqlx` 或 `rusqlite`。
 - 配置格式：TOML 或 YAML，优先 TOML。
@@ -1768,7 +1768,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 8. 已确认：多节点调度采用综合评分模型，结合健康状态、负载、活跃 session、节点权重、历史稳定性等因素。
 9. 已确认：安全模型按自部署可信管理员 + 基础安全加固设计，不按商业 SaaS 强多租户模型设计。
 10. 已确认：同一个工具账户允许多开，但同一账户的所有活跃 session 必须运行在同一 VPS 节点上。
-11. 已确认：用户端首期只支持 macOS + Linux，不支持原生 Windows。
+11. 用户端支持 Windows x64/ARM64、macOS 与 Linux；Windows 使用原生 CLI、Windows Credential Manager、OpenSSH Client 和官方 WireGuard tunnel service。
 12. 已确认：节点端主动连接管理端，管理端不主动 SSH 节点，也不要求节点暴露公网 API 端口。
 13. 已确认：WireGuard 采用设备级 peer 模型，本地设备和 VPS 节点均作为 peer，由管理端生成、分发和撤销配置。
 14. 已确认：SSH 使用设备级 key，并通过 forced command/受控入口脚本限制为进入授权 tmux session。
@@ -1806,7 +1806,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 7. WireGuard + Mutagen + SSH 由 CLI 调用本机命令编排。
 8. 管理前端只做节点、用户、账号、session 的基础管理。
 9. 安全模型按自部署可信管理员 + 基础安全加固设计，不引入复杂租户、计费、企业 SSO 和跨组织隔离。
-10. 用户端首期只支持 macOS + Linux。
+10. 用户端支持 Windows x64/ARM64、macOS 与 Linux。
 11. `fclaude` 默认恢复当前项目 session，项目 key 由启动路径生成。
 12. `agent-remote` 负责统一管理命令；`fclaude` session 命令以外的参数默认透传给远端原生 `claude`。
 13. Mutagen 双向同步和基础冲突处理命令。
@@ -2400,7 +2400,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 缓解：
 
-- MVP 只支持 macOS + Linux。
+- CLI 支持 Windows x64/ARM64、macOS 与 Linux。
 - CLI 内置或托管安装 WireGuard、Mutagen 等依赖。
 - 节点端发布包或安装器托管 tmux、Mutagen、WireGuard helper 等依赖。
 - Docker Engine、OpenSSH server、内核网络能力由安装器检查和引导。
@@ -2480,7 +2480,7 @@ MVP 明确不做：
 - 管理端提供远端临时无痕浏览器会话，用于通过 VPS 节点网络访问邮箱、Claude Web 等页面；该能力不提供 shell，不持久化浏览器用户信息。
 - 多节点调度采用综合评分模型，结合健康状态、负载、活跃 session、管理员权重和历史稳定性等因素。
 - 同一个工具账户允许多开，但同一账户的所有活跃 session 必须运行在同一 VPS 节点上，保证出口 IP 一致。
-- 用户端首期只支持 macOS + Linux，不支持原生 Windows。
+- 用户端支持 Windows x64/ARM64、macOS 与 Linux。
 - 节点端主动连接管理端，管理端不主动 SSH 节点，也不要求节点暴露公网 API 端口。
 - WireGuard 采用设备级 peer 模型，本地设备和 VPS 节点均作为 peer，由管理端生成、分发和撤销配置。
 - SSH 使用设备级 key，并通过 forced command/受控入口脚本限制为进入授权 tmux session，不提供通用 VPS shell。

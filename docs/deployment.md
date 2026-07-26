@@ -109,7 +109,7 @@ The prepare workflow updates repository-owned version files, commits `chore: rel
 - `agent-remote-server` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-server`.
 - `agent-remote-admin-web` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-admin-web`.
 - `agent-remote-node` publishes Linux release archives.
-- `agent-remote-cli` publishes macOS and Linux release archives with managed Mutagen and the WireGuard helper.
+- `agent-remote-cli` publishes Windows x64/ARM64, macOS, and Linux release archives with managed Mutagen and the WireGuard helper. Windows packages integrate with the official WireGuard for Windows tunnel service and the built-in OpenSSH Client.
 
 Create a release from GitHub Actions by running `prepare-release` in the repositories that need to ship together:
 
