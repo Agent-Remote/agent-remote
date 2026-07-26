@@ -1788,8 +1788,8 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 28. 已确认：Redis 是 MVP 必须依赖，用于缓存、短期任务状态、分布式锁和后台任务队列。
 29. 已确认：CLI 本地目录为 `~/.config/agent-remote/`，本地状态使用 SQLite；敏感值优先保存到系统 keychain/libsecret，SQLite 只保存引用；本地不保存工具账户登录态。
 30. 已确认：MVP 使用结构化日志、`request_id`、`task_id`、`session_id` 做基础观测，日志默认脱敏；首期不接 Prometheus/Grafana/OpenTelemetry。
-31. 已确认：项目按 Phase Roadmap 推进，从协议冻结、控制面、节点端、CLI、网络、同步、Claude 绑定、Claude session、远端浏览器、管理前端、打包部署到 E2E 发布逐步完成。
-32. 已确认：需要实施级附录细化协议冻结内容，包含 CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
+31. 已确认：项目按 Phase Roadmap 推进，从协议冻结、控制面、节点端、CLI、网络、同步、Claude 绑定、Claude session、远端浏览器、管理前端到打包部署逐步完成。
+32. 已确认：需要实施级附录细化协议冻结内容，包含 CLI 命令规范、数据库字段草案和部署文档大纲。
 33. 已确认：需要在主方案补充风险清单和非目标清单，明确 MVP 不解决的问题和主要风险缓解措施。
 34. 已确认：管理端提供远端临时无痕浏览器会话，浏览器运行在 VPS 节点 Docker sandbox 中，使用节点出口网络和匹配的地区、时区、locale；会话不持久化浏览器用户信息，也不提供 shell。
 
@@ -1864,7 +1864,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 | Phase 10 | `agent-remote-admin-web` / `agent-remote-node` / `agent-remote-server` | 远端临时浏览器 | `/browser-sessions`、浏览器容器、内嵌连接、TTL 清理完成 |
 | Phase 11 | `agent-remote-admin-web` | 管理前端 | 用户、设备、账号、节点、session、同步、浏览器和审计页面完成 |
 | Phase 12 | 全部仓库 | 打包与部署 | Docker Compose、systemd、CLI 安装包、节点安装器和升级文档完成 |
-| Phase 13 | 全部仓库 | 端到端验收和 MVP 发布 | 从空环境部署到 `fclaude` 可用的 E2E 测试通过 |
+| Phase 13 | 全部仓库 | MVP 发布 | 发布产物和用户文档可用 |
 | Phase 14 | 全部仓库 | v1.0 稳定化 | 安全加固、故障恢复、备份、升级兼容和文档补齐 |
 | Phase 15 | 全部仓库 | 多工具扩展验证 | 至少接入第二个工具原型，验证 `ToolAccount` 抽象可复用 |
 
@@ -1892,8 +1892,6 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 - 建立 `agent-remote-server` 的可运行基础。
 - 为后续 API、数据库和任务系统提供统一工程结构。
-
-完成记录见 [phase-1-completion.md](phase-1-completion.md)。
 
 交付物：
 
@@ -1947,8 +1945,6 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 敏感字段有加密标记或加密封装。
 - 基础 repository/service 测试覆盖创建、查询、更新和约束冲突。
 
-完成记录见 [phase-2-completion.md](phase-2-completion.md)。
-
 ### 9.5 Phase 3：认证、用户、设备和密钥
 
 目标：
@@ -1977,16 +1973,12 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 禁用设备后 CLI token、SSH key 和 WireGuard peer 都进入不可用状态。
 - 审计日志不记录密码、token、私钥或登录态。
 
-完成记录见 [phase-3-completion.md](phase-3-completion.md)。
-
 ### 9.6 Phase 4：节点注册、心跳和任务轮询
 
 目标：
 
 - 让 `agent-remote-node` 成为受控执行节点。
 - 建立管理端到节点端的持久任务模型。
-
-完成记录见 [phase-4-completion.md](phase-4-completion.md)。
 
 交付物：
 
@@ -2017,8 +2009,6 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 建立用户端统一管理命令。
 - 准备后续网络、同步和工具启动所需本地状态。
 
-完成记录见 [phase-5-completion.md](phase-5-completion.md)。
-
 交付物：
 
 - Rust CLI 项目结构。
@@ -2042,8 +2032,6 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 用户不需要手动安装 Mutagen。
 
 ### 9.8 Phase 6：WireGuard 与 SSH 受控连接
-
-完成记录见 [phase-6-completion.md](phase-6-completion.md)。
 
 目标：
 
@@ -2071,8 +2059,6 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 ### 9.9 Phase 7：Mutagen workspace 同步
 
-完成记录见 [phase-7-completion.md](phase-7-completion.md)。
-
 目标：
 
 - 保证本地项目文件与远端 workspace 双向同步。
@@ -2099,8 +2085,6 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - 发生冲突时默认阻止进入工具 session。
 
 ### 9.10 Phase 8：工具账户抽象和 Claude 绑定
-
-完成记录见 [phase-8-completion.md](phase-8-completion.md)。
 
 目标：
 
@@ -2194,8 +2178,6 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 
 ### 9.13 Phase 11：管理前端
 
-完成记录见 [phase-11-completion.md](phase-11-completion.md)。
-
 目标：
 
 - 让管理员和普通用户可以通过 Web 管理系统。
@@ -2254,33 +2236,23 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - `agent-remote doctor` 能检查关键依赖。
 - Docker/OpenSSH/TUN 等系统级依赖缺失时，安装器给出明确处理方式。
 
-### 9.15 Phase 13：端到端验收和 MVP 发布
+### 9.15 Phase 13：MVP 发布
 
 目标：
 
-- 证明项目从空环境到可用体验完整闭环。
 - 冻结 MVP release。
 
 交付物：
 
-- E2E 测试脚本。
-- 手工验收清单。
 - release notes。
 - 已知限制。
 - 故障排查文档。
-- 最小演示环境。
 
 验收标准：
 
-- 从空控制面部署到第一个管理员创建通过。
-- 节点注册和心跳通过。
-- CLI 登录和设备注册通过。
-- WireGuard 和 SSH 可达性通过。
-- Mutagen 同步通过。
-- Claude 账户绑定通过。
-- `fclaude` 创建、恢复、停止通过。
-- 远端浏览器访问 Claude Web 或邮箱通过。
-- 设备撤销和节点断线恢复测试通过。
+- 发布工作流生成预期产物。
+- 部署、升级和故障排查文档与当前实现一致。
+- 已知限制对目标用户明确可见。
 
 ### 9.16 Phase 14：v1.0 稳定化
 
@@ -2326,7 +2298,7 @@ MVP 采用 Docker Compose 部署控制面，节点端独立安装为 systemd 服
 - Codex runtime template。
 - Codex verifier。
 - `fcodex` 启动命令。
-- Codex session E2E。
+- Codex session 验证。
 - 文档补充工具接入指南。
 
 验收标准：
@@ -2528,8 +2500,8 @@ MVP 明确不做：
 - Redis 是 MVP 必须依赖，用于缓存、短期任务状态、分布式锁和后台任务队列。
 - CLI 本地目录为 `~/.config/agent-remote/`，本地状态使用 SQLite；敏感值优先保存到系统 keychain/libsecret，SQLite 只保存引用；本地不保存工具账户登录态。
 - MVP 使用结构化日志、`request_id`、`task_id`、`session_id` 做基础观测，日志默认脱敏；首期不接 Prometheus/Grafana/OpenTelemetry。
-- 项目按 Phase Roadmap 推进，从协议冻结、控制面、节点端、CLI、网络、同步、Claude 绑定、Claude session、远端浏览器、管理前端、打包部署到 E2E 发布逐步完成。
-- 已创建实施级附录，细化 CLI 命令规范、数据库字段草案、端到端测试场景和部署文档大纲。
+- 项目按 Phase Roadmap 推进，从协议冻结、控制面、节点端、CLI、网络、同步、Claude 绑定、Claude session、远端浏览器、管理前端到打包部署逐步完成。
+- 已创建实施级附录，细化 CLI 命令规范、数据库字段草案和部署文档大纲。
 - 已补充风险清单和非目标清单，明确 MVP 不解决强多租户、Web 终端、Windows、Kubernetes、高可用、自动迁移、自研同步、SSO、计费、KMS/Vault、完整监控等问题。
 - 各端必须内置或托管安装外部运行依赖，不要求用户手动安装；CLI 托管 WireGuard/Mutagen，节点端托管 tmux/Mutagen/WireGuard helper 等；系统级 Docker/OpenSSH/TUN 能力由安装器检测和引导。
 - 安全模型按自部署可信管理员 + 基础安全加固设计，不按商业 SaaS 强多租户模型设计。

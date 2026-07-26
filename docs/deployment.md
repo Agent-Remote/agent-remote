@@ -94,6 +94,8 @@ Release packages should include or install:
 
 The browser runtime defaults to the external `kasmweb/chrome:1.18.0` image. Deployments that mirror or redistribute that image must keep the exact image digest and notices.
 
+Production browser sessions require `browser_public_base_url` to point to a node-side HTTPS reverse proxy that exposes the KasmVNC endpoint used by signed `/stream` pages. Redis must be available because browser embed tokens are short-lived and validated through Redis.
+
 ## Automated Releases
 
 Every repository uses a two-step release flow:

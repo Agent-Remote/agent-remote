@@ -31,9 +31,6 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `docs/agent-remote-implementation-appendix.md`
 - `docs/native-runtime-design.md`
 - `docs/deployment.md`
-- `docs/e2e-acceptance.md`
-- `docs/phase-12-completion.md`
-- `docs/phase-13-completion.md`
 
 ## Releases
 

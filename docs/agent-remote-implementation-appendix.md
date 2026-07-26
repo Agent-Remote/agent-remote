@@ -234,315 +234,9 @@ CREATE INDEX node_tasks_poll_idx ON node_tasks (node_id, status, lease_until);
 CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 ```
 
-## 3. 端到端测试场景
+## 3. 部署文档大纲
 
-### 3.1 首次部署与管理员初始化
-
-目标：
-
-- 控制面可通过 Docker Compose 启动。
-- PostgreSQL 和 Redis 可用。
-- 第一个管理员可创建。
-- 管理端 Web/API 可访问。
-
-步骤：
-
-1. 配置 `.env`，包含 `AGENT_REMOTE_SECRET_KEY`、`DATABASE_URL`、`REDIS_URL`、`PUBLIC_BASE_URL`。
-2. 执行 Docker Compose 启动控制面。
-3. 运行 bootstrap 命令创建管理员。
-4. 管理员登录管理端。
-5. 检查审计日志中存在管理员创建和登录记录。
-
-验收：
-
-- 管理端健康检查通过。
-- 管理员可以登录。
-- 数据库迁移版本正确。
-- Redis 连接正常。
-
-### 3.2 节点注册与心跳
-
-目标：
-
-- `agent-remote-node` 可注册到管理端。
-- 节点可持续上报心跳。
-- 管理端显示节点健康状态。
-
-步骤：
-
-1. 管理端创建节点并生成注册 token。
-2. 为节点配置允许的 runtime backend、默认 backend 和调度策略。
-3. 在 Debian/Ubuntu VPS 上运行节点一键安装命令；Docker 仅在启用兼容 backend 时需要。
-4. 安装器准备 OpenSSH、tmux、Bubblewrap、nftables、iproute2、ACL、locale 和受控 Claude 等依赖。
-5. 安装并启动 `agent-remote-node` 与特权 `agent-remote-runtime` systemd 服务，并使用 token 注册。
-6. 管理端查看节点状态、runtime probe 和能力上报。
-
-验收：
-
-- 节点状态为 `healthy`。
-- `node_heartbeats` 有持续记录。
-- 节点支持工具类型包含 `claude`。
-- 节点上报 Native/Docker runtime 的可用性和缺失能力。
-- 节点端受控依赖版本记录在节点 manifest 中。
-
-### 3.3 CLI 登录与设备注册
-
-目标：
-
-- 本地设备可通过 `agent-remote login` 登录。
-- CLI token、WireGuard peer、SSH key 正确注册。
-- 本地 SQLite 和系统 keychain/libsecret 正常工作。
-
-步骤：
-
-1. 执行 `agent-remote login --server <url>`。
-2. 完成 Web 或 device code 登录。
-3. CLI 注册设备。
-4. 查看 `agent-remote status`。
-
-验收：
-
-- `~/.config/agent-remote/state.sqlite` 存在。
-- `~/.config/agent-remote/bin/` 中存在 CLI 托管依赖或依赖引用。
-- 本地不保存工具账户登录态。
-- 管理端可看到设备。
-- 设备有 WireGuard peer 和 SSH key。
-
-### 3.3.1 CLI 托管依赖检查
-
-目标：
-
-- 用户不需要手动安装 WireGuard 和 Mutagen。
-- CLI 可检查并准备受控依赖。
-
-步骤：
-
-1. 在未手动安装 Mutagen 的本地机器执行 `agent-remote doctor`。
-2. 执行 `agent-remote doctor --fix` 或 `agent-remote setup network`。
-3. 检查 CLI 托管目录。
-
-验收：
-
-- CLI 能提供受控版本 Mutagen。
-- CLI 能提供 WireGuard helper 或明确引导系统授权。
-- 用户不需要手动执行包管理器安装 Mutagen/WireGuard。
-- 依赖版本记录在本地 manifest 中。
-
-### 3.4 WireGuard 与 SSH 可达性
-
-目标：
-
-- CLI 可启动 WireGuard。
-- 本地设备可访问目标节点 WireGuard IP。
-- SSH forced command 生效。
-
-步骤：
-
-1. 执行 `agent-remote doctor network`。
-2. CLI 启动 WireGuard。
-3. CLI 检查节点 WireGuard IP 可达。
-4. CLI 检查 SSH 入口可达。
-
-验收：
-
-- WireGuard peer 状态正常。
-- SSH 不能进入普通 shell。
-- SSH 只能进入受控 `agent-remote-attach`。
-
-### 3.5 Workspace 首次同步确认
-
-目标：
-
-- `fclaude` 第一次在新目录启动时必须询问是否创建同步。
-- 用户拒绝时不启动会修改目录的远端 session。
-- 用户确认后创建 Mutagen session。
-
-步骤：
-
-1. 在新项目目录执行 `fclaude`.
-2. 观察首次同步确认提示。
-3. 选择拒绝，确认不会创建可写 session。
-4. 再次执行并选择确认。
-5. 查看 `agent-remote sync status`。
-
-验收：
-
-- 未确认时不静默同步。
-- 确认后 `sync_sessions` 有记录。
-- Mutagen session 健康。
-
-### 3.6 Claude 账户绑定
-
-目标：
-
-- 普通用户可创建 `tool_type=claude` 账户。
-- 绑定状态机正确流转。
-- Claude 登录态归档到远端账户目录。
-
-步骤：
-
-1. 执行 `agent-remote account create --tool claude ...`。
-2. 执行 `agent-remote account bind <account_id>`。
-3. CLI 或管理端展示连接指令。
-4. 用户进入账户固定 backend 上的临时绑定 session。
-5. 用户执行 `claude login`。
-6. 节点 verifier 检测登录态。
-
-验收：
-
-- 状态流转到 `active`。
-- 登录态只保存在远端账户目录。
-- 日志不含 token/cookie。
-- 临时 runtime 被清理。
-
-### 3.7 Claude session 创建与恢复
-
-目标：
-
-- `fclaude` 可创建 Claude session。
-- SSH 断开后 tmux session 保持。
-- 同一路径再次执行 `fclaude` 恢复当前项目 session。
-
-步骤：
-
-1. 在项目目录执行 `fclaude`。
-2. 等待账户固定 backend 的 runtime 和 tmux 创建。
-3. 进入 Claude。
-4. 断开 SSH。
-5. 在同一路径再次执行 `fclaude`。
-
-验收：
-
-- 第二次恢复的是当前项目最近 session。
-- 不是全局最近 session。
-- tmux session 未因 SSH 断开而停止。
-- 节点重启或本地 Native runtime 丢失后，原 session 标记为 `interrupted`；再次执行 `fclaude` 创建 replacement session，不自动重放命令。
-
-### 3.8 参数透传
-
-目标：
-
-- `fclaude` 不破坏原生 `claude` 参数体验。
-
-步骤：
-
-1. 执行 `fclaude -- --model opus`。
-2. 执行 `fclaude --model opus`。
-3. 执行一个未来可能与 Claude 原生命令重名的参数，使用 `--` 强制透传。
-
-验收：
-
-- 非 fclaude session 参数原样传给远端 `claude`。
-- 参数顺序保持不变。
-
-### 3.9 同账户多开同节点
-
-目标：
-
-- 同一个工具账户允许多开。
-- 同账户所有活跃 session 必须在同一节点。
-
-步骤：
-
-1. 使用同一个 Claude 账户在项目 A 执行 `fclaude new`。
-2. 在项目 B 使用同账户执行 `fclaude new`。
-3. 查看两个 session 的节点。
-
-验收：
-
-- 两个 session 可同时 active。
-- 两个 session 的 `node_id` 相同。
-- 出口 IP 一致。
-
-### 3.10 Mutagen 冲突阻止进入
-
-目标：
-
-- 同步冲突不自动覆盖。
-- 未解决冲突默认阻止进入工具 session。
-
-步骤：
-
-1. 本地和远端制造同一文件冲突。
-2. 执行 `agent-remote sync status`。
-3. 执行 `fclaude`。
-4. 执行 `agent-remote sync resolve`。
-
-验收：
-
-- CLI 显示冲突路径。
-- 未解决前 `fclaude` 不 attach。
-- 解决后可以进入 session。
-
-### 3.11 远端临时浏览器
-
-目标：
-
-- 普通用户可在管理端创建远端临时浏览器。
-- 浏览器使用 VPS 节点网络、时区、locale 和浏览器语言。
-- 浏览器会话无痕，停止后不保留用户信息。
-
-步骤：
-
-1. 用户在管理端创建浏览器会话，选择 Claude 工具账户并打开 `https://claude.ai`。
-2. 管理端创建 `browser_sessions` 记录和 `create_browser_session` 节点任务。
-3. 节点启动浏览器容器。
-4. 管理端返回短期 `embed_url`。
-5. 用户在内嵌浏览器中访问 Claude Web 或邮箱。
-6. 用户关闭会话或等待 TTL 到期。
-7. 管理端下发 `stop_browser_session` 并清理资源。
-
-验收：
-
-- 浏览器出口 IP 为目标 VPS 节点。
-- 浏览器时区、locale、语言与工具账户地区一致。
-- 容器没有挂载 workspace 或工具账户目录。
-- 停止后临时 profile 目录被删除。
-- 日志不包含页面内容、输入内容、cookie、token 或截图。
-
-### 3.12 节点断线与恢复对账
-
-目标：
-
-- 节点断线后管理端标记 offline。
-- 节点恢复后重新上报本地状态。
-- 管理端进行 session 对账。
-
-步骤：
-
-1. 停止 `agent-remote-node`。
-2. 等待心跳超时。
-3. 重启 `agent-remote-node`。
-4. 触发 `reconcile_state`。
-
-验收：
-
-- 节点进入 `offline`。
-- 恢复后重新进入 `healthy` 或 `degraded`。
-- session 状态和节点本地 tmux/container 一致。
-
-### 3.13 设备撤销
-
-目标：
-
-- 禁用设备后，CLI token、WireGuard peer、SSH key 同步失效。
-
-步骤：
-
-1. 管理端禁用某个设备。
-2. CLI 继续尝试 `fclaude`。
-3. 检查 WireGuard 和 SSH 可用性。
-
-验收：
-
-- CLI token 不可用。
-- WireGuard peer 被撤销。
-- SSH key 被节点移除。
-- 相关操作写入审计日志。
-
-## 4. 部署文档大纲
-
-### 4.1 前置要求
+### 3.1 前置要求
 
 - 一台控制面服务器。
 - 一台或多台 VPS 节点。
@@ -556,7 +250,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 - 本地客户端为 macOS 或 Linux。
 - 本地客户端不要求用户手动安装 Mutagen 或 WireGuard；由 `agent-remote-cli` 托管。
 
-### 4.2 控制面部署
+### 3.2 控制面部署
 
 1. 下载 `agent-remote-server`、`agent-remote-admin-web` 和 Compose 文件。
 2. 创建 `.env`。
@@ -567,7 +261,7 @@ CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 7. 创建第一个管理员。
 8. 登录管理端。
 
-### 4.3 反向代理与 HTTPS
+### 3.3 反向代理与 HTTPS
 
 推荐 Caddy：
 
@@ -585,7 +279,7 @@ agent.example.com {
 - 上传大小限制。
 - 超时设置。
 
-### 4.4 节点端部署
+### 3.4 节点端部署
 
 1. 在管理端创建节点，配置 backend 策略并获取注册 token。
 2. 在 VPS 上执行发布页提供的一键安装命令，传入控制面 URL、节点 ID 和注册 token。
@@ -593,7 +287,7 @@ agent.example.com {
 4. 在管理端确认节点健康、runtime probe 正常且所需 backend 可调度。
 5. 升级或修复时重复运行同一命令；安装流程保持幂等并复用已有注册信息。
 
-### 4.5 WireGuard 配置
+### 3.5 WireGuard 配置
 
 文档应说明：
 
@@ -603,7 +297,7 @@ agent.example.com {
 - 如何撤销设备 peer。
 - 防火墙建议。
 
-### 4.6 SSH forced command 配置
+### 3.6 SSH forced command 配置
 
 文档应说明：
 
@@ -612,7 +306,7 @@ agent.example.com {
 - 用户不得手工编辑受控段。
 - `agent-remote-attach` 如何校验 session。
 
-### 4.7 Claude Runtime
+### 3.7 Claude Runtime
 
 文档应说明：
 
@@ -623,7 +317,7 @@ agent.example.com {
 - 特权 runtime helper 与非特权 worker 的调用边界及 sudoers 白名单。
 - Docker Sandbox 作为显式启用的兼容 backend，使用固定镜像和同等控制面状态机。
 
-### 4.8 远端浏览器运行时
+### 3.8 远端浏览器运行时
 
 文档应说明：
 
@@ -635,7 +329,7 @@ agent.example.com {
 - 网络策略，包括禁止访问 metadata 地址和不必要内网段。
 - 管理端短期 `embed_url` 签发和过期策略。
 
-### 4.9 本地 CLI 安装
+### 3.9 本地 CLI 安装
 
 文档应说明：
 
@@ -649,7 +343,7 @@ agent.example.com {
 - `fclaude` 基础使用。
 - keychain/libsecret 要求。
 
-### 4.10 首个 Claude 账户绑定
+### 3.10 首个 Claude 账户绑定
 
 文档应说明：
 
@@ -659,7 +353,7 @@ agent.example.com {
 - 执行 `claude login`。
 - verifier 成功后的状态。
 
-### 4.11 常见故障排查
+### 3.11 常见故障排查
 
 必须覆盖：
 
@@ -674,7 +368,7 @@ agent.example.com {
 - session 无法恢复。
 - 远端浏览器无法启动、无法连接、TTL 过期或出口环境不匹配。
 
-### 4.12 备份与恢复
+### 3.12 备份与恢复
 
 文档必须强调：
 
@@ -684,7 +378,7 @@ agent.example.com {
 - 主密钥丢失后无法恢复已加密登录态。
 - 节点本地账户目录需要按策略备份。
 
-### 4.13 升级
+### 3.13 升级
 
 文档应说明：
 

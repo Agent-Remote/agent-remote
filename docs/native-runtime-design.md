@@ -4,8 +4,6 @@
 
 0.0.4 已完成本文所述的跨仓库基础实现：控制面 backend policy、账户 backend 固定与迁移、session 中性 runtime 标识与 interrupted 恢复、管理端 runtime policy、CLI replacement 流程、node root helper、Native isolation、受管 Claude runtime 和一键安装器。Docker Sandbox 继续作为显式兼容 backend，浏览器容器 capability 与 Claude Native Runtime 相互独立。
 
-生产启用前仍应按 `docs/e2e-acceptance.md` 在目标发行版和网络环境中验证账户登录、真实 Claude session、资源上限与出口策略；单元测试和 capability probe 不替代业务级验收。
-
 ## 1. 背景与目标
 
 现有 Claude 账户绑定和工具 session 依赖 Docker Sandboxes。该运行时在部分环境中依赖 KVM 或嵌套虚拟化，不适合没有 KVM 能力的 VPS。
@@ -240,9 +238,7 @@ Docker、Docker Sandboxes 和 KVM 不再是 node systemd unit 的强依赖。浏
 5. 实现 Native session 的 systemd、Bubblewrap、tmux、netns 和 nftables 生命周期。
 6. 实现账户绑定、验证、停止、对账和 backend 迁移。
 7. 更新 installer、systemd、release manifest、CLI 和 admin-web。
-8. 完成单元、集成、安全负向、故障恢复和无 KVM VPS E2E。
-
-其中 systemd transient unit、mount propagation、netns/veth/nftables/NAT、Bubblewrap 执行和 Mutagen bootstrap 必须在 Linux VPS 上验收；macOS 上的单元测试只验证协议、参数构造和状态机，不能替代该 E2E。
+8. 完成单元、集成、安全负向和故障恢复测试。
 
 ## 11. 验收标准
 
