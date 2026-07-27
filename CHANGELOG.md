@@ -2,6 +2,18 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.0.5 - 2026-07-27
+
+- feat: add agent remote brand icon (e6e6d9c)
+- docs: document Windows CLI support (3375c5d)
+- docs: refresh third-party notices (55b128a)
+- docs: remove obsolete phase and e2e artifacts (e5ab17c)
+- docs: document session lifecycle improvements (1420613)
+- docs: document node development runtime (44ee577)
+- docs: add developer credential acceptance (6dde354)
+- docs: document dynamic terminal resizing (a4c0f87)
+- fix: replace release script atomically (1a87fd6)
+
 ## v0.0.4 - 2026-07-23
 
 - docs: document native runtime architecture (db0b938)
