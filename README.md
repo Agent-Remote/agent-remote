@@ -1,5 +1,7 @@
 # agent-remote
 
+<p align="center"><img src="assets/agent-remote-icon.svg" alt="Agent Remote icon" width="96" height="96"></p>
+
 English | [中文](README.zh-CN.md)
 
 agent-remote is an open-source, self-hosted system for running AI coding agents from trusted remote environments while keeping local developer workflows close to native usage.

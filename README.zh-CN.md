@@ -1,5 +1,7 @@
 # agent-remote
 
+<p align="center"><img src="assets/agent-remote-icon.svg" alt="Agent Remote 图标" width="96" height="96"></p>
+
 [English](README.md) | 中文
 
 agent-remote 是一套开源、自托管系统，用于在可信远程环境中运行 AI 编程 Agent，同时让本地开发工作流尽量接近原生使用体验。

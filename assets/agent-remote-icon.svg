@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Agent Remote</title>
+  <desc id="desc">A terminal prompt connected to a remote endpoint</desc>
+  <rect width="64" height="64" rx="14" fill="#105f48"/>
+  <path d="M18 17l15 15-15 15" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M37 45h9" fill="none" stroke="#9be6ce" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="49" cy="45" r="3" fill="#9be6ce"/>
+</svg>
