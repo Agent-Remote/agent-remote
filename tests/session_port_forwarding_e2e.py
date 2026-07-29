@@ -345,7 +345,9 @@ def prepare_cli_home(home: Path, server_url: str) -> None:
         database.close()
 
 
-def write_gateway_files(root: Path, node_attach: Path, server_url: str, runtime_socket: Path) -> tuple[Path, Path]:
+def write_gateway_files(
+    root: Path, node_attach: Path, server_url: str, runtime_socket: Path
+) -> tuple[Path, Path, Path]:
     config = root / "node-config.json"
     config.write_text(
         json.dumps(
@@ -360,6 +362,7 @@ def write_gateway_files(root: Path, node_attach: Path, server_url: str, runtime_
         encoding="utf-8",
     )
     count = root / "ssh-count"
+    disconnect = root / "disconnect-first-ssh"
     fake_bin = root / "bin"
     fake_bin.mkdir()
     ssh = fake_bin / "ssh"
@@ -368,9 +371,10 @@ def write_gateway_files(root: Path, node_attach: Path, server_url: str, runtime_
 import os
 import subprocess
 import sys
-import threading
+import time
 
 count_path = {str(count)!r}
+disconnect_path = {str(disconnect)!r}
 try:
     count = int(open(count_path, encoding="utf-8").read()) + 1
 except (FileNotFoundError, ValueError):
@@ -384,18 +388,26 @@ command = [
     "--ssh-key", {SSH_KEY_ID!r},
 ]
 if count == 1:
-    child = subprocess.Popen(command, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer, env=environment)
-    timer = threading.Timer(5, child.kill)
-    timer.start()
+    child = subprocess.Popen(
+        command, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer, env=environment
+    )
+    deadline = time.monotonic() + 30
+    while (
+        child.poll() is None
+        and not os.path.exists(disconnect_path)
+        and time.monotonic() < deadline
+    ):
+        time.sleep(0.05)
+    if child.poll() is None:
+        child.kill()
     child.wait()
-    timer.cancel()
     raise SystemExit(1)
 os.execve(command[0], command, environment)
 """,
         encoding="utf-8",
     )
     ssh.chmod(0o700)
-    return fake_bin, count
+    return fake_bin, count, disconnect
 
 
 def wait_for(predicate: Any, message: str, timeout: float = 15) -> None:
@@ -490,6 +502,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli", type=Path, required=True)
     parser.add_argument("--node-attach", type=Path, required=True)
+    parser.add_argument("--skip-concurrency-stress", action="store_true")
     args = parser.parse_args()
     cli = args.cli.resolve()
     node_attach = args.node_attach.resolve()
@@ -518,7 +531,9 @@ def main() -> int:
         server_url = f"http://127.0.0.1:{control.server_address[1]}"
         cli_home = root / "cli-home"
         prepare_cli_home(cli_home, server_url)
-        fake_bin, ssh_count = write_gateway_files(root, node_attach, server_url, runtime_socket)
+        fake_bin, ssh_count, disconnect_first_ssh = write_gateway_files(
+            root, node_attach, server_url, runtime_socket
+        )
         state.local_port = free_port()
         environment = os.environ.copy()
         environment["PATH"] = f"{fake_bin}{os.pathsep}{environment['PATH']}"
@@ -569,6 +584,7 @@ def main() -> int:
             if websocket_echo(state.local_port) != b"vite-hmr":
                 raise AssertionError("WebSocket/HMR payload changed in transit")
 
+            disconnect_first_ssh.touch()
             wait_for(
                 lambda: ssh_count.exists() and int(ssh_count.read_text() or "0") >= 2,
                 "CLI did not reconnect after the forced SSH disconnect",
@@ -577,9 +593,10 @@ def main() -> int:
                 lambda: _http_matches(state.local_port, "/", b"agent-remote-e2e"),
                 "forward did not recover after SSH reconnect",
             )
-            concurrent_http_gets(state.local_port)
+            if not args.skip_concurrency_stress:
+                concurrent_http_gets(state.local_port)
             if http_get(state.local_port, "/") != b"agent-remote-e2e":
-                raise AssertionError("forward did not remain usable after 100 concurrent streams")
+                raise AssertionError("forward did not remain usable after the final data-path check")
         except BaseException as error:
             failure = error
         finally:

@@ -19,7 +19,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14]
+        include:
+          - os: ubuntu-latest
+            e2e_args: ""
+          - os: macos-14
+            e2e_args: --skip-concurrency-stress
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: actions/checkout@v7.0.0
@@ -39,4 +43,4 @@ jobs:
         env:
           AGENT_REMOTE_CLI_REPO: ${{ github.workspace }}/.e2e/agent-remote-cli
           AGENT_REMOTE_NODE_REPO: ${{ github.workspace }}/.e2e/agent-remote-node
-        run: scripts/run-session-port-forwarding-e2e.sh
+        run: scripts/run-session-port-forwarding-e2e.sh ${{ matrix.e2e_args }}

@@ -17,4 +17,5 @@ trap 'rm -f "$node_repo/.e2e-agent-remote-attach"' EXIT
 
 python3 "$repo_root/tests/session_port_forwarding_e2e.py" \
   --cli "$cli_repo/target/debug/agent-remote" \
-  --node-attach "$node_repo/.e2e-agent-remote-attach"
+  --node-attach "$node_repo/.e2e-agent-remote-attach" \
+  "$@"
