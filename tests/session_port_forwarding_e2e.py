@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import array
 import base64
+import concurrent.futures
 import hashlib
 import http.client
 import json
@@ -112,7 +113,7 @@ def lease_data(state: State) -> dict[str, Any]:
         "remote_port": state.remote_port,
         "generation": 1,
         "lease_expires_at": timestamp(60),
-        "max_streams": 32,
+        "max_streams": 128,
         "bytes_per_second": 0,
         "control_plane_grace_seconds": 10,
     }
@@ -215,6 +216,7 @@ class ControlHandler(BaseHTTPRequestHandler):
 
 class DevHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+    concurrency_barrier = threading.Barrier(100)
 
     def log_message(self, _format: str, *_args: object) -> None:
         return
@@ -229,6 +231,17 @@ class DevHandler(BaseHTTPRequestHandler):
         if self.path == "/events":
             payload = b"event: ready\ndata: first\n\nevent: update\ndata: second\n\n"
             self._payload(payload, "text/event-stream")
+            return
+        if self.path.startswith("/concurrent/"):
+            payload = self.path.encode()
+            self.send_response(200)
+            self.send_header("content-type", "text/plain")
+            self.send_header("content-length", str(len(payload)))
+            self.send_header("connection", "close")
+            self.end_headers()
+            self.wfile.flush()
+            self.concurrency_barrier.wait(timeout=30)
+            self.wfile.write(payload)
             return
         self._payload(b"agent-remote-e2e", "text/plain")
 
@@ -260,8 +273,14 @@ class DevHandler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
 
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+    request_queue_size = 128
+
+
 class ReusableUnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     daemon_threads = True
+    request_queue_size = 128
 
 
 class RuntimeHelperHandler(socketserver.BaseRequestHandler):
@@ -390,8 +409,8 @@ def wait_for(predicate: Any, message: str, timeout: float = 15) -> None:
     raise TimeoutError(message)
 
 
-def http_get(port: int, path: str) -> bytes:
-    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+def http_get(port: int, path: str, timeout: float = 3) -> bytes:
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
     try:
         connection.request("GET", path)
         response = connection.getresponse()
@@ -401,6 +420,37 @@ def http_get(port: int, path: str) -> bytes:
         return payload
     finally:
         connection.close()
+
+
+def raw_half_close_http_get(port: int, path: str) -> bytes:
+    connection = socket.create_connection(("127.0.0.1", port), timeout=60)
+    try:
+        connection.sendall(
+            (
+                f"GET {path} HTTP/1.1\r\n"
+                f"Host: 127.0.0.1:{port}\r\n"
+                "Connection: close\r\n\r\n"
+            ).encode()
+        )
+        connection.shutdown(socket.SHUT_WR)
+        response = bytearray()
+        while payload := connection.recv(4096):
+            response.extend(payload)
+    finally:
+        connection.close()
+    headers, separator, body = bytes(response).partition(b"\r\n\r\n")
+    if not separator or not headers.startswith(b"HTTP/1.1 200"):
+        raise AssertionError(f"invalid concurrent HTTP response: {bytes(response)!r}")
+    return body
+
+
+def concurrent_http_gets(port: int, count: int = 100) -> None:
+    paths = [f"/concurrent/{index}" for index in range(count)]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=count) as executor:
+        payloads = list(executor.map(lambda path: raw_half_close_http_get(port, path), paths))
+    expected = [path.encode() for path in paths]
+    if payloads != expected:
+        raise AssertionError("concurrent HTTP/2 streams crossed response payloads")
 
 
 def websocket_echo(port: int) -> bytes:
@@ -447,8 +497,8 @@ def main() -> int:
 
     state = State()
     control_handler = type("BoundControlHandler", (ControlHandler,), {"state": state})
-    control = ThreadingHTTPServer(("127.0.0.1", 0), control_handler)
-    dev = ThreadingHTTPServer(("127.0.0.1", 0), DevHandler)
+    control = ReusableThreadingHTTPServer(("127.0.0.1", 0), control_handler)
+    dev = ReusableThreadingHTTPServer(("127.0.0.1", 0), DevHandler)
     state.remote_port = int(dev.server_address[1])
     control_thread = threading.Thread(target=control.serve_forever, daemon=True)
     dev_thread = threading.Thread(target=dev.serve_forever, daemon=True)
@@ -526,6 +576,9 @@ def main() -> int:
                 lambda: _http_matches(state.local_port, "/", b"agent-remote-e2e"),
                 "forward did not recover after SSH reconnect",
             )
+            concurrent_http_gets(state.local_port)
+            if http_get(state.local_port, "/") != b"agent-remote-e2e":
+                raise AssertionError("forward did not remain usable after 100 concurrent streams")
         except BaseException as error:
             failure = error
         finally:
