@@ -139,9 +139,12 @@ InspectSession
 ListSessions
 MigrateAccount
 CleanupSession
+DialSessionLoopback
 ```
 
 请求只携带 UUID、枚举、版本和资源策略。真实路径、systemd unit、tmux socket、netns 和 nftables object 名称由 helper 从受控 root 派生。helper 必须校验 Unix peer credentials、对象归属、路径 containment 和重复请求幂等性。
+
+`DialSessionLoopback` 仅供受控 session 端口隧道使用。请求不能携带 IP、hostname、PID 或 namespace path；helper 从 session ledger 定位准确 network namespace，只连接已授权的 `127.0.0.1:<port>` 或 `[::1]:<port>`，并通过 `SCM_RIGHTS` 返回 connected socket。完整设计见 `docs/session-port-forwarding-design.md`。
 
 ## 6. 控制面数据与协议
 

@@ -32,6 +32,7 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - `docs/agent-remote-architecture.md`
 - `docs/agent-remote-implementation-appendix.md`
 - `docs/native-runtime-design.md`
+- `docs/session-port-forwarding-design.md`
 - `docs/deployment.md`
 
 ## 发布

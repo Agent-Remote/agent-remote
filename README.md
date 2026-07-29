@@ -32,6 +32,7 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `docs/agent-remote-architecture.md`
 - `docs/agent-remote-implementation-appendix.md`
 - `docs/native-runtime-design.md`
+- `docs/session-port-forwarding-design.md`
 - `docs/deployment.md`
 
 ## Releases

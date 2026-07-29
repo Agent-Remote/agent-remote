@@ -28,6 +28,25 @@ jobs:
           version="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
           version="${version#v}"
           echo "value=${version}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-cli
+          ref: v${{ steps.version.outputs.value }}
+          path: .e2e/agent-remote-cli
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-node
+          ref: v${{ steps.version.outputs.value }}
+          path: .e2e/agent-remote-node
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v6.5.0
+        with:
+          go-version-file: .e2e/agent-remote-node/go.mod
+      - name: Verify tagged session port forwarding
+        env:
+          AGENT_REMOTE_CLI_REPO: ${{ github.workspace }}/.e2e/agent-remote-cli
+          AGENT_REMOTE_NODE_REPO: ${{ github.workspace }}/.e2e/agent-remote-node
+        run: scripts/run-session-port-forwarding-e2e.sh
       - name: Build deployment bundle
         run: |
           set -euo pipefail

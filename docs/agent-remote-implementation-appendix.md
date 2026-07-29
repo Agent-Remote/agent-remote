@@ -37,6 +37,11 @@ agent-remote sync reset
 agent-remote sync git enable
 agent-remote sync git disable
 agent-remote sync git check
+
+agent-remote forward <remote_port> --session <session_id>
+agent-remote forward <remote_port> --session <session_id> --local-port auto --open
+agent-remote forward list
+agent-remote forward stop <forward_id>
 ```
 
 ### 1.2 `fclaude`
@@ -48,6 +53,10 @@ fclaude list
 fclaude list --all
 fclaude attach <session_id>
 fclaude stop <session_id>
+fclaude forward <remote_port>
+fclaude forward <remote_port> --local-port auto --open
+fclaude forward list
+fclaude forward stop <forward_id>
 fclaude --workspace /path/to/project
 fclaude --account <account_id>
 fclaude -- <claude_args...>
@@ -63,6 +72,7 @@ fclaude -- <claude_args...>
 - `fclaude new` 复用当前项目已有 workspace 同步关系，只创建新的工具 session。
 - 同一 workspace 的多个 Claude session 挂载同一个远端项目目录。
 - 同一 Claude 账户的多个 session 挂载同一个远端账户配置目录。
+- `forward` 为指定 session 创建受控的 runtime loopback 端口隧道，不启用 OpenSSH 标准 TCP forwarding；完整规范见 `docs/session-port-forwarding-design.md`。
 
 ## 2. 数据库字段草案
 
@@ -233,6 +243,10 @@ CREATE UNIQUE INDEX node_tasks_task_id_uidx ON node_tasks (task_id);
 CREATE INDEX node_tasks_poll_idx ON node_tasks (node_id, status, lease_until);
 CREATE INDEX audit_logs_actor_idx ON audit_logs (actor_user_id, created_at);
 ```
+
+### 2.10 `port_forwards`
+
+Session 端口转发需要新增 `port_forwards` 持久化实体以及 Redis 中的一次性 connection token 和短期 authorization lease。字段、索引、状态机、API 和不落盘敏感数据约束以 `docs/session-port-forwarding-design.md` 为准，避免在两处维护可漂移的协议副本。
 
 ## 3. 部署文档大纲
 

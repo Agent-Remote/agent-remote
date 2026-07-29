@@ -874,7 +874,7 @@ SSH 凭据：
 - 专用 deploy key 应保存在远端账户目录或节点安全存储中，并在管理端记录指纹和用途。
 - 容器内 `GIT_SSH_COMMAND` 应指向受控 SSH wrapper，限制 known_hosts、identity 和交互行为。
 - Native Runtime 为启用 `agent_forwarding` 的 session 预挂载稳定代理 socket 目录。控制面在每次 attach 时重新授权，CLI 仅在获准时使用 `ssh -A`，节点 forced command 将当前连接的 agent socket 临时代理到 runtime；SSH 断开后代理立即失效，私钥不会写入节点磁盘。
-- SSH gateway 继续禁止 TCP、X11 和用户 rc，仅开放 forced command 所需的 PTY 与 agent forwarding；节点必须在 forced command 二次校验 profile 后才能接入 agent。
+- SSH gateway 继续禁止 OpenSSH 标准 TCP forwarding、X11 和用户 rc，仅开放 forced command 所需的 PTY、agent forwarding，以及不使用 PTY 的受控 session 端口隧道子协议；节点必须在 forced command 二次校验 profile 或端口授权后才能接入对应 runtime。端口隧道不得接受任意目标地址，完整设计见 `docs/session-port-forwarding-design.md`。
 
 GitHub CLI：
 
@@ -1221,7 +1221,7 @@ WireGuard 采用设备级 peer 模型。
 访问控制：
 
 - 用户设备只允许访问被授权节点的必要端口。
-- 必要端口首期包括 SSH 和 Mutagen 所需端口。
+- 必要端口首期包括 SSH 和 Mutagen 所需端口。Session 端口转发复用 SSH 数据路径，不动态开放 WireGuard 或节点监听端口。
 - 管理端应记录设备、用户、peer、公钥、分配 IP 和撤销状态。
 - 用户登出、设备丢失或管理员禁用用户时，应支持撤销对应 peer。
 
@@ -1259,8 +1259,9 @@ SSH 只作为进入远端 tmux 的传输层，不向用户提供通用 VPS shell
 
 - 节点上的 `authorized_keys` 不应直接授予普通 shell。
 - 每个受控 key 应使用 forced command，指向 agent-remote 受控入口脚本。
-- 入口脚本只允许 attach 到管理端授权的 tmux session。
+- 入口脚本只允许 attach 到管理端授权的 tmux session，或进入管理端授权的受控 session 端口隧道模式。
 - 入口脚本不得允许用户任意执行宿主机命令。
+- 受控端口隧道只允许 Node 在准确 session 的 network namespace 内连接已授权的 runtime loopback 端口；OpenSSH 标准 TCP forwarding 继续关闭。
 - 实际 Claude 命令执行发生在 Docker sandbox 中。
 
 推荐 SSH 命令形态：
@@ -1332,19 +1333,24 @@ ssh agent-remote@{node_wg_ip} agent-remote-attach --session {session_id}
    - 当前项目 session 查询。
    - session 连接信息获取。
 
-9. `/audit-logs`
+9. `/port-forwards`
+   - 为指定 session 和 runtime loopback 端口创建、查询和停止受控转发。
+   - 为 CLI 断线重连签发一次性短期 connection token。
+   - 完整授权、协议和 lease 设计见 `docs/session-port-forwarding-design.md`。
+
+10. `/audit-logs`
    - 管理员查看审计日志。
    - 普通用户查看与自己相关的安全事件。
 
-10. `/node-api`
-    - 节点端专用 API。
-    - 节点注册、心跳、任务拉取、任务结果上报、状态对账。
+11. `/node-api`
+   - 节点端专用 API。
+   - 节点注册、心跳、任务拉取、任务结果上报、状态对账和端口转发授权租约。
 
 权限边界：
 
 - `/node-api` 只接受节点凭证，不接受用户 CLI token。
 - 用户/CLI/前端 API 不接受节点凭证。
-- 普通用户只能访问自己的设备、工具账户、workspace、sync session 和 session。
+- 普通用户只能访问自己的设备、工具账户、workspace、sync session、session 和 port forward。
 - 管理员 API 操作必须写入审计日志。
 
 ### 6.20 管理端与节点端通信模型
@@ -1636,7 +1642,11 @@ MVP 提供基础日志与观测能力，不首期接入完整监控平台。
     - 远端临时浏览器会话。
     - 保存用户、节点、可选工具账户、地区、时区、locale、状态、过期时间和连接状态。
 
-16. `audit_logs`
+16. `port_forwards`
+    - Session 级受控端口转发授权和生命周期。
+    - 固定用户、设备、SSH key、session、node 和 runtime loopback 端口；不保存应用流量或 connection token。
+
+17. `audit_logs`
     - 安全和管理审计日志。
     - 记录登录、账户绑定、设备撤销、节点操作、管理员操作等。
 
@@ -1656,6 +1666,7 @@ nodes
   -> node_heartbeats
   -> node_tasks
   -> sessions
+  -> port_forwards
   -> browser_sessions
 
 node_tasks
@@ -1664,9 +1675,11 @@ node_tasks
 user_devices
   -> wireguard_peers
   -> ssh_keys
+  -> port_forwards
 
 sessions
   -> session_events
+  -> port_forwards
 
 browser_sessions
   -> audit_logs
@@ -1678,6 +1691,7 @@ browser_sessions
 - `tool_accounts` 是通用账户表，不创建 `claude_accounts` 作为核心表。
 - Claude 专属字段进入 `tool_account_profiles` 或后续专用 profile 表。
 - `browser_sessions` 不存储页面内容、cookie、浏览器 profile 或用户输入。
+- `port_forwards` 不存储 connection token、应用 payload、URL、header 或 WebSocket message。
 - 敏感 profile 字段必须应用层加密。
 - 审计日志不可存储明文 token、cookie、私钥或登录态。
 
