@@ -42,6 +42,7 @@ jobs:
       - uses: actions/setup-go@v6.5.0
         with:
           go-version-file: .e2e/agent-remote-node/go.mod
+          cache-dependency-path: .e2e/agent-remote-node/go.sum
       - name: Verify tagged session port forwarding
         env:
           AGENT_REMOTE_CLI_REPO: ${{ github.workspace }}/.e2e/agent-remote-cli
