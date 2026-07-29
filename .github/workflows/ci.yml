@@ -14,7 +14,12 @@ jobs:
         run: docker compose --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml config --quiet
 
   session-port-forwarding-e2e:
-    runs-on: ubuntu-latest
+    name: session-port-forwarding-e2e (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: actions/checkout@v7.0.0
