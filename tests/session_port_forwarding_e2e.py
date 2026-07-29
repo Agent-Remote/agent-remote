@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import array
 import base64
-import concurrent.futures
 import hashlib
 import http.client
 import json
@@ -234,13 +233,12 @@ class DevHandler(BaseHTTPRequestHandler):
             return
         if self.path.startswith("/concurrent/"):
             payload = self.path.encode()
+            self.concurrency_barrier.wait(timeout=30)
             self.send_response(200)
             self.send_header("content-type", "text/plain")
             self.send_header("content-length", str(len(payload)))
             self.send_header("connection", "close")
             self.end_headers()
-            self.wfile.flush()
-            self.concurrency_barrier.wait(timeout=30)
             self.wfile.write(payload)
             return
         self._payload(b"agent-remote-e2e", "text/plain")
@@ -422,22 +420,10 @@ def http_get(port: int, path: str, timeout: float = 3) -> bytes:
         connection.close()
 
 
-def raw_half_close_http_get(port: int, path: str) -> bytes:
-    connection = socket.create_connection(("127.0.0.1", port), timeout=60)
-    try:
-        connection.sendall(
-            (
-                f"GET {path} HTTP/1.1\r\n"
-                f"Host: 127.0.0.1:{port}\r\n"
-                "Connection: close\r\n\r\n"
-            ).encode()
-        )
-        connection.shutdown(socket.SHUT_WR)
-        response = bytearray()
-        while payload := connection.recv(4096):
-            response.extend(payload)
-    finally:
-        connection.close()
+def read_raw_http_response(connection: socket.socket) -> bytes:
+    response = bytearray()
+    while payload := connection.recv(4096):
+        response.extend(payload)
     headers, separator, body = bytes(response).partition(b"\r\n\r\n")
     if not separator or not headers.startswith(b"HTTP/1.1 200"):
         raise AssertionError(f"invalid concurrent HTTP response: {bytes(response)!r}")
@@ -446,8 +432,23 @@ def raw_half_close_http_get(port: int, path: str) -> bytes:
 
 def concurrent_http_gets(port: int, count: int = 100) -> None:
     paths = [f"/concurrent/{index}" for index in range(count)]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=count) as executor:
-        payloads = list(executor.map(lambda path: raw_half_close_http_get(port, path), paths))
+    connections: list[socket.socket] = []
+    try:
+        for path in paths:
+            connection = socket.create_connection(("127.0.0.1", port), timeout=60)
+            connection.sendall(
+                (
+                    f"GET {path} HTTP/1.1\r\n"
+                    f"Host: 127.0.0.1:{port}\r\n"
+                    "Connection: close\r\n\r\n"
+                ).encode()
+            )
+            connection.shutdown(socket.SHUT_WR)
+            connections.append(connection)
+        payloads = [read_raw_http_response(connection) for connection in connections]
+    finally:
+        for connection in connections:
+            connection.close()
     expected = [path.encode() for path in paths]
     if payloads != expected:
         raise AssertionError("concurrent HTTP/2 streams crossed response payloads")
