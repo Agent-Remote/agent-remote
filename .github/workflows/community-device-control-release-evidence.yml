@@ -245,8 +245,6 @@ jobs:
                   "sha": sha,
                   "url": runs[0]["html_url"],
                   "conclusion": "success",
-                  "event": runs[0]["event"],
-                  "workflow": runs[0]["path"],
               }
           with open("release-input/community/ci-runs.json", "w", encoding="utf-8") as output:
               json.dump(result, output, sort_keys=True)
