@@ -40,6 +40,21 @@ curl -fsS https://$AGENT_REMOTE_DOMAIN/healthz
 
 Bootstrap the first administrator from the admin web. The normal CLI initialization flow does not create users.
 
+Device control remains disabled in the example. After every gate in
+`local-device-control-security-design.md` passes, set the following deployment-owned values:
+
+- `DEVICE_CONTROL_RELEASE_EVIDENCE_FILE`: absolute host path to the signed manifest, mounted
+  read-only; the disabled default is `/dev/null`.
+- `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`: Base64 raw Ed25519 verification key.
+- `DEVICE_SESSION_RETENTION_DAYS`: approved non-zero terminal session metadata period.
+- `DEVICE_SESSION_AUDIT_RETENTION_DAYS`: approved non-zero audit period, not shorter than the
+  session period.
+- `DEVICE_CONTROL_ENABLED=true`: set only after the preceding values and external policy are ready.
+
+Production Server startup rejects an enabled capability when either retention period is zero or
+the signed evidence cannot be verified. The Compose setting does not replace Apple notarization,
+MDM/Network Extension enforcement, independent review, or the external gate artifact.
+
 ## Node
 
 Requirements on each VPS node:
@@ -114,15 +129,15 @@ The prepare workflow updates repository-owned version files, commits `chore: rel
 Create a release from GitHub Actions by running `prepare-release` in the repositories that need to ship together:
 
 ```sh
-gh workflow run prepare-release.yml --ref main -f version=0.0.6
+gh workflow run prepare-release.yml --ref main -f version=0.1.0
 ```
 
 For local manual releases, run the repository's prepare script first, then commit and tag the same version:
 
 ```sh
-scripts/prepare-release.sh 0.0.6
+scripts/prepare-release.sh 0.1.0
 git add .
-git commit -m "chore: release v0.0.6"
-git tag v0.0.6
-git push origin main v0.0.6
+git commit -m "chore: release v0.1.0"
+git tag v0.1.0
+git push origin main v0.1.0
 ```

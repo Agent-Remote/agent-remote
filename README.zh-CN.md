@@ -15,6 +15,7 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - `agent-remote-admin-web`：React/Vite 管理控制台。
 - `agent-remote-node`：部署在 VPS 主机上的 Go 节点运行时。
 - `agent-remote-cli`：Rust 本地 CLI，以及 `agent-remote`、`fclaude` 等工具启动器。
+- `agent-remote-device`：Swift macOS 设备应用和 Rust 受管 MCP proxy。
 
 ## 运行模型
 
@@ -33,13 +34,30 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - `docs/agent-remote-implementation-appendix.md`
 - `docs/native-runtime-design.md`
 - `docs/session-port-forwarding-design.md`
+- `docs/local-device-control-security-design.md`
+- `docs/local-device-control-release-gate-status.md`
+- `docs/device-control-operations-runbook.md`
 - `docs/deployment.md`
+
+## 跨仓库测试
+
+将 server、node 和 device 仓库放在同一父目录后，可运行真实设备控制数据链路，覆盖
+FastAPI/WebSocket、Go Node bridge、Rust nested TLS 和 Swift Network.framework peer：
+
+```sh
+scripts/run-local-device-control-e2e.sh
+```
+
+该测试夹具仅在 loopback 上使用临时 `http/ws` 控制面；生产设备凭据和 relay 客户端仍严格要求
+`https/wss`。
 
 ## 发布
 
 每个仓库都有 `prepare-release` workflow。使用版本号运行后，会更新该仓库负责的版本文件、更新 `CHANGELOG.md`、提交 `chore: release vX.Y.Z`、推送 tag，并触发 release workflow。
 
 Release workflow 会发布部署归档、CLI/Node 二进制、GHCR 镜像和 GitHub Release notes。
+设备控制的生产证据使用独立的受保护装配流程，详见
+`docs/device-control-release-evidence.md`；该流程不会自动启用 capability。
 
 ## 许可证
 

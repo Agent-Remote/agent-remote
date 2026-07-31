@@ -2,6 +2,18 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.1.0 - 2026-07-31
+
+- feat: coordinate secure local device control release evidence and external gates
+- build: assemble a unified multi-component local device control test release
+- test: verify the Server-to-Node-to-Rust-to-Swift device control path
+- ci: disable noisy cross-repo Go cache (692c2cb)
+- ci: separate platform tunnel stress coverage (e033734)
+- test: stabilize concurrent tunnel e2e (a82b94b)
+- ci: run tunnel e2e on macos (c704035)
+- test: verify 100 concurrent tunnel streams (dc959e1)
+- ci: fix cross-repo Go caching (dd9ffb5)
+
 ## v0.0.6 - 2026-07-29
 
 - feat: document and verify session port forwarding (ae17178)
@@ -36,4 +48,3 @@ All notable changes to this repository are recorded here.
 - ci: allow manual release dispatch (edfe50c)
 - chore: release v0.0.2 (2608c93)
 - ci: add release preparation workflow (d01d4ba)
-

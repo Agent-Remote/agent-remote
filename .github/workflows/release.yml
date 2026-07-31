@@ -13,6 +13,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -27,6 +29,12 @@ jobs:
           set -euo pipefail
           version="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
           version="${version#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "invalid semantic version: $version" >&2
+            exit 2
+          fi
+          test "$GITHUB_REF" = "refs/tags/v${version}"
+          test "$(tr -d '[:space:]' < VERSION)" = "$version"
           echo "value=${version}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7.0.0
         with:
@@ -38,6 +46,36 @@ jobs:
           repository: Agent-Remote/agent-remote-node
           ref: v${{ steps.version.outputs.value }}
           path: .e2e/agent-remote-node
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-server
+          ref: v${{ steps.version.outputs.value }}
+          path: .release/agent-remote-server
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-admin-web
+          ref: v${{ steps.version.outputs.value }}
+          path: .release/agent-remote-admin-web
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-device
+          ref: v${{ steps.version.outputs.value }}
+          path: .release/agent-remote-device
+      - name: Verify coordinated immutable release train
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          python3 scripts/check-device-control-release-readiness.py \
+            --version "$VERSION" \
+            --require-clean \
+            --require-tag \
+            --require-origin \
+            --repository "agent-remote=${GITHUB_WORKSPACE}" \
+            --repository "agent-remote-server=${GITHUB_WORKSPACE}/.release/agent-remote-server" \
+            --repository "agent-remote-node=${GITHUB_WORKSPACE}/.e2e/agent-remote-node" \
+            --repository "agent-remote-cli=${GITHUB_WORKSPACE}/.e2e/agent-remote-cli" \
+            --repository "agent-remote-admin-web=${GITHUB_WORKSPACE}/.release/agent-remote-admin-web" \
+            --repository "agent-remote-device=${GITHUB_WORKSPACE}/.release/agent-remote-device"
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-go@v6.5.0
         with:
@@ -54,10 +92,47 @@ jobs:
           version="${{ steps.version.outputs.value }}"
           package="agent-remote-deploy-${version}"
           mkdir -p "dist/${package}"
-          cp -R deploy docs scripts README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md "dist/${package}/"
+          cp -R deploy docs scripts README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md VERSION "dist/${package}/"
           tar -C dist -czf "dist/${package}.tar.gz" "${package}"
+          sha256sum "dist/${package}.tar.gz" > "dist/${package}.tar.gz.sha256"
+      - name: Generate deployment bundle SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist/agent-remote-deploy-${{ steps.version.outputs.value }}
+          format: spdx-json
+          output-file: dist/agent-remote-deploy-${{ steps.version.outputs.value }}.spdx.json
+      - uses: sigstore/cosign-installer@v4.0.0
+      - name: Sign and verify deployment bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          archive="dist/agent-remote-deploy-${VERSION}.tar.gz"
+          sha256sum --check "$archive.sha256"
+          cosign sign-blob --yes --bundle "$archive.sigstore.json" "$archive"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity \
+              "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+      - name: Attest deployment bundle provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: dist/agent-remote-deploy-${{ steps.version.outputs.value }}.tar.gz
+      - name: Verify deployment bundle provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: gh attestation verify "dist/agent-remote-deploy-${VERSION}.tar.gz" --repo "$GITHUB_REPOSITORY"
       - uses: softprops/action-gh-release@v3.0.1
         with:
           tag_name: v${{ steps.version.outputs.value }}
           generate_release_notes: true
-          files: dist/*.tar.gz
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
+            dist/*.tar.gz.sigstore.json
+            dist/*.spdx.json

@@ -10,6 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.0
+      - name: Verify release workflow contract
+        run: python3 tests/release_workflow_contract_test.py
+      - name: Verify device-control operations runbook
+        run: python3 tests/device_control_operations_runbook_contract_test.py
+      - name: Test release-evidence assembler
+        run: python3 tests/test_assemble_device_control_release_evidence.py
+      - name: Test protected external-gate collector
+        run: python3 tests/test_collect_device_control_external_gates.py
+      - name: Test coordinated release readiness verifier
+        run: python3 tests/test_device_control_release_readiness.py
       - name: Validate compose bundle
         run: docker compose --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml config --quiet
 
@@ -44,3 +54,38 @@ jobs:
           AGENT_REMOTE_CLI_REPO: ${{ github.workspace }}/.e2e/agent-remote-cli
           AGENT_REMOTE_NODE_REPO: ${{ github.workspace }}/.e2e/agent-remote-node
         run: scripts/run-session-port-forwarding-e2e.sh ${{ matrix.e2e_args }}
+
+  local-device-control-e2e:
+    name: local-device-control-e2e
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-server
+          path: .e2e/agent-remote-server
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-node
+          path: .e2e/agent-remote-node
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-device
+          path: .e2e/agent-remote-device
+      - uses: astral-sh/setup-uv@v8.3.1
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-go@v6.5.0
+        with:
+          go-version-file: .e2e/agent-remote-node/go.mod
+          cache: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install server test environment
+        run: uv sync --project .e2e/agent-remote-server
+      - name: Run local device-control E2E
+        env:
+          AGENT_REMOTE_SERVER_REPO: ${{ github.workspace }}/.e2e/agent-remote-server
+          AGENT_REMOTE_NODE_REPO: ${{ github.workspace }}/.e2e/agent-remote-node
+          AGENT_REMOTE_DEVICE_REPO: ${{ github.workspace }}/.e2e/agent-remote-device
+        run: scripts/run-local-device-control-e2e.sh

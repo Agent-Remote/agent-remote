@@ -1,0 +1,8 @@
+.e2e/
+.release/
+.pytest_cache/
+__pycache__/
+device-control-release-evidence/
+dist/
+release-input/
+*.pyc

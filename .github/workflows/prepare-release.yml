@@ -46,12 +46,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet; then
-            git add docs/deployment.md CHANGELOG.md
+            git add docs/deployment.md CHANGELOG.md VERSION
             git commit -m "chore: release v${version}"
           fi
           git tag "v${version}"
           git push origin HEAD:${GITHUB_REF_NAME}
           git push origin "v${version}"
-          gh workflow run release.yml --ref main -f version="${version}"
+          gh workflow run release.yml --ref "v${version}" -f version="${version}"
         env:
           GH_TOKEN: ${{ github.token }}

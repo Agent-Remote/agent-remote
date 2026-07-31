@@ -15,6 +15,7 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `agent-remote-admin-web`: React/Vite administrative console.
 - `agent-remote-node`: Go node runtime deployed on VPS hosts.
 - `agent-remote-cli`: Rust local CLI and tool launchers such as `agent-remote` and `fclaude`.
+- `agent-remote-device`: Swift macOS device application and Rust managed MCP proxy.
 
 ## Runtime Model
 
@@ -33,13 +34,31 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `docs/agent-remote-implementation-appendix.md`
 - `docs/native-runtime-design.md`
 - `docs/session-port-forwarding-design.md`
+- `docs/local-device-control-security-design.md`
+- `docs/local-device-control-release-gate-status.md`
+- `docs/device-control-operations-runbook.md`
 - `docs/deployment.md`
+
+## Cross-Repository Tests
+
+With the server, node, and device repositories checked out as sibling directories, run the real
+device-control data path through FastAPI/WebSocket, the Go Node bridge, Rust nested TLS, and the
+Swift Network.framework peer:
+
+```sh
+scripts/run-local-device-control-e2e.sh
+```
+
+The harness uses loopback-only `http/ws` for its temporary control plane. Production device
+credentials and relay clients continue to require `https/wss`.
 
 ## Releases
 
 Each repository has a `prepare-release` workflow. Running it with a version updates repository-owned version files, updates `CHANGELOG.md`, commits `chore: release vX.Y.Z`, pushes the tag, and dispatches the release workflow.
 
 Release workflows publish deployment archives, CLI/node binaries, GHCR images, and GitHub Release notes.
+Device-control production evidence has a separate protected assembly flow documented in
+`docs/device-control-release-evidence.md`; it never enables the capability automatically.
 
 ## License
 

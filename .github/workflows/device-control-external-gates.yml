@@ -1,0 +1,50 @@
+name: device-control-external-gates
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact coordinated release version without a v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: device-control-external-gates-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: [self-hosted, macOS, ARM64, agent-remote-device-gates]
+    environment: production-device-release-gates
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - name: Verify immutable source tag and protected evidence directory
+        env:
+          EVIDENCE_DIRECTORY: ${{ vars.DEVICE_CONTROL_EXTERNAL_GATE_DIRECTORY }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/tags/v${VERSION}"
+          test "$(tr -d '[:space:]' < VERSION)" = "$VERSION"
+          test -n "$EVIDENCE_DIRECTORY"
+          test -d "$EVIDENCE_DIRECTORY"
+          test ! -L "$EVIDENCE_DIRECTORY"
+      - name: Validate and collect exact external gate evidence
+        env:
+          EVIDENCE_DIRECTORY: ${{ vars.DEVICE_CONTROL_EXTERNAL_GATE_DIRECTORY }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/collect-device-control-external-gates.py \
+            --source-directory "$EVIDENCE_DIRECTORY" \
+            --output-directory device-control-release-gates \
+            --release-version "$VERSION"
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: device-control-release-gates
+          path: device-control-release-gates
+          if-no-files-found: error
+          retention-days: 30

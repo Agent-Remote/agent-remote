@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   echo "Usage: $0 <version>" >&2
-  echo "Example: $0 0.0.6" >&2
+  echo "Example: $0 0.1.0" >&2
 }
 
 if [[ $# -ne 1 ]]; then
@@ -27,6 +27,34 @@ import tempfile
 from pathlib import Path
 
 version = sys.argv[1]
+
+Path("VERSION").write_text(f"{version}\n")
+
+test_environment = Path("deploy/compose/.env.device-test")
+text = test_environment.read_text()
+text, count = re.subn(
+    r"(?m)^AGENT_REMOTE_VERSION=[^\s]+$",
+    f"AGENT_REMOTE_VERSION={version}",
+    text,
+    count=1,
+)
+if count != 1:
+    raise SystemExit("test Compose version was not updated exactly once")
+test_environment.write_text(text)
+
+test_release = Path("docs/local-device-control-test-release.md")
+text = test_release.read_text()
+text = re.sub(
+    r"agent-remote-server-device-test-[0-9A-Za-z.+-]+\.tar\.gz",
+    f"agent-remote-server-device-test-{version}.tar.gz",
+    text,
+)
+text = re.sub(
+    r"agent-remote-admin-web-device-test-[0-9A-Za-z.+-]+\.tar\.gz",
+    f"agent-remote-admin-web-device-test-{version}.tar.gz",
+    text,
+)
+test_release.write_text(text)
 
 script = Path("scripts/prepare-release.sh")
 text = script.read_text()
