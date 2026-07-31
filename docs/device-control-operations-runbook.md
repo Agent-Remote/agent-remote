@@ -8,7 +8,8 @@
 
 - 发布负责人管理协调版本、受保护发布环境和发布证据签名键。
 - 控制面负责人管理 Server 配置、设备清单、会话终止和审计元数据。
-- macOS/MDM 负责人管理签名安装包、TCC、Network Extension、策略证明服务和测试 Mac。
+- macOS 负责人管理签名安装包、TCC 和测试 Mac；Apple Developer ID profile 还要求管理 MDM、
+  Network Extension 和策略证明服务。
 - 事件负责人决定影响范围、证据保全、密钥轮换和恢复时间。
 - 数据负责人在生产启用前书面批准审计元数据与备份的保留期限和删除方式。
 
@@ -59,14 +60,16 @@ Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENT
      --version VERSION --require-clean --require-tag --require-origin
    ```
 
-2. 按 `device-control-release-evidence.md` 验证 Server、Node、App 和 proxy 的摘要、SBOM、来源证明、
-   Apple 签名/公证以及六项原始外部门禁证据。
+2. 选择并验证一种发布配置：无 Apple 账号时按 `community-local-trust-release.md` 验证 Server、Node、
+   App 和 proxy 的摘要、SBOM、来源证明、自签名身份、官方 runner CI 与风险接受记录；Developer ID
+   配置则按 `device-control-release-evidence.md` 验证 Apple 签名/公证和六项原始外部门禁证据。
 3. 把发布证据清单和对应 Ed25519 公钥作为只读部署输入设置到
    `DEVICE_CONTROL_RELEASE_EVIDENCE_PATH` 和 `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`。
 4. 设置数据负责人批准的 `DEVICE_SESSION_RETENTION_DAYS` 和
    `DEVICE_SESSION_AUDIT_RETENTION_DAYS`；后者不得短于前者，生产中都不得为 `0`。
-5. MDM 负责人确认 Network Extension 已启用，策略证明服务可用，并在签名测试 Mac 上重新执行允许、
-   非授权和 Anthropic 目的地主动探测。
+5. Developer ID 配置由 MDM 负责人确认 Network Extension 已启用、策略证明服务可用，并在签名测试
+   Mac 上重新执行允许、非授权和 Anthropic 目的地主动探测。community 配置改为在受控目标 Mac 上
+   验证 Broker 的应用级目的地限制，并确认部署方已接受它不等价于系统级网络过滤。
 6. 最后才把 `DEVICE_CONTROL_ENABLED=true` 部署到生产。Server 启动失败、策略页仍为 disabled 或任一
    实时证明失败时停止变更，不得绕过验证器。
 
@@ -81,8 +84,9 @@ agent-remote device status
 ```
 
 升级前结束设备控制 session，保存零内容 session ID 和停止结果，然后安装新版本。安装命令允许同版本
-重装和升级，拒绝降级。升级后重新验证签名、Gatekeeper、两个 XPC service、TCC 状态、出站策略实时
-证明、Esc 停止和一次完整的批准/停止流程。任一检查失败时保持 capability 关闭并进入回滚。
+重装和升级，拒绝降级。升级后重新验证签名、两个 XPC service、TCC 状态、Esc 停止和一次完整的批准/
+停止流程。Developer ID 配置还要验证 Gatekeeper 和出站策略实时证明；community 配置要验证固定自签名
+证书、手动信任状态和 Broker 应用级目的地限制。任一适用检查失败时保持 capability 关闭并进入回滚。
 
 ## 4. 正常停用、撤销与卸载
 

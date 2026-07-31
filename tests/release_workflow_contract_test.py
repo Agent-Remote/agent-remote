@@ -9,6 +9,9 @@ evidence = Path(".github/workflows/device-control-release-evidence.yml").read_te
 external_gates = Path(".github/workflows/device-control-external-gates.yml").read_text(
     encoding="utf-8"
 )
+community_evidence = Path(
+    ".github/workflows/community-device-control-release-evidence.yml"
+).read_text(encoding="utf-8")
 
 required_release_fragments = (
     'test "$GITHUB_REF" = "refs/tags/v${version}"',
@@ -81,6 +84,36 @@ missing_external_gates = [
 if missing_external_gates:
     raise SystemExit(
         f"external gate workflow is missing: {', '.join(missing_external_gates)}"
+    )
+
+required_community_evidence_fragments = (
+    "runs-on: ubuntu-latest",
+    "environment: production-device-release-evidence",
+    "accept_reduced_security",
+    'test "$ACCEPTED" = "true"',
+    "community-local-trust",
+    "official_runners_only",
+    "critical_high_vulnerabilities:0",
+    "community-signing.json",
+    'verify_blob Agent-Remote/agent-remote-server release.yml',
+    "govulncheck.json.sha256",
+    "swift-osv.json.sha256",
+    "commits/v{version}",
+    "! -name SHA256SUMS",
+    "assemble-community-device-control-release-evidence.py",
+    "create_device_control_release_evidence.py",
+    "DEVICE_CONTROL_RELEASE_PRIVATE_KEY_PEM",
+    "retention-days: 30",
+)
+missing_community_evidence = [
+    fragment
+    for fragment in required_community_evidence_fragments
+    if fragment not in community_evidence
+]
+if missing_community_evidence:
+    raise SystemExit(
+        "community release evidence workflow is missing: "
+        + ", ".join(missing_community_evidence)
     )
 
 test_compose = Path("deploy/compose/docker-compose.device-test.yml").read_text(

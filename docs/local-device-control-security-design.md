@@ -515,7 +515,7 @@ session 期，且不会清理通用身份审计。两个期限默认关闭，生
 
 ### 12.3 发布条件
 
-任何一项不满足均不得启用生产 capability：
+Apple Developer ID profile 的任何一项不满足均不得启用对应生产 capability：
 
 1. 0 个已知 Critical/High 漏洞；
 2. 安全测试、协议 fuzz、跨租户 E2E 和 macOS 权限测试全部通过；
@@ -525,6 +525,10 @@ session 期，且不会清理通用身份审计。两个期限默认关闭，生
 6. 不访问本地 Claude 数据和不连接 Anthropic 的测试证据通过；
 7. 撤销、全局停止和 fail-closed 演练通过；
 8. 当前 Claude Code 和 MCP 版本完成兼容性验证。
+
+无法取得 Apple Developer Program 身份的自托管部署可以改用
+`community-local-trust` profile。该 profile 的生产含义、替代门禁和必须公开的剩余风险由
+`community-local-trust-release.md` 定义；不得把自签名状态记录成 Developer ID 或 notarization 成功。
 
 生产控制面不得只依靠 capability 布尔开关声明上述条件已满足。启用时必须验证由部署方固定
 Ed25519 公钥签名、有效期不超过 30 天且绑定当前服务端版本的发布证据清单；清单至少固定 Server、

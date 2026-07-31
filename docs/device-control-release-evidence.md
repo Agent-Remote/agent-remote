@@ -1,13 +1,21 @@
 # Device-Control Release Evidence Assembly
 
-Production device control stays disabled by default. The
-`device-control-release-evidence` workflow only assembles and signs a short-lived approval
-manifest; running it does not change server configuration or enable the capability.
+Production device control stays disabled by default. An evidence workflow only assembles and signs
+a short-lived approval manifest; running it does not change Server configuration or enable the
+capability.
 
-Run the workflow from the exact coordinated `vVERSION` tag. It downloads that version's Server,
-Node, macOS application, and Rust proxy release artifacts, then verifies their checksums, Sigstore
-identities, GitHub provenance, independently signed SBOMs, and accepted notarization result. The selected Node
-target determines both the Node archive and standalone proxy archive bound into the manifest.
+Two release profiles are supported and their claims must not be mixed:
+
+- `community-local-trust` is the default self-hosted profile for deployments without an Apple
+  Developer account. It uses GitHub-hosted runners and the
+  `community-device-control-release-evidence` workflow. A valid manifest declares
+  `production_ready=true`, `apple_notarized=false`, `public_distribution=false`, and
+  `manual_trust_required=true`.
+- `apple-developer-id` uses Developer ID signing, Apple notarization, protected external gates, and
+  the `device-control-release-evidence` workflow.
+
+Both workflows must run from the exact coordinated `vVERSION` tag. The selected Node target
+determines both the Node archive and standalone proxy archive bound into the manifest.
 
 ## Coordinated Release Order
 
@@ -20,15 +28,40 @@ python3 scripts/check-device-control-release-readiness.py \
   --version VERSION --require-clean --require-tag --require-origin
 ```
 
-Publish in this dependency order:
+Publish in this dependency order for either profile:
 
-1. `agent-remote-device`, producing the notarized macOS application and every Linux proxy target.
+1. `agent-remote-device`, producing the macOS application and every Linux proxy target.
 2. `agent-remote-node`, which downloads and embeds the exact same-version proxy artifacts.
 3. `agent-remote-server`, `agent-remote-cli`, and `agent-remote-admin-web`; these may run in parallel.
 4. `agent-remote`, after all five component tags exist. Its release workflow checks out every exact
    tag and reruns the readiness verifier before creating the deployment bundle.
-5. Run the external gate suite from the same root tag and commit, then invoke
-   `device-control-release-evidence` with that successful run ID.
+5. Run the evidence workflow for the selected profile from the same root tag and commit.
+
+## Community Local-Trust Profile
+
+After all six same-version releases and their push CI runs succeed, dispatch:
+
+```sh
+gh workflow run community-device-control-release-evidence.yml \
+  --repo Agent-Remote/agent-remote \
+  --ref vVERSION \
+  -f version=VERSION \
+  -f node_target=linux-arm64-glibc \
+  -f accept_reduced_security=true
+```
+
+This workflow runs only on `ubuntu-latest`. It verifies the exact release checksums, Sigstore
+workflow identities, GitHub provenance, signed SPDX SBOMs, dependency vulnerability reports,
+project self-signed App identity, and successful same-commit CI for all six repositories. It then
+records the administrator's explicit acceptance of the documented reduced-security profile and
+signs a schema 2 manifest with the deployment-owned Ed25519 key.
+
+The workflow does not claim Apple notarization, Gatekeeper trust, system-level network filtering,
+independent security review, or unattended public distribution. Those are accepted limitations of
+this profile rather than missing fields that force `production_ready=false`. See
+`community-local-trust-release.md` for signing, installation, and key configuration.
+
+## Apple Developer ID Profile
 
 The external gate suite is collected by `device-control-external-gates`. Configure its protected
 `production-device-release-gates` environment with required reviewers and a dedicated self-hosted

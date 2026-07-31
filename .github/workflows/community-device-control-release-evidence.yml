@@ -1,0 +1,292 @@
+name: community-device-control-release-evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact coordinated release version without a v prefix
+        required: true
+        type: string
+      node_target:
+        description: Node and proxy deployment target
+        required: true
+        type: choice
+        options:
+          - linux-amd64-glibc
+          - linux-arm64-glibc
+          - linux-amd64-musl
+          - linux-arm64-musl
+      accept_reduced_security:
+        description: Accept the documented community-local-trust residual risks
+        required: true
+        type: boolean
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    environment: production-device-release-evidence
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - name: Verify immutable source tag and risk acceptance
+        env:
+          ACCEPTED: ${{ inputs.accept_reduced_security }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          test "$ACCEPTED" = "true"
+          test "$GITHUB_REF" = "refs/tags/v${VERSION}"
+          test "$(tr -d '[:space:]' < VERSION)" = "$VERSION"
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-server
+          ref: v${{ inputs.version }}
+          path: release-input/server-source
+      - uses: astral-sh/setup-uv@v8.3.1
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: "3.13"
+      - uses: sigstore/cosign-installer@v4.0.0
+      - name: Download exact coordinated release artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ inputs.node_target }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-input/server release-input/node release-input/device \
+            release-input/cli release-input/admin
+          gh release download "v${VERSION}" --repo Agent-Remote/agent-remote-server \
+            --dir release-input/server
+          gh release download "v${VERSION}" --repo Agent-Remote/agent-remote-node \
+            --dir release-input/node \
+            --pattern "agent-remote-node-${VERSION}-${TARGET}.tar.gz" \
+            --pattern "agent-remote-node-${VERSION}-${TARGET}.tar.gz.sha256" \
+            --pattern "agent-remote-node-${VERSION}-${TARGET}.tar.gz.sigstore.json" \
+            --pattern "agent-remote-node-${VERSION}.spdx.json*" \
+            --pattern "agent-remote-node-${VERSION}.govulncheck.json*"
+          gh release download "v${VERSION}" --repo Agent-Remote/agent-remote-device \
+            --dir release-input/device \
+            --pattern "agent-remote-device-macos-${VERSION}.*" \
+            --pattern "agent-remote-device-proxy-${TARGET}-${VERSION}.*" \
+            --pattern "agent-remote-device-${VERSION}.cargo-audit.json*" \
+            --pattern "agent-remote-device-${VERSION}.swift-osv.json*"
+          gh release download "v${VERSION}" --repo Agent-Remote/agent-remote-cli \
+            --dir release-input/cli \
+            --pattern "agent-remote-cli-${VERSION}.cargo-audit.json*"
+          gh release download "v${VERSION}" --repo Agent-Remote/agent-remote-admin-web \
+            --dir release-input/admin \
+            --pattern "agent-remote-admin-web-${VERSION}.npm-audit.json*"
+      - name: Verify release checksums, signatures, provenance, and vulnerability reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ inputs.node_target }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          server=release-input/server
+          node=release-input/node
+          device=release-input/device
+          cli=release-input/cli
+          admin=release-input/admin
+          node_archive="agent-remote-node-${VERSION}-${TARGET}.tar.gz"
+          app_archive="agent-remote-device-macos-${VERSION}.zip"
+          proxy_archive="agent-remote-device-proxy-${TARGET}-${VERSION}.tar.gz"
+          community="agent-remote-device-macos-${VERSION}.community-signing.json"
+
+          (cd "$server" && sha256sum --check "agent-remote-server-${VERSION}.sha256")
+          (cd "$node" && sha256sum --check "$node_archive.sha256")
+          (cd "$device" && sha256sum --check "$app_archive.sha256")
+          (cd "$device" && sha256sum --check "$proxy_archive.sha256")
+          (cd "$device" && sha256sum --check "$community.sha256")
+
+          verify_blob() {
+            local repository=$1
+            local workflow=$2
+            local path=$3
+            cosign verify-blob \
+              --bundle "$path.sigstore.json" \
+              --certificate-identity \
+                "https://github.com/$repository/.github/workflows/$workflow@refs/tags/v${VERSION}" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "$path"
+          }
+          verify_blob Agent-Remote/agent-remote-node release.yml "$node/$node_archive"
+          verify_blob Agent-Remote/agent-remote-device prepare-release.yml "$device/$app_archive"
+          verify_blob Agent-Remote/agent-remote-device prepare-release.yml "$device/$proxy_archive"
+          verify_blob Agent-Remote/agent-remote-device prepare-release.yml "$device/$community"
+          verify_blob Agent-Remote/agent-remote-server release.yml \
+            "$server/agent-remote-server-${VERSION}.pip-audit.json"
+          (cd "$node" && sha256sum --check \
+            "agent-remote-node-${VERSION}.govulncheck.json.sha256")
+          verify_blob Agent-Remote/agent-remote-node release.yml \
+            "$node/agent-remote-node-${VERSION}.govulncheck.json"
+          (cd "$device" && sha256sum --check \
+            "agent-remote-device-${VERSION}.cargo-audit.json.sha256")
+          (cd "$device" && sha256sum --check \
+            "agent-remote-device-${VERSION}.swift-osv.json.sha256")
+          verify_blob Agent-Remote/agent-remote-device prepare-release.yml \
+            "$device/agent-remote-device-${VERSION}.cargo-audit.json"
+          verify_blob Agent-Remote/agent-remote-device prepare-release.yml \
+            "$device/agent-remote-device-${VERSION}.swift-osv.json"
+          (cd "$cli" && sha256sum --check \
+            "agent-remote-cli-${VERSION}.cargo-audit.json.sha256")
+          verify_blob Agent-Remote/agent-remote-cli release.yml \
+            "$cli/agent-remote-cli-${VERSION}.cargo-audit.json"
+          verify_blob Agent-Remote/agent-remote-admin-web release.yml \
+            "$admin/agent-remote-admin-web-${VERSION}.npm-audit.json"
+          for entry in \
+            "Agent-Remote/agent-remote-server release.yml $server/agent-remote-server-${VERSION}.spdx.json" \
+            "Agent-Remote/agent-remote-node release.yml $node/agent-remote-node-${VERSION}.spdx.json" \
+            "Agent-Remote/agent-remote-device prepare-release.yml $device/agent-remote-device-macos-${VERSION}.spdx.json" \
+            "Agent-Remote/agent-remote-device prepare-release.yml $device/agent-remote-device-proxy-${TARGET}-${VERSION}.spdx.json"; do
+            read -r repository workflow path <<<"$entry"
+            jq -e '.spdxVersion | startswith("SPDX-")' "$path" >/dev/null
+            verify_blob "$repository" "$workflow" "$path"
+          done
+
+          jq -e \
+            '.schema_version == 1 and .release_version == env.VERSION and
+             .profile == "community-local-trust" and .production_ready == true and
+             .apple_notarized == false and .public_distribution == false and
+             .signing_type == "project-self-signed" and
+             .application_signature_verified == true and
+             .nested_signatures_verified == true and .hardened_runtime == true' \
+            "$device/$community" >/dev/null
+
+          gh attestation verify "$node/$node_archive" \
+            --repo Agent-Remote/agent-remote-node --source-ref "refs/tags/v${VERSION}" \
+            --signer-workflow Agent-Remote/agent-remote-node/.github/workflows/release.yml \
+            --format json > release-input/node-provenance.json
+          gh attestation verify "$device/$app_archive" \
+            --repo Agent-Remote/agent-remote-device --source-ref "refs/tags/v${VERSION}" \
+            --signer-workflow Agent-Remote/agent-remote-device/.github/workflows/prepare-release.yml \
+            --format json > release-input/application-provenance.json
+          gh attestation verify "$device/$proxy_archive" \
+            --repo Agent-Remote/agent-remote-device --source-ref "refs/tags/v${VERSION}" \
+            --signer-workflow Agent-Remote/agent-remote-device/.github/workflows/prepare-release.yml \
+            --format json > release-input/proxy-provenance.json
+
+          server_image=$(jq -er .image "$server/agent-remote-server-${VERSION}.json")
+          server_digest=$(jq -er .digest "$server/agent-remote-server-${VERSION}.json")
+          cosign verify \
+            --certificate-identity \
+              "https://github.com/Agent-Remote/agent-remote-server/.github/workflows/release.yml@refs/tags/v${VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${server_image}@${server_digest}"
+          gh attestation verify "oci://${server_image}@${server_digest}" \
+            --repo Agent-Remote/agent-remote-server \
+            --bundle "$server/agent-remote-server-${VERSION}.provenance.jsonl" \
+            --source-ref "refs/tags/v${VERSION}" \
+            --signer-workflow Agent-Remote/agent-remote-server/.github/workflows/release.yml \
+            --format json > release-input/server-provenance.json
+
+          jq -e '(.dependencies | length) > 0 and all(.dependencies[]; (.vulns | length) == 0)' \
+            "$server/agent-remote-server-${VERSION}.pip-audit.json" >/dev/null
+          jq -s -e 'any(.[]; has("finding")) | not' \
+            "$node/agent-remote-node-${VERSION}.govulncheck.json" >/dev/null
+          jq -e '.vulnerabilities.found == false' \
+            "$device/agent-remote-device-${VERSION}.cargo-audit.json" >/dev/null
+          jq -e '.vulnerability_ids == []' \
+            "$device/agent-remote-device-${VERSION}.swift-osv.json" >/dev/null
+          jq -e '.vulnerabilities.found == false' \
+            "$cli/agent-remote-cli-${VERSION}.cargo-audit.json" >/dev/null
+          jq -e \
+            '.metadata.vulnerabilities.high == 0 and .metadata.vulnerabilities.critical == 0' \
+            "$admin/agent-remote-admin-web-${VERSION}.npm-audit.json" >/dev/null
+      - name: Verify successful official-runner CI for every coordinated source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-input/community
+          python3 - <<'PY'
+          import json, os, subprocess
+          repositories = [
+              "agent-remote", "agent-remote-server", "agent-remote-node",
+              "agent-remote-cli", "agent-remote-admin-web", "agent-remote-device",
+          ]
+          result = {}
+          version = os.environ["VERSION"]
+          for repository in repositories:
+              sha = subprocess.check_output([
+                  "gh", "api", f"repos/Agent-Remote/{repository}/commits/v{version}",
+                  "--jq", ".sha",
+              ], text=True).strip()
+              raw = subprocess.check_output([
+                  "gh", "api",
+                  f"repos/Agent-Remote/{repository}/actions/workflows/ci.yml/runs?head_sha={sha}&status=success&per_page=20",
+              ], text=True)
+              runs = [run for run in json.loads(raw)["workflow_runs"] if run["conclusion"] == "success" and run["event"] == "push"]
+              if not runs:
+                  raise SystemExit(f"missing successful CI for {repository}@{sha}")
+              result[repository] = {"sha": sha, "url": runs[0]["html_url"], "conclusion": "success"}
+          with open("release-input/community/ci-runs.json", "w", encoding="utf-8") as output:
+              json.dump(result, output, sort_keys=True)
+          PY
+      - name: Assemble and sign community production evidence
+        env:
+          ACTOR: ${{ github.actor }}
+          PRIVATE_KEY_PEM: ${{ secrets.DEVICE_CONTROL_RELEASE_PRIVATE_KEY_PEM }}
+          TARGET: ${{ inputs.node_target }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          issued_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          expires_at=$(date -u -d '+7 days' +%Y-%m-%dT%H:%M:%SZ)
+          community=release-input/community
+          jq -n \
+            --arg version "$VERSION" \
+            --slurpfile ci_runs "$community/ci-runs.json" \
+            '{schema_version:1,release_version:$version,profile:"community-local-trust",production_ready:true,official_runners_only:true,critical_high_vulnerabilities:0,checks:{coordinated_release:true,protocol_tests:true,cross_component_e2e:true,fuzz:true,stop_revocation:true,compatibility:true,supply_chain:true},ci_runs:$ci_runs[0]}' \
+            > "$community/automation.json"
+          jq -n \
+            --arg actor "$ACTOR" --arg accepted_at "$issued_at" --arg version "$VERSION" \
+            '{schema_version:1,release_version:$version,profile:"community-local-trust",accepted:true,accepted_by:$actor,accepted_at:$accepted_at,accepted_risks:["apple_notarization_absent","manual_gatekeeper_trust","system_network_filter_absent","independent_security_review_absent"]}' \
+            > "$community/risk-acceptance.json"
+
+          python3 scripts/assemble-community-device-control-release-evidence.py \
+            --release-version "$VERSION" \
+            --server-metadata "release-input/server/agent-remote-server-${VERSION}.json" \
+            --node-artifact "release-input/node/agent-remote-node-${VERSION}-${TARGET}.tar.gz" \
+            --application-artifact "release-input/device/agent-remote-device-macos-${VERSION}.zip" \
+            --proxy-artifact "release-input/device/agent-remote-device-proxy-${TARGET}-${VERSION}.tar.gz" \
+            --sbom "server=release-input/server/agent-remote-server-${VERSION}.spdx.json" \
+            --sbom "node=release-input/node/agent-remote-node-${VERSION}.spdx.json" \
+            --sbom "application=release-input/device/agent-remote-device-macos-${VERSION}.spdx.json" \
+            --sbom "proxy=release-input/device/agent-remote-device-proxy-${TARGET}-${VERSION}.spdx.json" \
+            --provenance server=release-input/server-provenance.json \
+            --provenance node=release-input/node-provenance.json \
+            --provenance application=release-input/application-provenance.json \
+            --provenance proxy=release-input/proxy-provenance.json \
+            --community-signing "release-input/device/agent-remote-device-macos-${VERSION}.community-signing.json" \
+            --automation-evidence "$community/automation.json" \
+            --risk-acceptance "$community/risk-acceptance.json" \
+            --ci-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --issued-at "$issued_at" --expires-at "$expires_at" \
+            --output-directory device-control-release-evidence
+
+          key="$RUNNER_TEMP/device-control-release-key.pem"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$PRIVATE_KEY_PEM" > "$key"
+          chmod 0600 "$key"
+          uv sync --project release-input/server-source --frozen
+          uv run --project release-input/server-source python \
+            release-input/server-source/scripts/create_device_control_release_evidence.py \
+            --draft device-control-release-evidence/release-evidence-draft.json \
+            --private-key "$key" \
+            --output "device-control-release-evidence/device-control-release-evidence-${VERSION}.json"
+          (cd device-control-release-evidence && \
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | \
+            sort -z | xargs -0 sha256sum > SHA256SUMS)
+          (cd device-control-release-evidence && sha256sum --check SHA256SUMS)
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: community-device-control-release-evidence-${{ inputs.version }}-${{ inputs.node_target }}
+          path: device-control-release-evidence
+          if-no-files-found: error
+          retention-days: 30

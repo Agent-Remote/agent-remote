@@ -40,8 +40,10 @@ curl -fsS https://$AGENT_REMOTE_DOMAIN/healthz
 
 Bootstrap the first administrator from the admin web. The normal CLI initialization flow does not create users.
 
-Device control remains disabled in the example. After every gate in
-`local-device-control-security-design.md` passes, set the following deployment-owned values:
+Device control remains disabled in the example. Select either the default
+`community-local-trust` profile documented in `community-local-trust-release.md` or the stricter
+`apple-developer-id` profile documented in `device-control-release-evidence.md`, then set the
+following deployment-owned values after that profile's release gates pass:
 
 - `DEVICE_CONTROL_RELEASE_EVIDENCE_FILE`: absolute host path to the signed manifest, mounted
   read-only; the disabled default is `/dev/null`.
@@ -52,8 +54,10 @@ Device control remains disabled in the example. After every gate in
 - `DEVICE_CONTROL_ENABLED=true`: set only after the preceding values and external policy are ready.
 
 Production Server startup rejects an enabled capability when either retention period is zero or
-the signed evidence cannot be verified. The Compose setting does not replace Apple notarization,
-MDM/Network Extension enforcement, independent review, or the external gate artifact.
+the signed evidence cannot be verified. A schema 2 `community-local-trust` manifest may validly
+declare `production_ready=true` while also declaring that Apple notarization, public distribution,
+and automatic trust are unavailable. The deployment administrator explicitly accepts those limits;
+the Compose setting does not turn them into Apple, MDM, or independent-review guarantees.
 
 ## Node
 
