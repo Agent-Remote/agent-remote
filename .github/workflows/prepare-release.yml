@@ -46,9 +46,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet; then
-            git add docs/deployment.md CHANGELOG.md VERSION
+            git add \
+              CHANGELOG.md \
+              VERSION \
+              deploy/compose/.env.device-test \
+              docs/deployment.md \
+              docs/local-device-control-test-release.md \
+              scripts/prepare-release.sh
             git commit -m "chore: release v${version}"
           fi
+          git diff --exit-code
           git tag "v${version}"
           git push origin HEAD:${GITHUB_REF_NAME}
           git push origin "v${version}"
