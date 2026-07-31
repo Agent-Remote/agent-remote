@@ -37,6 +37,13 @@ CLI、Linux amd64/arm64 Node 与 standalone proxy、Server/Admin OCI 镜像以�
 clean、tag 和 origin 严格检查已通过，本地统一 `v0.1.0` 标签已创建但尚未推送；在远端发布并完成
 真实外部门禁前，不得启用生产 capability。
 
+六仓库源码快照均已推送到 `main`：Root `9c1baf2c`、Server `7f9c4e0c`、Node `5d3a0d1a`、CLI
+`f6695a27`、Admin `fc6c64da`、Device `9168fe62`。对应 GitHub Actions 已有真实成功记录：Root CI
+`30612564176`、Server CI `30611243723`、Node CI `30611714895`、CLI CI `30611235824`、CLI
+install-smoke `30611235810`、Admin CI `30611228121`、Device CI `30612553250`。这些记录只证明
+仓库内自动化门禁成功，不代替 Apple 公证、真实 TCC/MDM、Claude 隔离与兼容性、独立安全评审或
+受保护生产环境证据；本地 `v0.1.0` 标签仍未推送。
+
 本轮还收紧了三处生产门禁：Server 对启动时已验证的 release evidence 在运行期持续检查有效期，
 过期后拒绝新建、连接、审批、加锁、续租、重连、relay material 和 WebSocket，同时保留 Abort/Stop
 用于安全清理；release CLI 在编译时固定受保护环境提供的 Apple Team ID，并分别验证 App 与两个
