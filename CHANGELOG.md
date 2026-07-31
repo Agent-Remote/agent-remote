@@ -2,6 +2,24 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.1.4 - 2026-07-31
+
+- fix: accept protected release automation evidence (b88ffa5)
+- fix: commit all prepared release files (be71834)
+- feat: add community local-trust release evidence (0b84ce4)
+- build: package multi-architecture test images (4eac630)
+- docs: record verified release gate runs (dcae759)
+- test: harden release and tunnel readiness (9c1baf2)
+- test: stabilize macOS tunnel readiness (40ce1f2)
+- ci: run device E2E with Swift 6 (6db29cd)
+- feat: coordinate secure device control releases (68e24e3)
+- ci: disable noisy cross-repo Go cache (692c2cb)
+- ci: separate platform tunnel stress coverage (e033734)
+- test: stabilize concurrent tunnel e2e (a82b94b)
+- ci: run tunnel e2e on macos (c704035)
+- test: verify 100 concurrent tunnel streams (dc959e1)
+- ci: fix cross-repo Go caching (dd9ffb5)
+
 ## v0.1.0 - 2026-07-31
 
 - feat: coordinate secure local device control release evidence and external gates
