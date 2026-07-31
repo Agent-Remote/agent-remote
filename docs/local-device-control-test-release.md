@@ -6,11 +6,17 @@ production release and cannot satisfy the production release-evidence gate.
 
 ## Start the control plane
 
-Load the two local images, then start PostgreSQL, Redis, Server, and Admin Web:
+Select the image archive matching the Docker host, load the two local images, then start PostgreSQL,
+Redis, Server, and Admin Web:
 
 ```sh
-docker load -i images/agent-remote-server-device-test-0.1.0.tar.gz
-docker load -i images/agent-remote-admin-web-device-test-0.1.0.tar.gz
+case "$(uname -m)" in
+  x86_64) image_arch=amd64 ;;
+  arm64|aarch64) image_arch=arm64 ;;
+  *) echo "unsupported image architecture: $(uname -m)" >&2; exit 1 ;;
+esac
+docker load -i "images/agent-remote-server-device-test-0.1.0-linux-${image_arch}.tar.gz"
+docker load -i "images/agent-remote-admin-web-device-test-0.1.0-linux-${image_arch}.tar.gz"
 docker compose \
   --env-file compose/.env.device-test \
   -f compose/docker-compose.yml \
@@ -27,7 +33,7 @@ The API is available at `http://127.0.0.1:8000` and Admin Web at
 - `cli/`: native arm64 macOS CLI package.
 - `node/`: Linux amd64 and arm64 glibc Node packages with the matching proxy embedded.
 - `proxy/`: standalone Linux amd64 and arm64 glibc MCP proxies.
-- `images/`: local Server and Admin Web OCI image archives.
+- `images/`: Linux amd64 and arm64 Server and Admin Web Docker image archives.
 
 The production CLI intentionally rejects the ad-hoc application because it does not carry the
 protected Apple Team ID. For this test build, unzip and launch the app directly. Full control still

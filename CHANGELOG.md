@@ -9,6 +9,7 @@ All notable changes to this repository are recorded here.
 - test: verify the Server-to-Node-to-Rust-to-Swift device control path
 - ci: run Swift 6 device control E2E on macOS 15
 - test: use a retryable HTTP readiness window in the macOS tunnel E2E
+- build: package Server and Admin test images for both Linux amd64 and arm64
 - ci: disable noisy cross-repo Go cache (692c2cb)
 - ci: separate platform tunnel stress coverage (e033734)
 - test: stabilize concurrent tunnel e2e (a82b94b)

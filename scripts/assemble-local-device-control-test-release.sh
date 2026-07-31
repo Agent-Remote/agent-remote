@@ -39,8 +39,7 @@ for proxy_dir in "$proxy_amd64" "$proxy_arm64"; do
   )
 done
 
-docker image inspect "$server_image" >/dev/null
-docker image inspect "$admin_image" >/dev/null
+docker buildx version >/dev/null
 
 rm -rf "$output"
 mkdir -p "$output/macos" "$output/cli" "$output/node" "$output/proxy" "$output/images"
@@ -52,15 +51,33 @@ cp "$cli_archive" "$output/cli/"
 cp "$node_amd64" "$node_arm64" "$output/node/"
 tar -C "$proxy_amd64" -czf "$output/proxy/agent-remote-device-proxy-$release_version-linux-amd64-glibc.tar.gz" .
 tar -C "$proxy_arm64" -czf "$output/proxy/agent-remote-device-proxy-$release_version-linux-arm64-glibc.tar.gz" .
-docker save "$server_image" | gzip -9 > \
-  "$output/images/agent-remote-server-device-test-$release_version.tar.gz"
-docker save "$admin_image" | gzip -9 > \
-  "$output/images/agent-remote-admin-web-device-test-$release_version.tar.gz"
+
+build_image_archive() {
+  local repository=$1
+  local image=$2
+  local component=$3
+  local architecture=$4
+  local archive="$output/images/${component}-device-test-$release_version-linux-$architecture.tar"
+
+  docker buildx build \
+    --platform "linux/$architecture" \
+    --build-arg "AGENT_REMOTE_VERSION=$release_version" \
+    --tag "$image" \
+    --output "type=docker,dest=$archive" \
+    "$repository"
+  gzip -9 "$archive"
+}
+
+for architecture in amd64 arm64; do
+  build_image_archive "$server_repo" "$server_image" agent-remote-server "$architecture"
+  build_image_archive "$admin_repo" "$admin_image" agent-remote-admin-web "$architecture"
+done
 
 {
   printf 'kind=device-control-test-release\n'
   printf 'production_ready=false\n'
   printf 'release_version=%s\n' "$release_version"
+  printf 'image_platforms=linux/amd64,linux/arm64\n'
   printf 'created_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'root_head=%s\n' "$(git -C "$root" rev-parse HEAD)"
   printf 'server_head=%s\n' "$(git -C "$server_repo" rev-parse HEAD)"
