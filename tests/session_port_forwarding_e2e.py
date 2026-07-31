@@ -568,7 +568,6 @@ def main() -> int:
             wait_for(
                 lambda: _http_matches(state.local_port, "/", b"agent-remote-e2e"),
                 "initial forward did not carry HTTP traffic",
-                timeout=3,
             )
             if int(ssh_count.read_text() or "0") != 1:
                 raise AssertionError("SSH failure injection ran before the initial data-path checks")

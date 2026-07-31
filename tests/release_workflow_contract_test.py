@@ -113,6 +113,10 @@ for fragment in (
     '"$proxy_amd64/SHA256SUMS"',
     '"$proxy_arm64/SHA256SUMS"',
     'shasum -a 256 --check SHA256SUMS',
+    "admin_head=%s",
+    'git -C "$admin_repo" rev-parse HEAD',
+    "device_head=%s",
+    'git -C "$device_repo" rev-parse HEAD',
 ):
     if fragment not in test_release_assembler:
         raise SystemExit(f"local test release assembler is missing: {fragment}")

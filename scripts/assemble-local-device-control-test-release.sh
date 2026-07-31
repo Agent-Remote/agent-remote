@@ -5,6 +5,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 server_repo=$(cd "$root/../agent-remote-server" && pwd)
 node_repo=$(cd "$root/../agent-remote-node" && pwd)
 cli_repo=$(cd "$root/../agent-remote-cli" && pwd)
+admin_repo=$(cd "$root/../agent-remote-admin-web" && pwd)
 device_repo=$(cd "$root/../agent-remote-device" && pwd)
 output="$root/dist/device-control-test-release"
 release_version=$(tr -d '[:space:]' < "$root/VERSION")
@@ -65,7 +66,8 @@ docker save "$admin_image" | gzip -9 > \
   printf 'server_head=%s\n' "$(git -C "$server_repo" rev-parse HEAD)"
   printf 'node_head=%s\n' "$(git -C "$node_repo" rev-parse HEAD)"
   printf 'cli_head=%s\n' "$(git -C "$cli_repo" rev-parse HEAD)"
-  printf 'device_head=uncommitted-initial-worktree\n'
+  printf 'admin_head=%s\n' "$(git -C "$admin_repo" rev-parse HEAD)"
+  printf 'device_head=%s\n' "$(git -C "$device_repo" rev-parse HEAD)"
 } > "$output/BUILD-INFO.txt"
 
 (
