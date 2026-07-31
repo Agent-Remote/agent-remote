@@ -57,7 +57,7 @@ jobs:
 
   local-device-control-e2e:
     name: local-device-control-e2e
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: actions/checkout@v7.0.0
