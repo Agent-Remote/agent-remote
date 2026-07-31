@@ -8,6 +8,7 @@ All notable changes to this repository are recorded here.
 - build: assemble a unified multi-component local device control test release
 - test: verify the Server-to-Node-to-Rust-to-Swift device control path
 - ci: run Swift 6 device control E2E on macOS 15
+- test: avoid destructive TCP readiness probes in the tunnel E2E
 - ci: disable noisy cross-repo Go cache (692c2cb)
 - ci: separate platform tunnel stress coverage (e033734)
 - test: stabilize concurrent tunnel e2e (a82b94b)

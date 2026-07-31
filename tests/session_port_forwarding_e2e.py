@@ -559,10 +559,6 @@ def main() -> int:
         try:
             wait_for(lambda: ssh_count.exists(), "CLI did not start the SSH gateway")
             wait_for(
-                lambda: _port_accepts(state.local_port),
-                "CLI did not bind the local loopback listener",
-            )
-            wait_for(
                 lambda: any(
                     path == "/api/v1/node-api/port-forwards/redeem"
                     for _method, path, _body in state.requests
@@ -637,14 +633,6 @@ def main() -> int:
     dev.server_close()
     print("session port-forwarding cross-repository E2E passed")
     return 0
-
-
-def _port_accepts(port: int) -> bool:
-    try:
-        with socket.create_connection(("127.0.0.1", port), timeout=0.1):
-            return True
-    except OSError:
-        return False
 
 
 def _http_matches(port: int, path: str, expected: bytes) -> bool:
