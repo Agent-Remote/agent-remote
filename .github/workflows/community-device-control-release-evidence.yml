@@ -197,7 +197,7 @@ jobs:
           jq -e \
             '.metadata.vulnerabilities.high == 0 and .metadata.vulnerabilities.critical == 0' \
             "$admin/agent-remote-admin-web-${VERSION}.npm-audit.json" >/dev/null
-      - name: Verify successful official-runner CI for every coordinated source commit
+      - name: Verify successful official-runner automation for every coordinated source commit
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
@@ -210,6 +210,9 @@ jobs:
               "agent-remote", "agent-remote-server", "agent-remote-node",
               "agent-remote-cli", "agent-remote-admin-web", "agent-remote-device",
           ]
+          release_workflows = {
+              "agent-remote-device": ".github/workflows/prepare-release.yml",
+          }
           result = {}
           version = os.environ["VERSION"]
           for repository in repositories:
@@ -219,12 +222,32 @@ jobs:
               ], text=True).strip()
               raw = subprocess.check_output([
                   "gh", "api",
-                  f"repos/Agent-Remote/{repository}/actions/workflows/ci.yml/runs?head_sha={sha}&status=success&per_page=20",
+                  f"repos/Agent-Remote/{repository}/actions/runs?head_sha={sha}&status=success&per_page=100",
               ], text=True)
-              runs = [run for run in json.loads(raw)["workflow_runs"] if run["conclusion"] == "success" and run["event"] == "push"]
+              trusted_release = release_workflows.get(
+                  repository, ".github/workflows/release.yml"
+              )
+              runs = [
+                  run for run in json.loads(raw)["workflow_runs"]
+                  if run["conclusion"] == "success" and (
+                      (run["event"] == "push" and run["path"] == ".github/workflows/ci.yml")
+                      or (
+                          run["event"] == "workflow_dispatch"
+                          and run["path"] == trusted_release
+                      )
+                  )
+              ]
               if not runs:
-                  raise SystemExit(f"missing successful CI for {repository}@{sha}")
-              result[repository] = {"sha": sha, "url": runs[0]["html_url"], "conclusion": "success"}
+                  raise SystemExit(
+                      f"missing successful official-runner automation for {repository}@{sha}"
+                  )
+              result[repository] = {
+                  "sha": sha,
+                  "url": runs[0]["html_url"],
+                  "conclusion": "success",
+                  "event": runs[0]["event"],
+                  "workflow": runs[0]["path"],
+              }
           with open("release-input/community/ci-runs.json", "w", encoding="utf-8") as output:
               json.dump(result, output, sort_keys=True)
           PY
