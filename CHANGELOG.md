@@ -4,6 +4,8 @@ All notable changes to this repository are recorded here.
 
 ## v0.1.7 - 2026-08-01
 
+- fix: avoid automated release evidence deadlock (4b452a5)
+- chore: release v0.1.7 (6da03c0)
 - feat: embed automated release evidence in deployment bundles (7f5a23f)
 
 ## v0.1.6 - 2026-08-01
