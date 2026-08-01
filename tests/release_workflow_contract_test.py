@@ -29,6 +29,12 @@ required_release_fragments = (
     "--require-clean",
     "--require-tag",
     "--require-origin",
+    "uses: ./.github/workflows/community-device-control-release-evidence.yml",
+    "community-device-control-release-evidence-${{ needs.resolve.outputs.version }}",
+    '"dist/${package}/deploy/compose/device-control-release-evidence.json"',
+    "> device-control-release-evidence.SHA256SUMS",
+    "DEVICE_CONTROL_RELEASE_EVIDENCE_FILE=./device-control-release-evidence.json",
+    '(cd ".release/device-control-release-evidence"',
 )
 
 missing = [fragment for fragment in required_release_fragments if fragment not in release]
@@ -107,6 +113,17 @@ required_community_evidence_fragments = (
     "create_device_control_release_evidence.py",
     "DEVICE_CONTROL_RELEASE_PRIVATE_KEY_PEM",
     "retention-days: 30",
+    "workflow_call:",
+    "linux-amd64-glibc",
+    "linux-arm64-glibc",
+    "linux-amd64-musl",
+    "linux-arm64-musl",
+    "--node-artifact",
+    "--proxy-artifact",
+    "node-${target}=release-input/node/agent-remote-node-${VERSION}.spdx.json",
+    "proxy-${target}=release-input/device/agent-remote-device-proxy-${target}-${VERSION}.spdx.json",
+    "for attempt in range(40)",
+    "time.sleep(30)",
 )
 missing_community_evidence = [
     fragment

@@ -45,8 +45,9 @@ Device control remains disabled in the example. Select either the default
 `apple-developer-id` profile documented in `device-control-release-evidence.md`, then set the
 following deployment-owned values after that profile's release gates pass:
 
-- `DEVICE_CONTROL_RELEASE_EVIDENCE_FILE`: absolute host path to the signed manifest, mounted
-  read-only; the disabled default is `/dev/null`.
+- `DEVICE_CONTROL_RELEASE_EVIDENCE_FILE`: signed manifest path mounted read-only. Official
+  deployment bundles include the coordinated multi-architecture manifest and preconfigure this as
+  `./device-control-release-evidence.json`; source checkouts keep the disabled `/dev/null` default.
 - `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`: Base64 raw Ed25519 verification key.
 - `DEVICE_SESSION_RETENTION_DAYS`: approved non-zero terminal session metadata period.
 - `DEVICE_SESSION_AUDIT_RETENTION_DAYS`: approved non-zero audit period, not shorter than the
@@ -54,7 +55,7 @@ following deployment-owned values after that profile's release gates pass:
 - `DEVICE_CONTROL_ENABLED=true`: set only after the preceding values and external policy are ready.
 
 Production Server startup rejects an enabled capability when either retention period is zero or
-the signed evidence cannot be verified. A schema 2 `community-local-trust` manifest may validly
+the signed evidence cannot be verified. A schema 3 `community-local-trust` manifest may validly
 declare `production_ready=true` while also declaring that Apple notarization, public distribution,
 and automatic trust are unavailable. The deployment administrator explicitly accepts those limits;
 the Compose setting does not turn them into Apple, MDM, or independent-review guarantees.
@@ -124,7 +125,8 @@ Every repository uses a two-step release flow:
 
 The prepare workflow updates repository-owned version files, commits `chore: release vX.Y.Z`, pushes `main`, and then pushes the matching tag. Tag-triggered release workflows only build and publish artifacts; they do not modify source files.
 
-- `agent-remote` publishes a deployment bundle containing `deploy/`, `docs/`, `scripts/`, and license notices.
+- `agent-remote` publishes a deployment bundle containing `deploy/`, `docs/`, `scripts/`, license
+  notices, and the automatically generated signed multi-architecture community release evidence.
 - `agent-remote-server` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-server`.
 - `agent-remote-admin-web` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-admin-web`.
 - `agent-remote-node` publishes Linux release archives.

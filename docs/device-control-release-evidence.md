@@ -14,8 +14,8 @@ Two release profiles are supported and their claims must not be mixed:
 - `apple-developer-id` uses Developer ID signing, Apple notarization, protected external gates, and
   the `device-control-release-evidence` workflow.
 
-Both workflows must run from the exact coordinated `vVERSION` tag. The selected Node target
-determines both the Node archive and standalone proxy archive bound into the manifest.
+Both workflows must run from the exact coordinated `vVERSION` tag. The community workflow binds
+all four supported Linux Node and standalone proxy targets into one schema 3 manifest.
 
 ## Coordinated Release Order
 
@@ -35,26 +35,29 @@ Publish in this dependency order for either profile:
 3. `agent-remote-server`, `agent-remote-cli`, and `agent-remote-admin-web`; these may run in parallel.
 4. `agent-remote`, after all five component tags exist. Its release workflow checks out every exact
    tag and reruns the readiness verifier before creating the deployment bundle.
-5. Run the evidence workflow for the selected profile from the same root tag and commit.
+5. The root release automatically calls the community evidence workflow from the same tag, waits
+   for its protected-environment approval, and embeds the signed manifest in the deployment bundle.
 
 ## Community Local-Trust Profile
 
-After all six same-version releases and their push CI runs succeed, dispatch:
+The normal root `release` workflow invokes community evidence automatically. To reissue a
+short-lived manifest without rebuilding a deployment bundle, dispatch the same reusable workflow:
 
 ```sh
 gh workflow run community-device-control-release-evidence.yml \
   --repo Agent-Remote/agent-remote \
   --ref vVERSION \
   -f version=VERSION \
-  -f node_target=linux-arm64-glibc \
   -f accept_reduced_security=true
 ```
 
-This workflow runs only on `ubuntu-latest`. It verifies the exact release checksums, Sigstore
-workflow identities, GitHub provenance, signed SPDX SBOMs, dependency vulnerability reports,
+This workflow runs only on `ubuntu-latest`. It verifies all `linux-amd64-glibc`,
+`linux-arm64-glibc`, `linux-amd64-musl`, and `linux-arm64-musl` Node and proxy artifacts, plus the
+exact release checksums, Sigstore workflow identities, GitHub provenance, signed SPDX SBOMs,
+dependency vulnerability reports,
 project self-signed App identity, and successful same-commit CI for all six repositories. It then
 records the administrator's explicit acceptance of the documented reduced-security profile and
-signs a schema 2 manifest with the deployment-owned Ed25519 key.
+signs a schema 3 manifest with the deployment-owned Ed25519 key.
 
 The workflow does not claim Apple notarization, Gatekeeper trust, system-level network filtering,
 independent security review, or unattended public distribution. Those are accepted limitations of

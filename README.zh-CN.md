@@ -57,7 +57,8 @@ scripts/run-local-device-control-e2e.sh
 
 Release workflow 会发布部署归档、CLI/Node 二进制、GHCR 镜像和 GitHub Release notes。
 设备控制的生产证据使用独立的受保护装配流程，详见
-`docs/device-control-release-evidence.md`；该流程不会自动启用 capability。
+`docs/device-control-release-evidence.md`。根仓库的协调发布会把已签名的多架构 Community
+清单内置到部署包中；该流程不会自动启用 capability。
 
 ## 许可证
 

@@ -12,13 +12,16 @@ on:
         type: string
 
 permissions:
+  actions: read
   contents: write
   id-token: write
   attestations: write
 
 jobs:
-  release:
+  resolve:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
     steps:
       - uses: actions/checkout@v7.0.0
       - name: Resolve release version
@@ -36,34 +39,48 @@ jobs:
           test "$GITHUB_REF" = "refs/tags/v${version}"
           test "$(tr -d '[:space:]' < VERSION)" = "$version"
           echo "value=${version}" >> "$GITHUB_OUTPUT"
+
+  community-evidence:
+    needs: resolve
+    uses: ./.github/workflows/community-device-control-release-evidence.yml
+    with:
+      version: ${{ needs.resolve.outputs.version }}
+      accept_reduced_security: true
+    secrets: inherit
+
+  release:
+    needs: [resolve, community-evidence]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-cli
-          ref: v${{ steps.version.outputs.value }}
+          ref: v${{ needs.resolve.outputs.version }}
           path: .e2e/agent-remote-cli
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-node
-          ref: v${{ steps.version.outputs.value }}
+          ref: v${{ needs.resolve.outputs.version }}
           path: .e2e/agent-remote-node
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-server
-          ref: v${{ steps.version.outputs.value }}
+          ref: v${{ needs.resolve.outputs.version }}
           path: .release/agent-remote-server
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-admin-web
-          ref: v${{ steps.version.outputs.value }}
+          ref: v${{ needs.resolve.outputs.version }}
           path: .release/agent-remote-admin-web
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-device
-          ref: v${{ steps.version.outputs.value }}
+          ref: v${{ needs.resolve.outputs.version }}
           path: .release/agent-remote-device
       - name: Verify coordinated immutable release train
         env:
-          VERSION: ${{ steps.version.outputs.value }}
+          VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           python3 scripts/check-device-control-release-readiness.py \
             --version "$VERSION" \
@@ -86,26 +103,41 @@ jobs:
           AGENT_REMOTE_CLI_REPO: ${{ github.workspace }}/.e2e/agent-remote-cli
           AGENT_REMOTE_NODE_REPO: ${{ github.workspace }}/.e2e/agent-remote-node
         run: scripts/run-session-port-forwarding-e2e.sh
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: community-device-control-release-evidence-${{ needs.resolve.outputs.version }}
+          path: .release/device-control-release-evidence
       - name: Build deployment bundle
         run: |
           set -euo pipefail
-          version="${{ steps.version.outputs.value }}"
+          version="${{ needs.resolve.outputs.version }}"
           package="agent-remote-deploy-${version}"
           mkdir -p "dist/${package}"
           cp -R deploy docs scripts README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md VERSION "dist/${package}/"
+          cp \
+            ".release/device-control-release-evidence/device-control-release-evidence-${version}.json" \
+            "dist/${package}/deploy/compose/device-control-release-evidence.json"
+          (cd ".release/device-control-release-evidence" && \
+            sha256sum --check SHA256SUMS)
+          (cd "dist/${package}/deploy/compose" && \
+            sha256sum device-control-release-evidence.json \
+              > device-control-release-evidence.SHA256SUMS)
+          sed -i \
+            's#^DEVICE_CONTROL_RELEASE_EVIDENCE_FILE=.*#DEVICE_CONTROL_RELEASE_EVIDENCE_FILE=./device-control-release-evidence.json#' \
+            "dist/${package}/deploy/compose/.env.example"
           tar -C dist -czf "dist/${package}.tar.gz" "${package}"
           sha256sum "dist/${package}.tar.gz" > "dist/${package}.tar.gz.sha256"
       - name: Generate deployment bundle SBOM
         uses: anchore/sbom-action@v0
         with:
-          path: dist/agent-remote-deploy-${{ steps.version.outputs.value }}
+          path: dist/agent-remote-deploy-${{ needs.resolve.outputs.version }}
           format: spdx-json
-          output-file: dist/agent-remote-deploy-${{ steps.version.outputs.value }}.spdx.json
+          output-file: dist/agent-remote-deploy-${{ needs.resolve.outputs.version }}.spdx.json
       - uses: sigstore/cosign-installer@v4.0.0
       - name: Sign and verify deployment bundle
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.value }}
+          VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           set -euo pipefail
           archive="dist/agent-remote-deploy-${VERSION}.tar.gz"
@@ -120,15 +152,15 @@ jobs:
       - name: Attest deployment bundle provenance
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: dist/agent-remote-deploy-${{ steps.version.outputs.value }}.tar.gz
+          subject-path: dist/agent-remote-deploy-${{ needs.resolve.outputs.version }}.tar.gz
       - name: Verify deployment bundle provenance
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.value }}
+          VERSION: ${{ needs.resolve.outputs.version }}
         run: gh attestation verify "dist/agent-remote-deploy-${VERSION}.tar.gz" --repo "$GITHUB_REPOSITORY"
       - uses: softprops/action-gh-release@v3.0.1
         with:
-          tag_name: v${{ steps.version.outputs.value }}
+          tag_name: v${{ needs.resolve.outputs.version }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |

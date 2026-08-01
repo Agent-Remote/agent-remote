@@ -16,7 +16,13 @@ from typing import BinaryIO
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
-LABELS = ("server", "node", "application", "proxy")
+TARGETS = (
+    "linux-amd64-glibc",
+    "linux-arm64-glibc",
+    "linux-amd64-musl",
+    "linux-arm64-musl",
+)
+LABEL = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 MAXIMUM_INPUT_BYTES = 256 * 1024 * 1024
 
 
@@ -62,21 +68,27 @@ def load_object(path: Path) -> dict[str, object]:
     return value
 
 
-def labeled_paths(values: list[str], option: str) -> dict[str, Path]:
-    """Parse exactly one labeled path for every release component."""
+def labeled_paths(values: list[str], option: str, required: set[str]) -> dict[str, Path]:
+    """Parse exactly one safe labeled path for every required input."""
 
     result: dict[str, Path] = {}
     for value in values:
         label, separator, raw_path = value.partition("=")
-        if not separator or label not in LABELS or label in result:
+        if not separator or LABEL.fullmatch(label) is None or label in result:
             raise ValueError(f"invalid {option}: {value}")
         path = Path(raw_path)
         with open_safe(path):
             pass
         result[label] = path
-    if set(result) != set(LABELS):
-        raise ValueError(f"{option} must include {', '.join(LABELS)}")
+    if set(result) != required:
+        raise ValueError(f"{option} must include {', '.join(sorted(required))}")
     return result
+
+
+def target_paths(values: list[str], option: str) -> dict[str, Path]:
+    """Parse one artifact path for every supported Linux target."""
+
+    return labeled_paths(values, option, set(TARGETS))
 
 
 def canonical(value: object) -> bytes:
@@ -221,14 +233,14 @@ def validate_risk_acceptance(path: Path, version: str) -> None:
 
 
 def main() -> None:
-    """Validate inputs and create the schema-2 unsigned production draft."""
+    """Validate inputs and create the schema-3 unsigned production draft."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-version", required=True)
     parser.add_argument("--server-metadata", type=Path, required=True)
-    parser.add_argument("--node-artifact", type=Path, required=True)
+    parser.add_argument("--node-artifact", action="append", default=[])
     parser.add_argument("--application-artifact", type=Path, required=True)
-    parser.add_argument("--proxy-artifact", type=Path, required=True)
+    parser.add_argument("--proxy-artifact", action="append", default=[])
     parser.add_argument("--sbom", action="append", default=[])
     parser.add_argument("--provenance", action="append", default=[])
     parser.add_argument("--community-signing", type=Path, required=True)
@@ -245,12 +257,15 @@ def main() -> None:
             raise ValueError("release version is invalid")
         issued_at = validate_timestamp(args.issued_at, "issued_at")
         expires_at = validate_timestamp(args.expires_at, "expires_at")
-        artifacts = {
-            "node": args.node_artifact,
-            "application": args.application_artifact,
-            "proxy": args.proxy_artifact,
+        node_artifacts = target_paths(args.node_artifact, "node artifact")
+        proxy_artifacts = target_paths(args.proxy_artifact, "proxy artifact")
+        application_sha256 = digest(args.application_artifact)
+        node_digests = {
+            target: digest(path) for target, path in sorted(node_artifacts.items())
         }
-        artifact_digests = {label: digest(path) for label, path in artifacts.items()}
+        proxy_digests = {
+            target: digest(path) for target, path in sorted(proxy_artifacts.items())
+        }
         server = load_object(args.server_metadata)
         server_digest = server.get("digest")
         if server.get("version") != args.release_version or not isinstance(server_digest, str):
@@ -259,12 +274,17 @@ def main() -> None:
         if SHA256.fullmatch(server_sha256) is None:
             raise ValueError("server image digest is invalid")
 
-        sboms = labeled_paths(args.sbom, "sbom")
-        provenance = labeled_paths(args.provenance, "provenance")
+        inventory_labels = {"server", "application"} | {
+            f"{component}-{target}"
+            for component in ("node", "proxy")
+            for target in TARGETS
+        }
+        sboms = labeled_paths(args.sbom, "sbom", inventory_labels)
+        provenance = labeled_paths(args.provenance, "provenance", inventory_labels)
         validate_community_signing(
             args.community_signing,
             args.release_version,
-            artifact_digests["application"],
+            application_sha256,
         )
         validate_automation(args.automation_evidence, args.release_version)
         validate_risk_acceptance(args.risk_acceptance, args.release_version)
@@ -284,7 +304,7 @@ def main() -> None:
         signing_sha256 = digest(args.community_signing)
         risk_sha256 = digest(args.risk_acceptance)
         draft = {
-            "schema_version": 2,
+            "schema_version": 3,
             "release_profile": "community-local-trust",
             "production_ready": True,
             "apple_notarized": False,
@@ -294,9 +314,9 @@ def main() -> None:
             "issued_at": issued_at,
             "expires_at": expires_at,
             "server_sha256": server_sha256,
-            "node_sha256": artifact_digests["node"],
-            "application_sha256": artifact_digests["application"],
-            "proxy_sha256": artifact_digests["proxy"],
+            "application_sha256": application_sha256,
+            "node_artifacts_sha256": node_digests,
+            "proxy_artifacts_sha256": proxy_digests,
             "sbom_sha256": digest(sbom_inventory),
             "provenance_sha256": digest(provenance_inventory),
             "security_tests_sha256": None,

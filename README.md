@@ -58,7 +58,9 @@ Each repository has a `prepare-release` workflow. Running it with a version upda
 
 Release workflows publish deployment archives, CLI/node binaries, GHCR images, and GitHub Release notes.
 Device-control production evidence has a separate protected assembly flow documented in
-`docs/device-control-release-evidence.md`; it never enables the capability automatically.
+`docs/device-control-release-evidence.md`. The coordinated root release embeds the signed
+multi-architecture community manifest in its deployment bundle; it never enables the capability
+automatically.
 
 ## License
 

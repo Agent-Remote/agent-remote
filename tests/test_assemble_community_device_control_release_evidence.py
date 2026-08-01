@@ -7,6 +7,12 @@ from pathlib import Path
 
 SCRIPT = Path("scripts/assemble-community-device-control-release-evidence.py")
 VERSION = "1.2.3"
+TARGETS = (
+    "linux-amd64-glibc",
+    "linux-arm64-glibc",
+    "linux-amd64-musl",
+    "linux-arm64-musl",
+)
 
 
 def write(path: Path, value: object) -> Path:
@@ -18,11 +24,16 @@ def write(path: Path, value: object) -> Path:
 
 
 def arguments(root: Path) -> tuple[list[str], Path]:
-    artifacts = {
-        label: write(root / f"{label}.artifact", f"{label}-artifact")
-        for label in ("node", "application", "proxy")
+    application = write(root / "application.artifact", "application-artifact")
+    node_artifacts = {
+        target: write(root / f"node-{target}.artifact", f"node-{target}")
+        for target in TARGETS
     }
-    application_sha256 = hashlib.sha256(artifacts["application"].read_bytes()).hexdigest()
+    proxy_artifacts = {
+        target: write(root / f"proxy-{target}.artifact", f"proxy-{target}")
+        for target in TARGETS
+    }
+    application_sha256 = hashlib.sha256(application.read_bytes()).hexdigest()
     server = write(
         root / "server.json",
         {"version": VERSION, "digest": f"sha256:{'a' * 64}"},
@@ -108,12 +119,8 @@ def arguments(root: Path) -> tuple[list[str], Path]:
         VERSION,
         "--server-metadata",
         str(server),
-        "--node-artifact",
-        str(artifacts["node"]),
         "--application-artifact",
-        str(artifacts["application"]),
-        "--proxy-artifact",
-        str(artifacts["proxy"]),
+        str(application),
         "--community-signing",
         str(signing),
         "--automation-evidence",
@@ -129,8 +136,16 @@ def arguments(root: Path) -> tuple[list[str], Path]:
         "--output-directory",
         str(output),
     ]
+    for target in TARGETS:
+        values.extend(("--node-artifact", f"{target}={node_artifacts[target]}"))
+        values.extend(("--proxy-artifact", f"{target}={proxy_artifacts[target]}"))
     for option in ("sbom", "provenance"):
-        for label in ("server", "node", "application", "proxy"):
+        labels = ["server", "application"] + [
+            f"{component}-{target}"
+            for component in ("node", "proxy")
+            for target in TARGETS
+        ]
+        for label in labels:
             value = write(root / f"{label}.{option}.json", f"{label}-{option}")
             values.extend((f"--{option}", f"{label}={value}"))
     return values, output
@@ -141,7 +156,7 @@ def test_community_assembler_creates_an_explicit_production_profile(tmp_path: Pa
     subprocess.run(values, check=True)
 
     draft = json.loads((output / "release-evidence-draft.json").read_text(encoding="utf-8"))
-    assert draft["schema_version"] == 2
+    assert draft["schema_version"] == 3
     assert draft["release_profile"] == "community-local-trust"
     assert draft["production_ready"] is True
     assert draft["apple_notarized"] is False
@@ -150,6 +165,10 @@ def test_community_assembler_creates_an_explicit_production_profile(tmp_path: Pa
     assert draft["community_signing_sha256"] == draft["signing_notarization_sha256"]
     assert draft["automated_release_checks_sha256"]
     assert draft["risk_acceptance_sha256"]
+    assert set(draft["node_artifacts_sha256"]) == set(TARGETS)
+    assert set(draft["proxy_artifacts_sha256"]) == set(TARGETS)
+    assert "node_sha256" not in draft
+    assert "proxy_sha256" not in draft
     for field in (
         "security_tests_sha256",
         "security_review_sha256",
