@@ -56,3 +56,8 @@ agent-remote status --online
 ```
 
 Do not delete `~/.config/agent-remote` during upgrades unless you intentionally want to remove local device identity and sync metadata.
+
+Re-running `agent-remote login` against the same configured server reuses the active device and
+rotates its credential instead of registering another device. To clean up duplicate records created
+by older releases, pause and delete each related sync session in the console, then delete its
+workspace, revoke the old device, and finally delete the device.
