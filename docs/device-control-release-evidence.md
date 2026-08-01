@@ -36,7 +36,8 @@ Publish in this dependency order for either profile:
 4. `agent-remote`, after all five component tags exist. Its release workflow checks out every exact
    tag and reruns the readiness verifier before creating the deployment bundle.
 5. The root release automatically calls the community evidence workflow from the same tag, waits
-   for its protected-environment approval, and embeds the signed manifest in the deployment bundle.
+   for its tagged readiness and session E2E validation plus protected-environment approval, and
+   embeds the signed manifest in the deployment bundle.
 
 ## Community Local-Trust Profile
 

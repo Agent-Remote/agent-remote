@@ -40,16 +40,8 @@ jobs:
           test "$(tr -d '[:space:]' < VERSION)" = "$version"
           echo "value=${version}" >> "$GITHUB_OUTPUT"
 
-  community-evidence:
+  validate:
     needs: resolve
-    uses: ./.github/workflows/community-device-control-release-evidence.yml
-    with:
-      version: ${{ needs.resolve.outputs.version }}
-      accept_reduced_security: true
-    secrets: inherit
-
-  release:
-    needs: [resolve, community-evidence]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.0
@@ -103,6 +95,20 @@ jobs:
           AGENT_REMOTE_CLI_REPO: ${{ github.workspace }}/.e2e/agent-remote-cli
           AGENT_REMOTE_NODE_REPO: ${{ github.workspace }}/.e2e/agent-remote-node
         run: scripts/run-session-port-forwarding-e2e.sh
+
+  community-evidence:
+    needs: [resolve, validate]
+    uses: ./.github/workflows/community-device-control-release-evidence.yml
+    with:
+      version: ${{ needs.resolve.outputs.version }}
+      accept_reduced_security: true
+    secrets: inherit
+
+  release:
+    needs: [resolve, validate, community-evidence]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
       - uses: actions/download-artifact@v8.0.1
         with:
           name: community-device-control-release-evidence-${{ needs.resolve.outputs.version }}

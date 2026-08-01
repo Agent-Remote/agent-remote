@@ -230,6 +230,10 @@ jobs:
           }
           result = {}
           version = os.environ["VERSION"]
+          current_run = json.loads(subprocess.check_output([
+              "gh", "api",
+              f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+          ], text=True))
           for repository in repositories:
               sha = subprocess.check_output([
                   "gh", "api", f"repos/Agent-Remote/{repository}/commits/v{version}",
@@ -239,25 +243,42 @@ jobs:
                   repository, ".github/workflows/release.yml"
               )
               runs = []
-              for attempt in range(40):
-                  raw = subprocess.check_output([
-                      "gh", "api",
-                      f"repos/Agent-Remote/{repository}/actions/runs?head_sha={sha}&status=success&per_page=100",
-                  ], text=True)
-                  runs = [
-                      run for run in json.loads(raw)["workflow_runs"]
-                      if run["conclusion"] == "success" and (
-                          (run["event"] == "push" and run["path"] == ".github/workflows/ci.yml")
-                          or (
-                              run["event"] == "workflow_dispatch"
-                              and run["path"] == trusted_release
+              if (
+                  repository == "agent-remote"
+                  and current_run["path"] == ".github/workflows/release.yml"
+              ):
+                  if (
+                      current_run["id"] != int(os.environ["GITHUB_RUN_ID"])
+                      or current_run["head_sha"] != sha
+                      or current_run["event"] not in {"push", "workflow_dispatch"}
+                      or current_run["status"] != "in_progress"
+                      or current_run["conclusion"] is not None
+                  ):
+                      raise SystemExit("current coordinated release run is not trusted")
+                  runs = [current_run]
+              else:
+                  for attempt in range(40):
+                      raw = subprocess.check_output([
+                          "gh", "api",
+                          f"repos/Agent-Remote/{repository}/actions/runs?head_sha={sha}&status=success&per_page=100",
+                      ], text=True)
+                      runs = [
+                          run for run in json.loads(raw)["workflow_runs"]
+                          if run["conclusion"] == "success" and (
+                              (
+                                  run["event"] == "push"
+                                  and run["path"] == ".github/workflows/ci.yml"
+                              )
+                              or (
+                                  run["event"] == "workflow_dispatch"
+                                  and run["path"] == trusted_release
+                              )
                           )
-                      )
-                  ]
-                  if runs:
-                      break
-                  if attempt < 39:
-                      time.sleep(30)
+                      ]
+                      if runs:
+                          break
+                      if attempt < 39:
+                          time.sleep(30)
               if not runs:
                   raise SystemExit(
                       f"missing successful official-runner automation for {repository}@{sha}"

@@ -30,6 +30,8 @@ required_release_fragments = (
     "--require-tag",
     "--require-origin",
     "uses: ./.github/workflows/community-device-control-release-evidence.yml",
+    "needs: [resolve, validate]",
+    "needs: [resolve, validate, community-evidence]",
     "community-device-control-release-evidence-${{ needs.resolve.outputs.version }}",
     '"dist/${package}/deploy/compose/device-control-release-evidence.json"',
     "> device-control-release-evidence.SHA256SUMS",
@@ -105,7 +107,8 @@ required_community_evidence_fragments = (
     "govulncheck.json.sha256",
     "swift-osv.json.sha256",
     "commits/v{version}",
-    'run["event"] == "push" and run["path"] == ".github/workflows/ci.yml"',
+    'run["event"] == "push"',
+    'run["path"] == ".github/workflows/ci.yml"',
     'run["event"] == "workflow_dispatch"',
     '"agent-remote-device": ".github/workflows/prepare-release.yml"',
     "! -name SHA256SUMS",
@@ -124,6 +127,9 @@ required_community_evidence_fragments = (
     "proxy-${target}=release-input/device/agent-remote-device-proxy-${target}-${VERSION}.spdx.json",
     "for attempt in range(40)",
     "time.sleep(30)",
+    'current_run["path"] == ".github/workflows/release.yml"',
+    'current_run["head_sha"] != sha',
+    'current_run["status"] != "in_progress"',
 )
 missing_community_evidence = [
     fragment
