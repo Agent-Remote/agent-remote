@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.1.7 - 2026-08-01
+
+- feat: embed automated release evidence in deployment bundles (7f5a23f)
+
 ## v0.1.6 - 2026-08-01
 
 - docs: document safe client identity upgrades (5d3b1cc)
