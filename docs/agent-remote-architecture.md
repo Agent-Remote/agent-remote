@@ -1535,6 +1535,17 @@ PostgreSQL 用途：
 - 配额和审计查看。
 - 全局配置策略管理。
 
+设备控制的交互入口固定在 `Agent Remote Device.app`：本地 APP 使用 device token
+查询当前用户可控制的远端 Claude session，用户在本机选择目标后由 Server 统一执行
+claim/rebind。Admin Web 负责展示 project/session、当前设备、generation、lease 和
+停止原因，并调用同一个 Server stop service；Web 不绕过本机应用审批，也不实现第二套
+绑定切换逻辑。具体 API 和并发不变量见 `docs/local-device-control-binding-design.md`。
+
+这里的“当前 running 的 fclaude”指服务端 `sessions` 中状态为 `running`、`active`
+或 `detached` 的远端 Claude session，不是本机进程扫描。`DeviceSession` 是临时
+GUI 控制授权；结束它不会停止 Claude，停止远端 session 时才由 Server 统一撤销
+对应的设备控制授权。
+
 ### 6.25 日志与观测模型
 
 MVP 提供基础日志与观测能力，不首期接入完整监控平台。
@@ -1634,19 +1645,24 @@ MVP 提供基础日志与观测能力，不首期接入完整监控平台。
     - 工具运行 session。
     - 必须包含 `tool_type`、`tool_account_id`、`workspace_id`、`node_id`、`status`、`tmux_session_name` 等字段。
 
-14. `session_events`
+14. `device_sessions`
+    - 保存一个 macOS 设备与一个远端工具 session 的临时 GUI 控制绑定。
+    - 非终态 `tool_session_id` 和 `device_id` 各自只能有一个 live binding；终态记录保留用于审计和 retention。
+    - rebind 先撤销旧 generation、关闭 relay、投递 Node deactivate task，再创建新的 `pending_device` 绑定。
+
+15. `session_events`
     - session 生命周期事件。
     - 用于记录创建、attach、detach、停止、失败、节点对账等事件。
 
-15. `browser_sessions`
+16. `browser_sessions`
     - 远端临时浏览器会话。
     - 保存用户、节点、可选工具账户、地区、时区、locale、状态、过期时间和连接状态。
 
-16. `port_forwards`
+17. `port_forwards`
     - Session 级受控端口转发授权和生命周期。
     - 固定用户、设备、SSH key、session、node 和 runtime loopback 端口；不保存应用流量或 connection token。
 
-17. `audit_logs`
+18. `audit_logs`
     - 安全和管理审计日志。
     - 记录登录、账户绑定、设备撤销、节点操作、管理员操作等。
 
@@ -1680,6 +1696,13 @@ user_devices
 sessions
   -> session_events
   -> port_forwards
+
+device_sessions
+  -> sessions
+  -> user_devices
+  -> nodes
+  -> device_session_approvals
+  -> audit_logs
 
 browser_sessions
   -> audit_logs

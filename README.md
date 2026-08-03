@@ -27,6 +27,8 @@ The project is designed for individuals and small teams that want Claude Code fi
 - tmux keeps remote agent shells alive across local disconnects.
 - SSH is used for native terminal attachment and forced-command node access.
 - Remote temporary browser sessions use node-side browser containers and VPS network identity.
+- `Agent Remote Device.app` uses its device credential to list and claim a currently running remote
+  Claude session; rebind revokes old device control without stopping remote Claude.
 
 ## Documentation
 
@@ -35,6 +37,7 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `docs/native-runtime-design.md`
 - `docs/session-port-forwarding-design.md`
 - `docs/local-device-control-security-design.md`
+- `docs/local-device-control-binding-design.md`
 - `docs/local-device-control-release-gate-status.md`
 - `docs/device-control-operations-runbook.md`
 - `docs/deployment.md`

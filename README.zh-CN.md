@@ -27,6 +27,8 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - tmux 让远端 Agent shell 在本地断开后继续保持在线。
 - SSH 用于原生终端附加和节点 forced-command 访问。
 - 远端临时浏览器会话使用节点侧浏览器容器和 VPS 网络身份。
+- `Agent Remote Device.app` 使用 device credential 列出并 claim 当前 running 的远端
+  Claude session；换绑会撤销旧设备控制，但不会停止远端 Claude。
 
 ## 文档
 
@@ -35,6 +37,7 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - `docs/native-runtime-design.md`
 - `docs/session-port-forwarding-design.md`
 - `docs/local-device-control-security-design.md`
+- `docs/local-device-control-binding-design.md`
 - `docs/local-device-control-release-gate-status.md`
 - `docs/device-control-operations-runbook.md`
 - `docs/deployment.md`

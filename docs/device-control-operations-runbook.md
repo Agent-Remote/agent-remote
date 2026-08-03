@@ -4,6 +4,9 @@
 `local-device-control-security-design.md` Phase 2 的操作基线，不是生产就绪声明。任何发布门禁证据
 缺失时，`DEVICE_CONTROL_ENABLED` 必须保持 `false`。
 
+绑定选择、切换和结束控制的产品与 API 契约见 `local-device-control-binding-design.md`。运维人员应把
+`rebound` 视为一次旧授权撤销和新授权建立，而不是删除审计历史。
+
 ## 1. 角色与不变量
 
 - 发布负责人管理协调版本、受保护发布环境和发布证据签名键。
@@ -81,6 +84,7 @@ Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENT
 agent-remote device install --source "/path/to/Agent Remote Device.app"
 agent-remote device diagnose
 agent-remote device status
+agent-remote device launch
 ```
 
 升级前结束设备控制 session，保存零内容 session ID 和停止结果，然后安装新版本。安装命令允许同版本
@@ -109,8 +113,42 @@ agent-remote device status
 5. 运行 `agent-remote device status`，并检查 TCC、共享 Broker 凭据、应用沙盒数据和隐藏应用恢复日志
    均无残留。
 
+### 4.1 绑定切换
+
+用户在 Device APP 选择另一个远端 Claude session 时，Server 会停止当前设备的旧控制绑定，并在目标
+session 已被其他设备使用时停止该设备上的旧绑定。旧 relay 必须先关闭，随后由 Node deactivate task
+清除 runtime context；新绑定必须重新进入 `pending_device` 和本机应用审批，不能复用旧 generation 或
+旧审批。
+
+切换故障排查只记录 user/device/tool-session/device-session ID、generation、task ID、request ID、状态
+和时间。不得收集截图、输入、Claude 配置或 relay payload。若数据库已显示旧绑定为终态但旧 Mac 仍能
+发送动作，立即停止相关 Node bridge、关闭 Server relay hub pair，并撤销设备 token；不能只等待 lease
+自然到期。
+
 `uninstall` 不会撤销远端注册。不得颠倒 `revoke` 和 `uninstall`；若本机丢失或无法执行 CLI，控制面
 管理员必须先在 Admin Web 撤销设备，再按事件流程处理本机残留。
+
+### 4.2 结束控制的语义
+
+| 操作 | 设备控制授权 | 远端 `fclaude` session | 备注 |
+| --- | --- | --- | --- |
+| APP `Stop current action` | 保留，进入新的待审批代次 | 保持运行 | 只停止当前 turn |
+| APP `End device control` | 终止 | 保持运行 | 清理 relay、Node bridge 和本机 GUI 状态 |
+| Admin Web `Stop` | 终止 | 保持运行 | 远端 APP 必须 fail closed 并恢复桌面 |
+| `fclaude stop` | 终止 | 终止或进入 interrupted | 由 Server 统一清理 DeviceSession |
+| lease/max TTL 到期 | 终止 | 保持运行 | 不允许依赖自然断线完成清理 |
+
+Admin Web 和 APP 都只能调用同一个 Server revoke/stop service。旧的客户端指定
+`device_id + tool_session_id` 创建接口不是普通用户入口；上线后应返回弃用错误，
+避免 Web 绕过本机选择和审批。
+
+### 4.3 多 worker 部署
+
+设备 relay 的撤销通知必须能到达持有 WebSocket pair 的 Server 进程。生产 Server
+通过共享 Redis pub/sub 广播 `(device_session_id, generation)`；每个 worker 在提交后
+先关闭本地 pair，再发布撤销事件，订阅 worker 只关闭本地 pair 而不重新广播。
+Redis 不可用或订阅持续重连时不得开启设备控制 capability。数据库状态变为终态
+本身不能关闭已经建立的 WebSocket。
 
 ## 5. 事件响应
 

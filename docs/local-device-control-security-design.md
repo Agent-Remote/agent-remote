@@ -6,6 +6,10 @@
 
 本文基于 2026-07-30 可查的 Anthropic 官方 Computer Use 文档。官方未公开的应用分类明细、内部提示、分类器和实现细节不作推测。任何声称“与官方一致”的行为，仅指本文第 5 节列出的公开可观察行为；官方行为变化后必须通过单独的兼容性评审更新，不能静默改变产品权限。
 
+设备主动选择远端 Claude session、claim/rebind、live-only 绑定唯一性和 App/Web 停止语义见
+`local-device-control-binding-design.md`。本文件中的设备控制授权、generation、relay、应用审批和
+本机 Claude 隔离要求同样适用于主动 claim 流程。
+
 绝对“0 漏洞”无法被设计、测试或形式化检查完全证明。本项目的可验证发布目标是：
 
 - 0 个已知 Critical 或 High 安全漏洞；
@@ -25,6 +29,9 @@
 8. 控制面管理员、Node root、用户本机操作系统和本机用户属于可信计算基。本文不防御这些主体主动读取内存、替换二进制或伪造运行状态。
 9. 控制面可参与授权和中继，但不保存截图、输入内容、剪贴板内容或窗口图像。设备数据使用端到端加密，降低日志、备份和误配置造成的暴露。
 10. 正式启用设备控制前，本机应用必须完成签名、公证、权限检查和出站网络策略检查。
+11. 设备控制绑定的唯一事实来源是 Server；任何运行时副本必须匹配完整的
+    `user_id`、`device_id`、`tool_session_id`、`device_session_id`、`node_id` 和
+    `generation`，不能只按 `tool_session_id` 清理或恢复授权。
 
 
 
@@ -111,7 +118,7 @@ MCP server 名称使用 `agent-remote-device`，不得使用 Claude Code 保留�
 | `id`                        | 不可枚举的设备 session ID     |
 | `user_id`                   | 所属用户                   |
 | `device_id`                 | 被控制设备                  |
-| `tool_session_id`           | 唯一绑定的远端 Claude session |
+| `tool_session_id`           | 绑定的远端 Claude session |
 | `node_id`                   | 远端 Node                |
 | `platform`                  | 首期固定为 `macos`          |
 | `status`                    | 状态机当前状态                |
@@ -341,6 +348,10 @@ pending_* / active
 ```
 
 只有本机 Approval UI 能完成应用审批。控制面管理员、Node、远端 Claude、MCP proxy 和项目配置都不能代替用户批准。
+
+换绑会创建新的 `device_session_id`，即使新记录的初始 generation 仍为 `1`，也
+不能复用旧 binding 的 relay、审批摘要、runtime context 或 GUI executor 状态。
+旧任务如果观察到当前 binding 已经变化，必须安全地返回 stale/no-op。
 
 ### 6.3 顺序、重放和重连
 

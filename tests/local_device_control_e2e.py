@@ -185,6 +185,7 @@ async def seed_server(app: object) -> None:
                 user_id=USER_ID,
                 device_id=DEVICE_ID,
                 tool_session_id=TOOL_SESSION_ID,
+                tool_session_reference_id=TOOL_SESSION_ID,
                 node_id=NODE_ID,
                 platform="macos",
                 status="active",
