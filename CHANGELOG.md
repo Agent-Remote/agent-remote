@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.0 - 2026-08-04
+
+- Release metadata update.
+
 ## v0.1.9 - 2026-08-04
 
 - Release metadata update.
