@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.1 - 2026-08-05
+
+- feat: add computer use v2 release controls (1d1a4b5)
+
 ## v0.2.0 - 2026-08-04
 
 - Release metadata update.
