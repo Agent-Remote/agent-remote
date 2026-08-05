@@ -140,6 +140,14 @@ The gate-specific `details` contracts are:
   mouse-down, drag and modifier state after disconnect; Retina scaling, negative-origin
   multi-display coordinates, moving a window between displays, display hot-plug, fast user
   switching, sleep/wake, and network switching.
+  `computer_use_v2` is also an exact object. It requires true artifact binding, signed installation,
+  Safari/Chrome/Firefox/native-application/AX-incomplete-Electron runs, current MCP runtime,
+  golden-prompt replay, model-usage-summary binding, and rollback rehearsal; false sensitive
+  telemetry and success regression; zero wrong-target actions; at least 70 percent fewer
+  model-visible images; action p95 at most 1000 ms; settle p95 at most 5000 ms; and coordinate
+  fallback strictly below 20 percent. Its lowercase `report_sha256` must match an actual regular
+  file inside `security-tests.evidence.tar.gz`; the archive digest and structured gate-record digest
+  are separate bindings and cannot substitute for the report digest.
 - `security-review`: non-empty `reviewer` and `report_signature_identity`, lowercase SHA-256
   `report_sha256`, exact review scope covering Server, Node, application, proxy, and release-evidence
   assembly, zero `critical_open` and `high_open`, and true `independence_confirmed`,
@@ -172,6 +180,30 @@ application archive digest to the release version, Apple Team ID, fixed bundle i
 notarization submission, hardened runtime, artifact signature verification, stapler validation,
 and Gatekeeper assessment. The assembler rejects a valid notarization result copied from another
 application archive.
+
+## Computer Use v2 Rollout Evidence
+
+`DEVICE_CONTROL_V2_ROLLOUT_PERCENT` must remain `0` unless the signed manifest binds a Computer Use
+v2 report to the exact Server, Node, application, and proxy artifacts. The Apple-profile assembler
+validates the exact `security-tests.computer_use_v2` object and writes the validated record digest
+to `computer_use_v2_evidence_sha256`; that field is covered by the canonical Ed25519 signature.
+The object also names the raw report with `report_sha256`, and assembly fails unless a file with
+that exact digest exists in the bounded security-tests evidence archive.
+
+The bound report must use only non-sensitive tasks and prove signed installation; Safari, Chrome,
+Firefox, native application, and AX-incomplete Electron coverage; golden-prompt replay; zero
+wrong-target actions; no success-rate regression; no sensitive telemetry; at least 70% fewer
+model-visible images; action p95 no greater than 1 second; settle p95 no greater than 5 seconds;
+coordinate fallback below 20%; and a rehearsed `100% -> 0%` new-generation rollback. It must bind
+the model/runtime token and image-usage summary to the same run and artifact digest without placing
+prompts, responses, AX text, URLs, screenshots, input, coordinates, or clipboard data in device
+telemetry.
+
+The production Server checks this field both at startup and while processing device-control
+operations, so a missing field or runtime rollout drift fails closed. Community local-trust
+manifests always emit `null` and cannot imply this evidence through risk acceptance. The repository
+remains "implemented, awaiting production evidence" until a real report from the signed release
+artifacts passes this gate.
 
 The assembler verifies every raw evidence archive, hashes the complete validated records, and
 copies both into the final evidence artifact under `gates/` for offline review. It does not infer

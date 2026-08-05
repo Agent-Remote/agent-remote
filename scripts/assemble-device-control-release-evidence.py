@@ -365,6 +365,7 @@ def validate_security_tests(details: dict[str, Any]) -> None:
             "application_signature_verified",
             "coverage",
             "coverage_thresholds_passed",
+            "computer_use_v2",
             "cross_tenant_e2e_passed",
             "dedicated_macos_test_host",
             "failed",
@@ -420,6 +421,81 @@ def validate_security_tests(details: dict[str, Any]) -> None:
     ):
         if details[field] is not True:
             raise ValueError(f"security-tests {field} must be true")
+    validate_computer_use_v2(details["computer_use_v2"])
+
+
+def validate_computer_use_v2(value: Any) -> None:
+    """Validate the release-bound Computer Use v2 production acceptance report."""
+
+    if not isinstance(value, dict):
+        raise ValueError("security-tests Computer Use v2 result must be an object")
+    true_assertions = {
+        "artifact_digest_bound",
+        "chrome_passed",
+        "current_mcp_runtime_passed",
+        "electron_fallback_passed",
+        "firefox_passed",
+        "golden_prompt_replay_passed",
+        "model_usage_summary_bound",
+        "native_application_passed",
+        "rollback_rehearsed",
+        "safari_passed",
+        "signed_installation",
+    }
+    false_assertions = {
+        "sensitive_telemetry_detected",
+        "success_rate_regressed",
+    }
+    metric_fields = {
+        "action_latency_p95_ms",
+        "coordinate_fallback_percent",
+        "model_visible_image_reduction_percent",
+        "report_sha256",
+        "settle_latency_p95_ms",
+        "wrong_target_count",
+    }
+    require_exact_keys(
+        value,
+        true_assertions | false_assertions | metric_fields,
+        "security-tests Computer Use v2",
+    )
+    for field in true_assertions:
+        if value[field] is not True:
+            raise ValueError(f"security-tests Computer Use v2 {field} must be true")
+    for field in false_assertions:
+        if value[field] is not False:
+            raise ValueError(f"security-tests Computer Use v2 {field} must be false")
+    report_digest = value["report_sha256"]
+    if not isinstance(report_digest, str) or not _SHA256.fullmatch(report_digest):
+        raise ValueError("security-tests Computer Use v2 report digest is invalid")
+    if require_nonnegative_integer(
+        value["wrong_target_count"], "security-tests Computer Use v2 wrong_target_count"
+    ) != 0:
+        raise ValueError("security-tests Computer Use v2 contains wrong-target actions")
+    image_reduction = require_percentage(
+        value["model_visible_image_reduction_percent"],
+        "security-tests Computer Use v2 model_visible_image_reduction_percent",
+    )
+    if image_reduction < 70:
+        raise ValueError("security-tests Computer Use v2 image reduction is below target")
+    action_latency = require_nonnegative_integer(
+        value["action_latency_p95_ms"],
+        "security-tests Computer Use v2 action_latency_p95_ms",
+    )
+    if action_latency > 1_000:
+        raise ValueError("security-tests Computer Use v2 action latency exceeds target")
+    settle_latency = require_nonnegative_integer(
+        value["settle_latency_p95_ms"],
+        "security-tests Computer Use v2 settle_latency_p95_ms",
+    )
+    if settle_latency > 5_000:
+        raise ValueError("security-tests Computer Use v2 settle latency exceeds target")
+    coordinate_fallback = require_percentage(
+        value["coordinate_fallback_percent"],
+        "security-tests Computer Use v2 coordinate_fallback_percent",
+    )
+    if coordinate_fallback >= 20:
+        raise ValueError("security-tests Computer Use v2 coordinate fallback exceeds target")
 
 
 def validate_security_review(details: dict[str, Any]) -> None:
@@ -912,6 +988,11 @@ def main() -> None:
             if gate == "security-review":
                 review = load_json_object(path, gate)
                 expected_report_digest = review["details"]["report_sha256"]
+            elif gate == "security-tests":
+                security_tests = load_json_object(path, gate)
+                expected_report_digest = security_tests["details"]["computer_use_v2"][
+                    "report_sha256"
+                ]
             validate_evidence_archive(
                 gate_evidence_paths[gate], gate, expected_report_digest
             )
@@ -925,6 +1006,7 @@ def main() -> None:
         validate_signed_macos_gate_bindings(external_gates, notarization)
         gate_paths = {
             "security_tests_sha256": external_gates["security-tests"],
+            "computer_use_v2_evidence_sha256": external_gates["security-tests"],
             "security_review_sha256": external_gates["security-review"],
             "signing_notarization_sha256": safe_file(args.signing_notarization),
             "outbound_policy_sha256": external_gates["outbound-policy"],

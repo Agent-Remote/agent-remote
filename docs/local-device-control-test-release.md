@@ -44,6 +44,10 @@ The repository-level real `Server -> Node -> Rust -> Swift` E2E can be rerun wit
 scripts/run-local-device-control-e2e.sh
 ```
 
+The harness uses the complete Computer Use v2 capability set. It sends `observe(auto)` through the
+real nested-TLS relay and requires a state-generation advance, bounded AX full observation, and no
+screenshot-generation advance.
+
 Verify every packaged file before use:
 
 ```sh

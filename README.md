@@ -42,11 +42,18 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `docs/device-control-operations-runbook.md`
 - `docs/deployment.md`
 
+Computer Use v2 的完整优化方案以
+`docs/local-device-control-security-design.md` 第 6.5 节为架构与安全事实源；协议状态机、benchmark
+和模型调用规则分别位于 sibling Device 仓库的 `docs/protocol.md`、
+`docs/optimization-benchmark.md` 和 `skills/agent-remote-device/`。生产灰度与回滚按
+`docs/device-control-operations-runbook.md` 执行，不能只修改 skill 提示词或 Server 百分比。
+
 ## Cross-Repository Tests
 
 With the server, node, and device repositories checked out as sibling directories, run the real
 device-control data path through FastAPI/WebSocket, the Go Node bridge, Rust nested TLS, and the
-Swift Network.framework peer:
+Swift Network.framework peer. The current harness negotiates the complete v2 capability set and
+verifies an `observe(auto)` AX-full response without a screenshot:
 
 ```sh
 scripts/run-local-device-control-e2e.sh

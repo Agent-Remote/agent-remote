@@ -326,6 +326,7 @@ def main() -> None:
             "local_claude_isolation_sha256": None,
             "stop_revocation_sha256": None,
             "compatibility_sha256": None,
+            "computer_use_v2_evidence_sha256": None,
             "community_signing_sha256": signing_sha256,
             "automated_release_checks_sha256": automation_sha256,
             "risk_acceptance_sha256": risk_sha256,

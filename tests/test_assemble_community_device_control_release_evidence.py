@@ -165,6 +165,7 @@ def test_community_assembler_creates_an_explicit_production_profile(tmp_path: Pa
     assert draft["community_signing_sha256"] == draft["signing_notarization_sha256"]
     assert draft["automated_release_checks_sha256"]
     assert draft["risk_acceptance_sha256"]
+    assert draft["computer_use_v2_evidence_sha256"] is None
     assert set(draft["node_artifacts_sha256"]) == set(TARGETS)
     assert set(draft["proxy_artifacts_sha256"]) == set(TARGETS)
     assert "node_sha256" not in draft

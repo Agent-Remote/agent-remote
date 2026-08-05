@@ -326,6 +326,12 @@ def run(args: argparse.Namespace) -> None:
                 "generation": 1,
                 "next_sequence": 1,
                 "current_screenshot_generation": 0,
+                "current_state_generation": 0,
+                "capabilities": [
+                    "adaptive_settle_v2",
+                    "ax_state_v2",
+                    "observation_mode_v2",
+                ],
                 "lease_until": timestamp(120),
             },
         )

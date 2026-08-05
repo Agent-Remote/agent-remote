@@ -96,6 +96,27 @@ def gate_details(name: str) -> dict[str, object]:
                 "server_lines": {"actual": 71.72, "minimum": 70},
             },
             "coverage_thresholds_passed": True,
+            "computer_use_v2": {
+                "action_latency_p95_ms": 900,
+                "artifact_digest_bound": True,
+                "chrome_passed": True,
+                "coordinate_fallback_percent": 19.99,
+                "current_mcp_runtime_passed": True,
+                "electron_fallback_passed": True,
+                "firefox_passed": True,
+                "golden_prompt_replay_passed": True,
+                "model_usage_summary_bound": True,
+                "model_visible_image_reduction_percent": 70,
+                "native_application_passed": True,
+                "report_sha256": hashlib.sha256(b"raw-security-tests").hexdigest(),
+                "rollback_rehearsed": True,
+                "safari_passed": True,
+                "sensitive_telemetry_detected": False,
+                "settle_latency_p95_ms": 5_000,
+                "signed_installation": True,
+                "success_rate_regressed": False,
+                "wrong_target_count": 0,
+            },
             "cross_tenant_e2e_passed": True,
             "dedicated_macos_test_host": True,
             "failed": 0,
@@ -311,6 +332,7 @@ def test_assembler_writes_exact_artifact_and_inventory_digests() -> None:
         assert draft["node_sha256"] == hashlib.sha256(b"node").hexdigest()
         assert draft["application_sha256"] == hashlib.sha256(b"application").hexdigest()
         assert draft["proxy_sha256"] == hashlib.sha256(b"proxy").hexdigest()
+        assert draft["computer_use_v2_evidence_sha256"] == draft["security_tests_sha256"]
         assert draft["sbom_sha256"] == hashlib.sha256(
             (output / "device-control-sbom-inventory.json").read_bytes()
         ).hexdigest()
@@ -420,6 +442,69 @@ def test_assembler_requires_each_repository_coverage_threshold() -> None:
 
         assert result.returncode != 0
         assert "node_statements coverage threshold was not met" in result.stderr
+        assert not output.exists()
+
+
+def test_assembler_requires_complete_computer_use_v2_evidence() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        gate_path = Path(arguments[arguments.index("--security-tests") + 1])
+        gate = json.loads(gate_path.read_text())
+        del gate["details"]["computer_use_v2"]["firefox_passed"]
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode != 0
+        assert "Computer Use v2 fields are invalid" in result.stderr
+        assert not output.exists()
+
+
+def test_assembler_rejects_computer_use_v2_gate_failures() -> None:
+    failures: tuple[tuple[str, object, str], ...] = (
+        ("wrong_target_count", 1, "contains wrong-target actions"),
+        ("report_sha256", "INVALID", "report digest is invalid"),
+        ("sensitive_telemetry_detected", True, "must be false"),
+        ("model_visible_image_reduction_percent", 69.99, "image reduction is below target"),
+        ("action_latency_p95_ms", 1_001, "action latency exceeds target"),
+        ("settle_latency_p95_ms", 5_001, "settle latency exceeds target"),
+        ("coordinate_fallback_percent", 20, "coordinate fallback exceeds target"),
+        ("success_rate_regressed", True, "must be false"),
+        ("rollback_rehearsed", False, "must be true"),
+    )
+    for field, value, message in failures:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "output"
+            arguments = command(root, output)
+            gate_path = Path(arguments[arguments.index("--security-tests") + 1])
+            gate = json.loads(gate_path.read_text())
+            gate["details"]["computer_use_v2"][field] = value
+            gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+            result = subprocess.run(arguments, capture_output=True, text=True)
+
+            assert result.returncode != 0
+            assert message in result.stderr
+            assert not output.exists()
+
+
+def test_assembler_binds_computer_use_v2_report_to_raw_archive() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        gate_path = Path(arguments[arguments.index("--security-tests") + 1])
+        gate = json.loads(gate_path.read_text())
+        gate["details"]["computer_use_v2"]["report_sha256"] = "e" * 64
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode != 0
+        assert "security-tests report digest is not present" in result.stderr
         assert not output.exists()
 
 
@@ -618,6 +703,9 @@ if __name__ == "__main__":
     test_assembler_rejects_gate_specific_false_claims()
     test_assembler_requires_every_real_macos_security_scenario()
     test_assembler_requires_each_repository_coverage_threshold()
+    test_assembler_requires_complete_computer_use_v2_evidence()
+    test_assembler_rejects_computer_use_v2_gate_failures()
+    test_assembler_binds_computer_use_v2_report_to_raw_archive()
     test_assembler_requires_observed_claude_code_compatibility_behaviors()
     test_assembler_requires_independent_signed_security_review_scope()
     test_assembler_binds_security_review_report_to_raw_archive()

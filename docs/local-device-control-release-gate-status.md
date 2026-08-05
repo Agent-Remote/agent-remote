@@ -14,6 +14,38 @@
 | 7. 撤销、全局停止和 fail-closed 演练通过 | 部分完成 | 协议状态机、Esc、租约、撤销、断线和恢复路径有自动化测试；本机批准后先隐藏未批准应用并启动 Esc、锁屏、用户切换、睡眠和网络丢失监控，再允许 Broker 激活 relay，激活期间的本机或远端终态都不能被完成回调覆盖；审批展示只接受活动 generation 范围；存在当前 relay 或待激活状态时，Broker 的 Stop/End Session 只取消精确完整 binding，跨 generation 请求不能取消当前会话，Executor 也独立要求请求精确匹配其当前 binding；Broker 使用待激活令牌绑定异步 relay 建立，本地结束、XPC 断连或建立失败会清除令牌，延迟返回的 relay 不能复活已结束 generation；可信 turn stop 的确认会等待 Executor 释放输入和 UI 恢复应用，同一 session 的下一次动作会先重新隐藏应用、恢复监控和 Executor，并强制先获取新截图，机器锁保持不变；Approval UI 或 Executor XPC 失联会立即取消 relay，所有安全关键 XPC 调用也有 15 秒本机回复期限和取消处理，进程在线但静默不回复同样会中止 relay；relay 失败、身份轮换或 Executor 失联会同步结束当前 UI generation 并恢复应用，清理失败进入明确 failed 状态但不能阻止控制面撤销；待审批展示按完整 session binding 去重，因此同一 session ID 的新 generation 必须重新审批；用户 Stop/End Session 使用相同撤销语义；proxy 握手与动作受剩余租约/30 秒上限约束，生命周期确认限时 15 秒，致命错误会关闭并毒化当前代次连接；generation 在 Server/Node/Rust/Swift 统一为可持久化的有符号 64 位范围，非终态耗尽在任何写入前失败并保留最终停止代次；动作序号和截图代次耗尽时在动作前失败且绝不环绕或饱和复用 | 对签名安装包执行人工/自动化综合演练，覆盖按键按下期间断线、崩溃、锁屏、Node/Server 撤销和权限残留 |
 | 8. 当前 Claude Code 和 MCP 兼容性验证 | 未完成 | 公开 Computer Use schema 和 MCP proxy 契约测试已实现；总装记录会强制绑定当前 Claude Code/MCP 版本和精确 16 个动作，并要求真实运行明确观察到受管 MCP 配置、图片结果、长序列操作和可信 turn stop | 固定当前 Claude Code/MCP 版本，在真实远端 Claude 会话完成这些行为和兼容性矩阵，上传绑定最终制品的原始回归报告 |
 
+## 2026-08-05 Computer Use v2 实现状态
+
+结构化状态优先路径已经在 Device、Node 和受管 MCP proxy 中完成代码集成：Node 广告并写入
+`observation_mode_v2`、`ax_state_v2`、`adaptive_settle_v2`；proxy 通过 `--compact-tools` 仅暴露
+`observe`、`act`、`input_text`、`read_clipboard`；macOS Executor 实现有界 AX full/diff、绑定当前
+状态/应用/窗口/显示器的元素动作、自适应等待，以及 compact/standard/region 图片 fallback。
+v2 请求 schema 和 Swift/Rust 共享 fixture 已提交，v1 工具和完整 v1 协议仍作为缺少 capability 时
+的 fail-closed 兼容路径。Server 只协商完整三项 v2 capability，Node 将其绑定 managed context 并拒绝
+同 generation 降级；proxy 还会生成有界零内容 JSONL，Device benchmark harness 可直接比较 v1/v2
+图片次数、字节、p95 时延、fallback、stale 和成功率。真实临时
+`Server -> Node -> Rust -> Swift` harness 也已升级为完整 v2 capability 下的 `observe(auto)`，并验证
+AX full 返回时 state generation 前进而 screenshot generation 保持不变。
+
+上述状态只表示仓库内实现存在，不改变本表的生产结论。默认启用 v2 前仍须完成签名安装包上的
+Safari/Chrome/Firefox 与 AX 不完整应用回归、固定无敏感数据 benchmark、零内容遥测、当前 Claude
+Code/MCP 兼容性、独立安全评审和其余外部门禁。不得把减少截图次数或延迟作为放宽确认策略、
+secure field hand-off、stale target 拒绝或应用审批的理由。
+
+Server 已提供默认 `0%`、按设备 UUID 稳定分桶的 `DEVICE_CONTROL_V2_ROLLOUT_PERCENT`。Apple profile
+组装器现在要求 `security-tests.computer_use_v2` 的精确浏览器、指标、零错误目标、零敏感遥测和回滚
+断言，验证 `report_sha256` 对应文件真实存在于受限原始证据归档，并把记录摘要作为
+`computer_use_v2_evidence_sha256` 纳入规范 Ed25519 签名载荷；Community profile
+固定该字段为 `null`。Server 启动和运行期均拒绝缺少该摘要的非零百分比，配置运行中漂移也会在下一次
+会话推进时 fail closed。当前仍没有绑定真实签名制品的三浏览器/Electron 报告，因此生产结论仍是
+`DEVICE_CONTROL_V2_ROLLOUT_PERCENT=0`；门禁实现完成不等于外部证据已经产生。
+
+本方案的文档事实源已经固定：总体架构、Token 预算、浏览器边界、灰度和完成定义见
+`local-device-control-security-design.md` 第 6.5 节；wire contract 与唯一调用状态机见 Device 仓库
+`docs/protocol.md`；采集、真实 Token 对账和 golden prompt 回归见 Device 仓库
+`docs/optimization-benchmark.md`；模型日常调用规则见 Device skill 及其按需浏览器 reference。任何工具
+schema、默认 observation policy 或 skill 元数据变更都必须同步通过上述 corpus，不能只更新单份提示词。
+
 ## 已实现的总装约束
 
 `device-control-release-evidence` 工作流只能从精确 `vVERSION` 标签运行。它验证同版本 Server、Node、
@@ -31,7 +63,7 @@ CI run 提供第 2、3、5、6、7、8 项真实证据。缺项即失败。受�
 CLI、Linux amd64/arm64 Node 与 standalone proxy、Server/Admin OCI 镜像以及 Compose 测试配置。
 包内摘要已全部复核，CLI 版本与可执行架构、两个 proxy 架构、归档结构和 App 深度签名均已完成
 冒烟检查；proxy 的包内摘要可在解包目录直接验证，Node 内嵌 proxy 与对应 standalone 制品逐字节
-一致；真实 `Server -> Node -> Rust -> Swift` E2E 已通过。当前包可用于非敏感数据的功能测试，
+一致；真实 `Server -> Node -> Rust -> Swift` v2 E2E 已通过。当前包可用于非敏感数据的功能测试，
 六个组件及 App/XPC bundle 均为 `0.1.0`。它仍是 ad-hoc 签名且未公证，因此
 `production_ready=false`。六仓库均已形成 clean、可审计的 `0.1.0` 源码快照，协调 readiness 的
 clean、tag 和 origin 严格检查已通过，本地统一 `v0.1.0` 标签已创建但尚未推送；在远端发布并完成

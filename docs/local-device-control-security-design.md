@@ -311,6 +311,12 @@ turn 结束后自动恢复隐藏应用。受管插件必须通过可信生命周
 - `wait`
 - 在受支持模型和兼容配置下的 `zoom`
 
+远端 MCP proxy 可以额外暴露 `input_text` 这类组合 helper 以减少模型往返和图片 Token。
+该 helper 只能按固定顺序展开为现有已批准动作，必须在同一 operation guard 内逐步执行；每一步
+仍独立校验完整 binding、单调 sequence、截图 generation、应用/窗口身份和控制等级。中间截图
+不得返回模型，仅返回最后一次成功动作的截图；任一步失败即停止，并明确报告已完成的前缀，
+禁止把组合 helper 编码成绕过设备协议的新动作。
+
 动作是否可用必须同时满足工具版本、远端模型能力、应用控制等级和当前本地审批。不能因为模型请求了某个动作就自动提权。
 
 每个调用由 MCP proxy 注入以下不可由 Claude 或项目修改的上下文：
@@ -373,6 +379,277 @@ pending_* / active
 已固定内外两层 TLS 1.3、Network.framework、rustls 0.23、临时 P-256 身份、SPKI pin、TLS
 exporter 确认、重放窗口和代次轮换方式，并由真实 Swift/Rust 互通测试覆盖。独立安全评审完成前，
 设备控制仍只能用于不含真实数据的开发环境；仓库内互通测试不能替代密码学评审。
+
+### 6.5 Token 与交互性能优化架构
+
+本节定义并记录截图型 Computer Use 向结构化状态优先模式演进的完整架构。v2 请求 schema、
+Swift/Rust 严格解码、AX full/diff、状态绑定元素动作、adaptive settle、图片分级、紧凑 MCP 面和
+Node capability 传播已经实现；v1 仍是缺少能力或版本不匹配时的完整兼容路径。这里的“已实现”
+不表示已生产放行：默认启用仍须完成第 12 节外部门禁、真实 macOS/浏览器验证和灰度指标验收。
+
+#### 6.5.1 当前基线与优化目标
+
+当前 v1 在每个普通输入动作后重新捕获窗口、编码 PNG 并通过端到端加密通道返回。MCP proxy
+可以丢弃组合 helper 的中间图片，从而减少模型可见图片和模型往返，但这不会消除本机截图、编码、
+传输与 proxy 图片校验成本。继续增加组合动作只能取得递减收益，长期主路径必须改为：
+
+```text
+observe(auto)
+  -> bounded AX full state or AX diff
+  -> act with generation-bound element handle
+  -> adaptive settle
+  -> AX diff
+  -> screenshot only when AX is insufficient or visual judgment is required
+```
+
+优化必须同时满足：
+
+- 不降低应用审批、控制等级、机器锁、全局停止、代次和重放保护；
+- 不因为省 Token 而复用旧坐标、旧元素或失去基准的 diff；
+- 不把浏览器 DOM、cookie、profile、调试端口或通用 URL API 暴露给远端；
+- 不记录 AX 文本、URL、窗口标题、截图、输入、坐标或剪贴板内容；
+- AX 不完整、状态不一致或等待超时时可回退到显式截图，但不得静默猜测目标。
+
+#### 6.5.2 可选观察结果与状态代次
+
+已实现的 v2 请求为每个动作增加由 MCP proxy 选择、但受本机上限约束的观察策略：
+
+```text
+mode: none | ax_diff | ax_full | screenshot | both | auto
+max_nodes
+max_depth
+max_text_per_node
+max_total_text_bytes
+max_visible_rows_per_container
+settle: none | auto | fixed
+settle_timeout_ms
+image_profile: none | compact | standard | region
+region
+```
+
+`none` 只省略返回内容，不能省略执行前后的应用、窗口、显示器、审批和 generation 校验。本机应把
+窗口身份/几何校验与图片像素捕获、PNG/JPEG 编码拆开；无需图片时只更新受保护的状态上下文，不能
+先生成完整图片再在 proxy 丢弃。
+
+v2 必须拆分以下概念，不能继续由 `current_screenshot_generation` 一项同时表达：
+
+- `state_generation`：任何成功观察或动作后的当前 GUI 状态代次；
+- `screenshot_generation`：最后一张真正返回给模型且可用于坐标的图片代次；
+- `state_id`：本机生成、绑定完整 session/application/window/display 上下文的不可预测状态标识；
+- `base_state_id`：AX diff 所依赖的模型已见基准状态。
+
+所有请求仍消耗严格递增的 `monotonic_sequence`。turn stop/resume、窗口或应用变化、显示布局变化、
+generation 轮换和 diff 基准丢失必须使旧状态、旧坐标和旧元素句柄同时失效。
+
+#### 6.5.3 有界 Accessibility 状态
+
+AX snapshot 只能由拥有 Accessibility 权限且无任意网络能力的 GUI executor 生成。默认输出仅包含
+完成 GUI 决策所需的规范化字段，例如 role、title、label、value、placeholder、URL、可见 frame、
+settable 标记和已公开的 AX actions。首版预算建议为：
+
+```text
+max_nodes: 800
+max_depth: 20
+max_text_per_node: 160 characters
+max_total_text: 16 KiB
+max_visible_rows_per_container: 20
+```
+
+本机可以把请求的预算收紧，但不得接受超过编译时安全上限的值。密码/secure text field 的 value、
+不可见敏感内容、无界 WebArea 子树和重复包装节点必须省略或脱敏。AX URL 仅作为已批准浏览器窗口
+状态的一部分返回，不得变成绕过用户操作和应用审批的通用导航接口。
+
+初次观察返回 full state；同一 application/window/display 上下文的后续观察默认返回 added、changed、
+removed diff。当变化比例、节点数量或编码大小超过阈值，或 proxy 不能证明模型仍持有
+`base_state_id` 时，必须返回 bounded full state 并标记 reset，不能发送无法独立解释的 diff。
+
+#### 6.5.4 状态绑定的元素动作
+
+元素动作不得只接受裸 `element_index`。句柄至少绑定：
+
+```text
+state_id
+state_generation
+application_digest
+window_id
+display_fingerprint
+element_index
+```
+
+GUI executor 在执行 `press`、`set_value`、`select_text`、`scroll` 或 secondary action 前，必须验证该
+句柄来自当前状态、AX 元素仍存在、目标应用和窗口未变化、元素实际公开对应 action，且本地审批的
+控制等级足够。任一条件不满足返回具体 stale/not-actionable 错误；禁止自动改用相邻元素、同名元素
+或坐标点击。
+
+`set_value` 和文字选择属于 full-control 输入。secure text field、密码、认证凭据和受 Computer Use
+确认策略要求 hand-off 的字段不得通过 AX 直接设置。坐标动作继续作为 AX 不完整应用的 fallback，
+且必须绑定最后一张模型已见图片的 `screenshot_generation`。
+
+#### 6.5.5 自适应等待与图片策略
+
+固定 `wait_after_ms` 只保留为兼容和诊断能力，浏览器与动态应用默认使用 bounded adaptive settle：
+
+1. 验证前台 application/window/display 上下文未变化；
+2. 观察 WebArea URL/title、AX busy/loading 状态和 bounded tree hash；
+3. 在最短 debounce 后连续两次得到稳定状态才返回 settled；
+4. 总等待不得超过 5 秒，并受剩余 lease 和调用 deadline 的更小值约束；
+5. 超时返回 `settle_status=timeout` 和最新安全状态，不得伪装为成功稳定。
+
+图片按用途分级：AX 足够时不返回图片；普通视觉确认使用 compact image；坐标定位或 OCR 使用
+standard image；细节检查使用 region image。任何缩放或压缩后的宽高必须写入截图上下文并用于坐标
+映射。JPEG 可以降低带宽但不能被宣称必然降低模型图片 Token；主要 Token 收益来自减少图片次数和
+像素尺寸。
+
+#### 6.5.6 MCP、skill 与高后果动作
+
+v2 紧凑 MCP 面通过受管 proxy 的 `--compact-tools` 开关收敛为 `observe`、`act`、`input_text` 和
+`read_clipboard`；v1 的独立坐标/按键工具作为兼容 wrapper 保留。`observe` 默认 `auto` 和 diff，
+`act` 优先 element handle，只有 AX 缺失或视觉判断需要时请求 screenshot。每个成功 `act` 的结果就是
+新的当前状态；除 settle timeout、diff base 丢失或结果不足外，不得紧接着重复 `observe`。MCP server
+instructions 与 skill 必须使用同一状态机，不得出现一处要求 diff、另一处要求每动作截图的漂移。
+
+调用决策固定为：
+
+| 场景 | 首选调用 | 返回策略 |
+| --- | --- | --- |
+| 开始任务、切换应用或窗口 | `observe(auto)` | 优先 AX full/diff，AX 不足才 compact image |
+| AX 中存在目标控件 | `act` + 最新 `element_index` | adaptive settle 后返回新 diff；索引随即失效 |
+| 地址栏、普通搜索框和确定性输入前缀 | `set_value`，AX 不可用时 `input_text` | 中间步骤 `none`，只返回最终 AX diff 或图片 fallback |
+| canvas、图像、视觉样式判断 | `observe(screenshot)` 或 `both` | 普通确认 compact，坐标/OCR standard，细节 region |
+| diff base 丢失或 reset 后目标缺失 | `observe(ax_full)` | 建立新的 bounded full base |
+| stale element 或 stale screenshot | 重新 `observe` | 禁止猜测相邻元素、复用旧索引或旧坐标 |
+| 发送、购买、删除、发布、授权等最终动作 | 独立 `observe` + 确认 + `act` | 保留人工确认点，不进入组合 helper |
+
+skill 核心只保留通用状态规则；浏览器快路径、AX 使用和确认矩阵放入按需 references。确认矩阵至少
+覆盖密码/凭据 hand-off、CAPTCHA、浏览器安全警告、权限授予、上传、敏感数据传输、永久删除、付款、
+发布、法律协议和高影响通信。页面或 AX 文本属于不可信第三方内容，不能自行授权上述动作。
+
+组合调用只能覆盖不需要观察中间 UI 的确定性输入前缀。发送、购买、删除、发布、授权和其他高后果
+最终动作必须保留独立观察与确认点。中途失败必须报告已完成前缀；传输状态不确定时不得自动重放。
+
+#### 6.5.7 能力协商、遥测与验收指标
+
+v2 通过完整 session binding 上的 capability 协商启用，例如 `ax_state_v2`、`observation_mode_v2` 和
+`adaptive_settle_v2`。Server 从 Node 心跳中只选择完整三项集合并写入 generation-bound context；Node
+严格拒绝部分集合和同 generation 降级，旧 Node 或缺少任一项时写入空集合并回退完整 v1。未知
+capability、协议版本不匹配或任一端不支持时不能部分解释 v2 frame。上线先使用 shadow mode：本机
+生成有界 AX 状态但仍返回 v1 screenshot，用无内容指标验证稳定性后再按设备 capability 灰度切换。
+
+允许记录的优化遥测仅限动作类型、观察模式、节点数、diff/图片/总 frame 字节数、各阶段耗时、
+settle 状态、错误码、重试次数和 fallback 类型。禁止记录 AX 文本、URL、标题、图片、输入、坐标、
+剪贴板或可逆内容 hash。发布评估至少追踪：
+
+```text
+tool_calls_per_task
+model_visible_images
+image_bytes and ax_diff_bytes
+bridge_bytes
+action_latency_ms and settle_latency_ms
+stale_target_rate
+coordinate_fallback_rate
+task_success_rate and manual_recovery_rate
+```
+
+proxy 已把上述零内容字段实现为有界枚举/计数事件，写入 Node 固定的 owner-only JSONL 路径；文件达到
+16 MiB、路径不安全或写入失败后停止采集，不影响动作结果。Device 仓库的
+`docs/optimization-benchmark.md` 固定真实任务语料、v1/v2 采集方式和 baseline/candidate 对比命令；
+`docs/adr/0002-ax-first-computer-use.md` 固定结构化状态优先的架构决策和拒绝的替代方案；生产评估
+必须使用真实签名构建产生的 trace，不能用合成单元测试数据代替。
+
+固定无敏感数据基准至少覆盖：浏览器打开 URL、搜索与自动补全、多标签切换、表单填写但不提交、
+普通提交、滚动分页、动态加载、浏览器权限弹窗、安全警告、secure text field、AX 不完整的 Electron
+应用、窗口移动/缩放/跨显示器，以及 turn stop/resume 后旧句柄失效。每项同时记录 v1 screenshot
+baseline、组合 helper baseline 和 v2 AX 路径，不能只比较优化后的不同参数。
+
+建议发布目标为：典型浏览器任务模型可见截图减少至少 70%，AX diff p50 小于 400 模型 tokens，
+普通 AX 动作 p95 小于 1 秒，bounded settle p95 小于 5 秒，坐标 fallback 低于 20%；任何成本目标都
+不能覆盖错误目标率、确认策略或 fail-closed 门禁。错误应用、错误窗口或错误元素动作必须为零；
+否则不论 Token 和延迟改善多少都不得默认启用 v2 capability。
+
+#### 6.5.8 全链路职责与单一决策源
+
+优化不能只靠 skill 提示词约束。每层只拥有自己能够可靠执行的决策，避免多处重复判断或出现
+“skill 要求 AX、proxy 仍默认截图”的漂移：
+
+| 层 | 固定职责 | 不得承担 |
+| --- | --- | --- |
+| skill/reference | 判断何时使用结构化状态、图片、坐标和人工确认；保持调用序列简短 | 注入可信 binding、绕过 MCP schema 或自行声明 capability |
+| MCP proxy | 暴露紧凑工具面、注入受管 context、维护模型已见 AX/image base、选择 observation policy | 信任模型提供的 session/state 标识或缓存 GUI 明文内容 |
+| Node/Runtime Helper | 探测并广告完整 capability、生成 owner-only managed context、固定遥测路径 | 部分启用 v2、在同 generation 静默降级或读取 AX 内容 |
+| Server | 只协商 Node 与产品策略的完整 capability 交集 | 看见设备内容、把未知 capability 当作已支持 |
+| Broker/DeviceServices | 校验租约、序号、应用/窗口/显示器和本地审批，转发严格 v1/v2 frame | 解析、记录或 diff AX 文本和图片 |
+| GUI Executor | 捕获有界 AX/image、维护短期元素映射、执行动作、settle、生成新状态 | 任意联网、跨应用复用元素、把 AX URL 变成导航 API |
+
+MCP schema、server instructions、skill 和 benchmark 的调用状态机以
+`agent-remote-device/docs/protocol.md` 为协议事实源；安全与发布边界以本文为事实源；具体浏览器操作以
+`agent-remote-device/skills/agent-remote-device/references/browser.md` 为按需参考。修改任一处时必须用
+同一 golden prompt/task corpus 回归其余三处。
+
+#### 6.5.9 Token 预算与上下文管理
+
+Token 优化分为三层，指标必须分别记录，不能用 bridge bytes 冒充模型 Token：
+
+1. **工具发现成本**：skill description 只保留触发范围，`SKILL.md` 只保留通用状态机，浏览器和确认
+   细节按需加载 reference；MCP 默认只广告四个 v2 工具，v1 wrapper 仅在兼容路径公开。
+2. **每步观察成本**：优先 AX diff，设置节点、深度、单字段和总文本硬预算；不重复描述未变化节点，
+   不在动作成功后立即重复 `observe`，确定性前缀使用 `none` 中间结果。
+3. **视觉成本**：先减少图片次数，再缩小必要图片的尺寸/区域；只有视觉判断或坐标定位才升级
+   `compact -> standard -> region`，禁止为了“保险”同时固定返回 AX 和全图。
+
+每个任务需要同时汇总模型运行时报告的 input/image/output tokens、MCP tool-call 数、模型可见图片数，
+以及零内容设备遥测中的 AX/image/bridge bytes。若运行时不能提供精确图片 Token，只报告图片次数、
+尺寸和字节数，不推算或宣称 Token 节省比例。发布结论至少按浏览器、原生应用、Electron/AX 不完整
+应用分桶，不能用浏览器优势掩盖其他应用退化。
+
+#### 6.5.10 浏览器快路径与公开参考边界
+
+浏览器是 v2 默认优化对象，但仍通过 macOS 公开 Accessibility 和用户可见 UI 操作：
+
+- 地址栏、搜索框、普通表单优先最新 AX 元素的 `set_value`，导航键或提交作为独立动作；
+- 链接、按钮、标签页、菜单和可滚动容器优先元素动作，每次结果直接成为下一状态；
+- 自动补全、权限弹窗、下载、文件选择器、验证错误和提交前状态必须单独观察；
+- WebArea 只遍历可见且有界的子树，稳定元素尽量保留 index；不可见、窗口外、secure 和重复包装内容
+  不进入可执行映射；
+- canvas、远程桌面、视频、复杂编辑器或 AX 语义缺失时按需回退图片/坐标，不反复尝试错误 AX 动作；
+- Chromium/Electron 的 enhanced accessibility 只能作为公开 API 可用时的本机 best-effort 兼容项，
+  必须有应用白名单、超时、恢复和真实版本矩阵；未完成专项验证前不得作为生产依赖；
+- 不启用 CDP、远程调试端口、DOM 注入、cookie/profile 读取或浏览器内部私有 API。即使 OpenAI
+  公开产品为其内置浏览器提供经审批的 Developer mode，本项目当前威胁模型仍选择更窄的 AX/UI 边界。
+
+官方 OpenAI Computer Use 文档公开确认的可采用原则仅包括：GUI 不足以由 CLI/结构化连接器完成时
+使用 Computer Use、优先专用 connector/MCP、任务保持小范围、应用权限独立审批、敏感动作额外确认、
+网页内容视为不可信。官方公开文档没有给出内部 AX renderer、截图调度、Token 预算或私有调用算法，
+因此本文不声称复刻“Codex 原本逻辑”。第三方 `open-codex-computer-use` 只用于比较 bounded AX tree、
+element index 和常用应用操作体验，其实现不能越过本项目安全边界。
+
+#### 6.5.11 灰度、回滚与完成定义
+
+上线顺序固定为：`v1 baseline -> v2 shadow -> 内部测试设备 -> 小比例签名设备 -> 分应用扩大 -> 默认
+启用`。每一阶段都必须绑定相同制品摘要、应用/OS/浏览器版本和无敏感数据 corpus，并同时满足成本、
+成功率、安全与确认门禁。部分 capability、错误目标、敏感遥测、stale/fallback 激增、成功率回退或
+p95 超阈值时，Server 对新 generation 下发空 capability 集合，完整回到 v1；活动 generation 不做
+中途协议降级，先终止并重新审批。回滚不删除审计证据，也不自动重放状态未知的动作。
+
+Server 的 `DEVICE_CONTROL_V2_ROLLOUT_PERCENT` 默认必须为 `0`。非零值采用稳定设备 cohort：仅当
+`device_id.int % 100 < percent` 且 Node 广告完整三项 capability 时，新 generation 才能选择 v2；同一
+设备不会因重启或重连随机漂移。建议扩大量固定为 `1% -> 5% -> 25% -> 50% -> 100%`，每一级至少完成
+一次完整 corpus 和一个预先约定的观察窗口。百分比只控制新 generation，不能把活动 generation 从
+v2 原地降为 v1。
+
+生产中把百分比从 `0` 提高到任意非零值之前，签名 release-evidence manifest 必须额外绑定一份
+Computer Use v2 专项证据。该证据必须绑定精确 application/proxy/Node/Server 摘要，并证明：签名安装、
+Safari/Chrome/Firefox、AX 不完整 Electron fallback、golden prompt replay、零敏感内容遥测审计、错误
+目标数为零、成功率无回退、模型可见图片减少至少 70%、普通动作 p95 不高于 1 秒、settle p95 不高于
+5 秒、坐标 fallback 低于 20%，以及新 generation 回到 v1 的回滚演练。清单过期、摘要不匹配、专项
+字段缺失或任一断言失败时，Server 必须拒绝非零 rollout。专项对象的 `report_sha256` 还必须对应
+`security-tests.evidence.tar.gz` 内真实存在的普通报告文件，不能只提交布尔结论。该签名绑定现已由发布组装器和 Server 运行时
+验证器共同验证：Apple profile 组装器将已验证的 `security-tests` 记录摘要写入
+`computer_use_v2_evidence_sha256`，Community profile 固定为 `null`，Server 在启动和运行期都拒绝缺少
+该摘要的非零 rollout。生产仍须提供真实签名制品报告；开发环境只能使用合成、非敏感数据验证。
+
+“完整优化完成”要求同时具备：跨语言协议 fixture、负向和预算测试、三浏览器与 AX 不完整应用真实
+回归、签名构建 benchmark、零内容遥测审计、Claude Code/MCP 当前版本兼容报告、灰度与回滚演练、
+独立安全评审。仓库内代码和合成测试完成只能标记为“已实现，待生产验收”。
 
 ## 7. 本地 Claude 硬隔离
 
@@ -501,7 +778,11 @@ session 期，且不会清理通用身份审计。两个期限默认关闭，生
 - generation、序号、租约和状态机模型测试；
 - 跨用户、跨设备、跨 session、跨 Node 授权负向测试；
 - MCP 参数注入、超大图片、压缩炸弹、畸形图片和资源耗尽测试；
+- AX snapshot 节点/深度/文本预算、secure field 脱敏、diff reset 和超大 WebArea 测试；
+- state-bound element handle 的跨窗口、跨应用、跨代次、过期和错误 action 负向测试；
+- `none`/AX/image 观察模式、adaptive settle 超时和 v1/v2 capability 回退测试；
 - 日志扫描，确保截图、输入、窗口标题、token 和明文 payload 不出现；
+- 遥测扫描，确保 AX 文本、URL、坐标和可逆内容 hash 不出现；
 - 文件访问监控，确保不访问 Claude 数据目录；
 - 网络目的地测试，确保本机进程只访问 allowlist；
 - 依赖漏洞、许可证、SBOM、制品签名和可复现来源检查；
@@ -520,6 +801,9 @@ session 期，且不会清理通用身份审计。两个期限默认关闭，生
 - Retina、多显示器、缩放、窗口移动和显示器热插拔；
 - 锁屏、快速用户切换、睡眠、唤醒和网络切换；
 - 鼠标按下、拖拽或修饰键按下期间断线；
+- Safari、Chrome 和 Firefox 的 AX full/diff、元素动作、动态加载和坐标 fallback；
+- AX 不完整的 Electron 应用、secure text field 和浏览器权限/安全警告；
+- 自适应等待的 settled/timeout、图片分级和 turn resume 后旧句柄失效；
 - 本机同时安装并登录个人 Claude 时的隔离验证。
 
 
@@ -584,8 +868,23 @@ Node、macOS 应用、MCP proxy、SBOM、来源证明及上述第 2 至 8 项证
 ### Phase 3：效果评估
 
 - 测量自定义 MCP 路径的任务完成率、动作次数、错误停止率、延迟和图片成本；
+- 建立浏览器、原生应用和 Electron 应用的固定无敏感数据基准任务；
+- 以 shadow mode 采集节点数、diff/图片字节数、延迟、fallback 和错误码，不记录 GUI 内容；
 - 只有在证据表明现有远端 Claude Code 路径不足时，评估远端 Computer Use API 子 Agent；
 - API 子 Agent 不改变本机隔离：本机仍不登录 Claude、不持有 Anthropic 凭据、不向 Anthropic 发请求。
+
+### Phase 4：结构化状态与成本优化
+
+- P0（已实现，待生产证据）：确认矩阵、浏览器 skill/reference、固定基准任务、golden prompt corpus、
+  零内容遥测、对比 harness 和独立 v2 ADR 已固化；真实签名构建 trace 仍需补齐；
+- P1（已实现）：observation mode 使无需图片的动作跳过像素捕获和编码；
+- P2（已实现）：bounded AX full/diff、state-bound element handle 和元素动作；
+- P3（已实现，待真实应用验收）：adaptive settle、compact/standard/region 图片和浏览器调用策略；
+- P4（部分完成）：capability 协商、紧凑 MCP 工具面和完整 v1 回退已实现；shadow 指标、生产灰度
+  默认切换和签名安装包回退演练仍未完成。
+
+每个子阶段必须独立通过第 12 节门禁。不得先把 skill 切换到 AX 主路径，再补本机 freshness、
+secure field、diff reset 或 fallback 测试。
 
 
 
@@ -605,8 +904,19 @@ Node、macOS 应用、MCP proxy、SBOM、来源证明及上述第 2 至 8 项证
 
 ## 15. 官方依据
 
+- [OpenAI Computer Use](https://learn.chatgpt.com/docs/computer-use.md)
+- [OpenAI Browser](https://learn.chatgpt.com/docs/browser.md)
+- [OpenAI Build skills](https://developers.openai.com/plugins/build/skills)
+- [OpenAI Optimize Metadata](https://developers.openai.com/plugins/guides/optimize-metadata)
 - [Claude Code CLI Computer Use](https://code.claude.com/docs/en/computer-use)
 - [Claude Code MCP](https://code.claude.com/docs/en/mcp)
 - [Anthropic Computer Use Tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool)
 - [Anthropic Computer Use reference implementation](https://github.com/anthropics/anthropic-quickstarts/tree/main/computer-use-demo)
 - [Computer Use safety guide](https://support.claude.com/en/articles/14128542)
+
+## 16. 非官方工程参考
+
+- [open-codex-computer-use](https://github.com/iFurySt/open-codex-computer-use)：用于研究 AX tree、
+  element index、set value、bounded snapshot 和常用应用操作体验。该项目不是 Anthropic 或 OpenAI
+  的安全规范，不构成行为兼容、私有 API 可用性或生产安全证明；agent-remote 只采用经过本项目
+  信任边界、协议和发布门禁重新验证的公开实现思路。
