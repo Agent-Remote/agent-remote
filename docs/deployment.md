@@ -135,15 +135,15 @@ The prepare workflow updates repository-owned version files, commits `chore: rel
 Create a release from GitHub Actions by running `prepare-release` in the repositories that need to ship together:
 
 ```sh
-gh workflow run prepare-release.yml --ref main -f version=0.2.1
+gh workflow run prepare-release.yml --ref main -f version=0.2.2
 ```
 
 For local manual releases, run the repository's prepare script first, then commit and tag the same version:
 
 ```sh
-scripts/prepare-release.sh 0.2.1
+scripts/prepare-release.sh 0.2.2
 git add .
-git commit -m "chore: release v0.2.1"
-git tag v0.2.1
-git push origin main v0.2.1
+git commit -m "chore: release v0.2.2"
+git tag v0.2.2
+git push origin main v0.2.2
 ```
