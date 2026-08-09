@@ -53,26 +53,15 @@ following deployment-owned values after that profile's release gates pass:
 - `DEVICE_SESSION_AUDIT_RETENTION_DAYS`: approved non-zero audit period, not shorter than the
   session period.
 - `DEVICE_CONTROL_ENABLED=true`: set only after the preceding values and external policy are ready.
-- `DEVICE_CONTROL_V2_ROLLOUT_PERCENT=0`: keep the safe default until the signed release evidence
-  includes the matching Computer Use v2 acceptance report; then raise it through the rollout stages
-  in `device-control-operations-runbook.md`.
-
-For the bounded Community acceptance window, keep the global rollout at `0`, set the exact device
-UUID and a timezone-aware expiry no more than 24 hours ahead, and add the acceptance overlay:
-
-```sh
-DEVICE_CONTROL_V2_ACCEPTANCE_DEVICE_ID=DEVICE_UUID \
-DEVICE_CONTROL_V2_ACCEPTANCE_EXPIRES_AT=EXPIRY_TIMESTAMP \
-docker compose --env-file deploy/compose/.env \
-  -f deploy/compose/docker-compose.yml \
-  -f deploy/compose/docker-compose.device-acceptance.yml up -d --no-deps server
-```
-
-End the validation generation when the window closes, remove the two values, and run the base
-Compose file without the overlay to remove the acceptance settings from the Server container.
+- `DEVICE_CONTROL_V2_ENABLED=true`: the default. Each new generation automatically uses the full
+  Computer Use v2 capability set when the assigned Node advertises every required capability and
+  otherwise falls back atomically to v1. Set it to `false` only as an emergency rollback for new
+  generations; active generations never downgrade in place.
 
 Production Server startup rejects an enabled capability when either retention period is zero or
-the signed evidence cannot be verified. A schema 3 `community-local-trust` manifest may validly
+the general signed evidence cannot be verified. Computer Use v2 acceptance metadata is optional
+quality evidence and does not authorize runtime capability negotiation. A schema 3
+`community-local-trust` manifest may validly
 declare `production_ready=true` while also declaring that Apple notarization, public distribution,
 and automatic trust are unavailable. The deployment administrator explicitly accepts those limits;
 the Compose setting does not turn them into Apple, MDM, or independent-review guarantees.

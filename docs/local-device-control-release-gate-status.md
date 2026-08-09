@@ -27,21 +27,18 @@ v2 请求 schema 和 Swift/Rust 共享 fixture 已提交，v1 工具和完整 v1
 `Server -> Node -> Rust -> Swift` harness 也已升级为完整 v2 capability 下的 `observe(auto)`，并验证
 AX full 返回时 state generation 前进而 screenshot generation 保持不变。
 
-上述状态只表示仓库内实现存在，不改变本表的生产结论。默认启用 v2 前仍须完成签名安装包上的
-Safari/Chrome/Firefox 与 AX 不完整应用回归、固定无敏感数据 benchmark、零内容遥测、当前 Claude
-Code/MCP 兼容性、独立安全评审和其余外部门禁。不得把减少截图次数或延迟作为放宽确认策略、
-secure field hand-off、stale target 拒绝或应用审批的理由。
+自 `v0.2.5` 起，Computer Use v2 被定义为正式默认能力，不再把可选质量报告当作运行依赖。Server 在
+`DEVICE_CONTROL_V2_ENABLED=true` 时对每个新 generation 自动协商完整三项 capability；Node 部分、未知
+或畸形上报完整回退 v1。管理员可把开关设为 `false`，让重新审批的新 generation 使用 v1，活动
+generation 不做中途降级。
 
-Server 已提供默认 `0%`、按设备 UUID 稳定分桶的 `DEVICE_CONTROL_V2_ROLLOUT_PERCENT`。Apple profile
-组装器现在要求 `security-tests.computer_use_v2` 的精确浏览器、指标、零错误目标、零敏感遥测和回滚
-断言，验证 `report_sha256` 对应文件真实存在于受限原始证据归档，并把记录摘要作为
-`computer_use_v2_evidence_sha256` 纳入规范 Ed25519 签名载荷；Community schema 2/3
-固定该字段为 `null`，schema 4 仅在受保护工作流校验同版本、同制品的真实报告后写入摘要。Server
-启动和运行期均拒绝缺少该摘要的非零百分比，配置运行中漂移也会在下一次
-会话推进时 fail closed。当前仍没有绑定真实签名制品的三浏览器/Electron 报告，因此生产结论仍是
-`DEVICE_CONTROL_V2_ROLLOUT_PERCENT=0`；门禁实现完成不等于外部证据已经产生。
+Apple profile 组装器和 Community schema 4 工作流仍可生成绑定精确浏览器、指标、零错误目标、零敏感
+遥测和回滚断言的专项质量证据，并验证 `report_sha256` 对应文件真实存在于受限原始证据归档。
+`computer_use_v2_evidence_sha256` 继续受规范 Ed25519 签名保护；Community schema 2/3 固定该字段为
+`null`。缺少这份可选记录不再阻止正式 v2 能力，但不得把减少截图次数或延迟作为放宽确认策略、secure
+field hand-off、stale target 拒绝或应用审批的理由。
 
-本方案的文档事实源已经固定：总体架构、Token 预算、浏览器边界、灰度和完成定义见
+本方案的文档事实源已经固定：总体架构、Token 预算、浏览器边界、默认协商和完成定义见
 `local-device-control-security-design.md` 第 6.5 节；wire contract 与唯一调用状态机见 Device 仓库
 `docs/protocol.md`；采集、真实 Token 对账和 golden prompt 回归见 Device 仓库
 `docs/optimization-benchmark.md`；模型日常调用规则见 Device skill 及其按需浏览器 reference。任何工具

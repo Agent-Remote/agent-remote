@@ -45,8 +45,8 @@ The project is designed for individuals and small teams that want Claude Code fi
 Computer Use v2 的完整优化方案以
 `docs/local-device-control-security-design.md` 第 6.5 节为架构与安全事实源；协议状态机、benchmark
 和模型调用规则分别位于 sibling Device 仓库的 `docs/protocol.md`、
-`docs/optimization-benchmark.md` 和 `skills/agent-remote-device/`。生产灰度与回滚按
-`docs/device-control-operations-runbook.md` 执行，不能只修改 skill 提示词或 Server 百分比。
+`docs/optimization-benchmark.md` 和 `skills/agent-remote-device/`。默认协商、能力降级和紧急回滚按
+`docs/device-control-operations-runbook.md` 执行，不能只修改 skill 提示词或单个组件配置。
 
 ## Cross-Repository Tests
 

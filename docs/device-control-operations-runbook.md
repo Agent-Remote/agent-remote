@@ -92,30 +92,17 @@ agent-remote device launch
 停止流程。Developer ID 配置还要验证 Gatekeeper 和出站策略实时证明；community 配置要验证固定自签名
 证书、手动信任状态和 Broker 应用级目的地限制。任一适用检查失败时保持 capability 关闭并进入回滚。
 
-### 3.3 Computer Use v2 灰度
+### 3.3 Computer Use v2 自动协商
 
-`DEVICE_CONTROL_V2_ROLLOUT_PERCENT` 只选择新建 generation 的协议路径，默认值和生产初始值均为
-`0`。cohort 由设备 UUID 稳定计算；百分比相同的设备在 Server 重启或重连后不会随机切换。Node 必须
-同时广告 `ax_state_v2`、`observation_mode_v2`、`adaptive_settle_v2`，缺少任一项即使用完整 v1，禁止
-部分启用。
+`DEVICE_CONTROL_V2_ENABLED` 默认是 `true`。每个新 generation 都检查 Node 是否同时广告
+`ax_state_v2`、`observation_mode_v2`、`adaptive_settle_v2`；三项完整时自动使用 v2，缺少、畸形或未知
+时使用完整 v1，禁止部分启用。混合版本可以滚动升级，不需要设备分桶、验收窗口或额外的 v2 发布证据。
+活动 generation 固定其 capability 集合，中途不升级也不降级。
 
-生产负责人按以下顺序操作：
-
-1. 用相同签名制品和无敏感数据 corpus 采集 v1 baseline、v2 shadow 和 v2 candidate；保留模型运行时
-   token/image/tool-call 摘要及 Device 零内容 JSONL，禁止用 bridge bytes 推算模型 Token。
-2. 验证 Safari、Chrome、Firefox、AX 不完整 Electron、原生应用、跨显示器、turn stop/resume、secure
-   field hand-off 和所有高后果确认点。错误应用、窗口或元素动作必须为零。
-3. 验证模型可见图片减少至少 70%、普通动作 p95 不高于 1 秒、settle p95 不高于 5 秒、坐标 fallback
-   低于 20%、成功率无回退，并完成 golden prompt replay 和零敏感内容遥测审计。
-4. 把专项报告绑定到精确 application/proxy/Node/Server 摘要，由 release-evidence assembler 验证并纳入
-   `security-tests.evidence.tar.gz`，令 `computer_use_v2.report_sha256` 指向归档内实际报告文件，再纳入
-   Ed25519 签名清单；确认 `computer_use_v2_evidence_sha256` 非空且 Server 启动验证成功。缺少任一摘要
-   或原始报告的清单只能运行 `0%`。
-5. 依次部署 `1`、`5`、`25`、`50`、`100`；每一级只影响新 generation，并在预定观察窗口内重复步骤
-   2 和 3。不得因为成本指标良好而跳过安全、确认、成功率或兼容性门禁。
-
-每次变更记录协调版本、清单摘要、百分比、设备 cohort 数量、开始/结束时间、指标摘要、批准人和回滚
-负责人。记录不得包含 AX 文本、URL、标题、截图、输入、坐标或剪贴板内容。
+升级后创建一个新的无副作用 session，确认 context task 携带完整三项 capability，并验证 AX-first、
+状态绑定、stale 拒绝、adaptive settle、图片 fallback 和停止恢复。schema 4 专项报告仍可用于长期质量
+审计，但缺失不影响已经正式支持的 v2。记录不得包含 AX 文本、URL、标题、截图、输入、坐标或剪贴板
+内容。
 
 ## 4. 正常停用、撤销与卸载
 
@@ -251,7 +238,7 @@ mach service 和策略 ID。改变其中任何一项都要求新的签名、公�
 后重新注册/轮换设备凭据并执行第 3 节验证。
 
 Computer Use v2 出现部分 capability、错误目标、敏感遥测、stale/坐标 fallback 激增、成功率回退、
-延迟超阈值或 release evidence 失效时，先把 `DEVICE_CONTROL_V2_ROLLOUT_PERCENT` 设为 `0`，阻止
+延迟超阈值时，先把 `DEVICE_CONTROL_V2_ENABLED` 设为 `false`，阻止
 新 generation 进入 v2；随后终止受影响的活动 device session，确认本机释放输入并恢复隐藏应用，再由
 用户重新审批建立 v1 generation。禁止原地降级活动 generation，也禁止自动重放执行状态未知的动作。
 若问题涉及签名、密钥、隔离或出站策略，继续把 `DEVICE_CONTROL_ENABLED` 设为 `false` 并执行事件响应，
@@ -261,6 +248,6 @@ Computer Use v2 出现部分 capability、错误目标、敏感遥测、stale/�
 锁屏、设备令牌轮换、两类 Ed25519 键轮换、升级失败、TCC 残留和隐藏应用恢复。演练报告必须绑定精确
 制品摘要并保持零内容；失败项进入发布阻塞清单，不能用本运行手册的存在替代实际证据。
 
-启用 v2 前还必须单独演练：`100% -> 0%` 的新 generation 选择、活动 v2 session 终止、重新审批后的
-v1 工具面、Node 缺失单项 capability、过期/缺失专项证据，以及回滚期间没有动作自动重放。该演练结果
-是专项签名证据的一部分。
+每次相关发布还应演练：`true -> false` 的新 generation 选择、活动 v2 session 终止、重新审批后的 v1
+工具面、Node 缺失单项 capability，以及回滚期间没有动作自动重放。该演练可纳入可选的 schema 4 质量
+证据，但不是运行时依赖。

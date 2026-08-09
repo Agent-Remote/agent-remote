@@ -61,7 +61,8 @@ project self-signed App identity, and successful same-commit CI for all six repo
 records the administrator's explicit acceptance of the documented reduced-security profile and
 signs a schema 3 manifest with the deployment-owned Ed25519 key.
 
-Community production v2 uses a second protected workflow. On the dedicated acceptance Mac, place
+Optional Community v2 quality evidence uses a second protected workflow. It is not required for
+runtime capability negotiation. On the dedicated acceptance Mac, place
 exactly `community-computer-use-v2-evidence.json` and
 `community-computer-use-v2.evidence.tar.gz` in the directory configured by the protected
 `COMMUNITY_COMPUTER_USE_V2_EVIDENCE_DIRECTORY` variable, then dispatch:
@@ -207,31 +208,32 @@ notarization submission, hardened runtime, artifact signature verification, stap
 and Gatekeeper assessment. The assembler rejects a valid notarization result copied from another
 application archive.
 
-## Computer Use v2 Rollout Evidence
+## Computer Use v2 Quality Evidence
 
-`DEVICE_CONTROL_V2_ROLLOUT_PERCENT` must remain `0` unless the signed manifest binds a Computer Use
-v2 report to the exact Server, Node, application, and proxy artifacts. The Apple-profile assembler
-validates `security-tests.computer_use_v2`; the Community assembler validates the equivalent
-protected schema 4 record and its selected multi-architecture target. Both write the validated
-record digest to `computer_use_v2_evidence_sha256`, covered by the canonical Ed25519 signature.
-The object also names the raw report with `report_sha256`, and assembly fails unless a file with
-that exact digest exists in the bounded security-tests evidence archive.
+Computer Use v2 is negotiated automatically for new generations when
+`DEVICE_CONTROL_V2_ENABLED=true` and the assigned Node advertises the complete capability set.
+General production release evidence remains mandatory, but `computer_use_v2_evidence_sha256` is
+optional quality metadata rather than runtime authorization. The Apple-profile assembler validates
+`security-tests.computer_use_v2`; the Community assembler validates the equivalent protected
+schema 4 record and its selected multi-architecture target. Both write the validated record digest
+to `computer_use_v2_evidence_sha256`, covered by the canonical Ed25519 signature. The object also
+names the raw report with `report_sha256`, and assembly fails unless a file with that exact digest
+exists in the bounded security-tests evidence archive.
 
 The bound report must use only non-sensitive tasks and prove signed installation; Safari, Chrome,
 Firefox, native application, and AX-incomplete Electron coverage; golden-prompt replay; zero
 wrong-target actions; no success-rate regression; no sensitive telemetry; at least 70% fewer
 model-visible images; action p95 no greater than 1 second; settle p95 no greater than 5 seconds;
-coordinate fallback below 20%; and a rehearsed `100% -> 0%` new-generation rollback. It must bind
+coordinate fallback below 20%; and a rehearsed `true -> false` new-generation rollback. It must bind
 the model/runtime token and image-usage summary to the same run and artifact digest without placing
 prompts, responses, AX text, URLs, screenshots, input, coordinates, or clipboard data in device
 telemetry.
 
-The production Server checks this field both at startup and while processing device-control
-operations, so a missing field or runtime rollout drift fails closed. Community schema 2 and 3
-manifests keep the field `null`; only schema 4 can carry it, and risk acceptance alone cannot imply
-the evidence. The repository remains "implemented, awaiting production evidence" until a real
-report from the signed release
-artifacts passes this gate.
+The production Server verifies the general signed manifest at startup and while processing
+device-control operations, but does not require this optional field. Community schema 2 and 3
+manifests keep it `null`; schema 4 carries it only when a real report from the signed release
+artifacts passes the stricter quality gate. Operators can set `DEVICE_CONTROL_V2_ENABLED=false` to
+force new generations to v1 without changing release evidence.
 
 The assembler verifies every raw evidence archive, hashes the complete validated records, and
 copies both into the final evidence artifact under `gates/` for offline review. It does not infer

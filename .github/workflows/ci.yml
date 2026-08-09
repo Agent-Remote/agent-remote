@@ -26,16 +26,6 @@ jobs:
         run: python3 tests/test_device_control_release_readiness.py
       - name: Validate compose bundle
         run: docker compose --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml config --quiet
-      - name: Validate v2 acceptance compose overlay
-        env:
-          DEVICE_CONTROL_V2_ACCEPTANCE_DEVICE_ID: 00000000-0000-0000-0000-000000000001
-          DEVICE_CONTROL_V2_ACCEPTANCE_EXPIRES_AT: 2030-01-01T00:00:00Z
-        run: >-
-          docker compose --env-file deploy/compose/.env.example
-          -f deploy/compose/docker-compose.yml
-          -f deploy/compose/docker-compose.device-acceptance.yml
-          config --quiet
-
   session-port-forwarding-e2e:
     name: session-port-forwarding-e2e (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

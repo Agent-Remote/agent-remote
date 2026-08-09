@@ -51,16 +51,17 @@ Base64 raw Ed25519 公钥。私钥的本地备份位于 git-ignored 的
 
 ## Computer Use v2
 
-普通 Community 清单继续使用 schema 3，并保持 `computer_use_v2_evidence_sha256=null`。需要生产启用
-Computer Use v2 时，必须先在受保护的目标 Mac 上用同版本正式 App、Server、Node 和 proxy 生成零内容
-验收报告。`community-computer-use-v2-evidence` 工作流只从受保护目录收集结构化记录和原始报告归档；
-随后 `community-device-control-release-evidence` 工作流验证同 tag run、报告成员摘要、四组件摘要、浏览器
-与应用覆盖、Token/图片指标、延迟、错误目标、敏感遥测和回滚结果，并签发 schema 4 清单。
+Computer Use v2 是 Community 正式发布的默认能力。升级后的 Server 在
+`DEVICE_CONTROL_V2_ENABLED=true` 时为每个新 generation 检查 Node 上报的完整 capability 集合；三项
+能力齐全时自动选择 v2，任一缺失或畸形时完整回退 v1。普通 schema 3 Community 清单已经足以证明协调
+发布和供应链身份，不需要额外报告才能使用 v2。紧急回滚只需把该布尔开关设为 `false` 并重建受影响
+session，活动 generation 不做中途降级。
 
-Schema 4 不把 Community 自签名描述为 Apple 公证。它额外记录部署方对
-`community_computer_use_v2_without_apple_notarization` 的明确风险接受。缺少真实报告、制品不匹配、报告
-超过 30 天或任一阈值失败时，组装器拒绝输出；Server 仍拒绝非零 rollout。首次生产放量必须按
-`1% -> 5% -> 25% -> 50% -> 100%` 执行，不能用 schema 4 的存在跳过观察窗口。
+受保护的 `community-computer-use-v2-evidence` 工作流和 schema 4 继续保留，用于记录同版本正式制品的
+运行时质量验收。它会校验报告成员摘要、四组件摘要、浏览器与应用覆盖、Token/图片指标、延迟、错误
+目标、敏感遥测和回滚结果。Schema 4 不把 Community 自签名描述为 Apple 公证，并额外记录
+`community_computer_use_v2_without_apple_notarization` 风险接受；缺少或过期的专项报告只表示没有这份
+可选质量证明，不会关闭已经正式支持的 v2 功能。
 
 ## 明确接受的风险
 

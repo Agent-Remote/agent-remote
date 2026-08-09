@@ -3,9 +3,6 @@ from pathlib import Path
 
 runbook = Path("docs/device-control-operations-runbook.md").read_text(encoding="utf-8")
 compose = Path("deploy/compose/docker-compose.yml").read_text(encoding="utf-8")
-acceptance_compose = Path(
-    "deploy/compose/docker-compose.device-acceptance.yml"
-).read_text(encoding="utf-8")
 
 required_sections = (
     "## 2. 数据保留",
@@ -41,7 +38,7 @@ if missing:
 
 required_compose_contracts = (
     "DEVICE_CONTROL_ENABLED: ${DEVICE_CONTROL_ENABLED:-false}",
-    "DEVICE_CONTROL_V2_ROLLOUT_PERCENT: ${DEVICE_CONTROL_V2_ROLLOUT_PERCENT:-0}",
+    "DEVICE_CONTROL_V2_ENABLED: ${DEVICE_CONTROL_V2_ENABLED:-true}",
     "DEVICE_CONTROL_RELEASE_EVIDENCE_PATH: /run/agent-remote/device-control-release-evidence.json",
     "source: ${DEVICE_CONTROL_RELEASE_EVIDENCE_FILE:-/dev/null}",
     "read_only: true",
@@ -51,18 +48,6 @@ required_compose_contracts = (
 missing_compose = [value for value in required_compose_contracts if value not in compose]
 if missing_compose:
     raise SystemExit(f"compose device-control deployment is missing: {', '.join(missing_compose)}")
-
-required_acceptance_contracts = (
-    "DEVICE_CONTROL_V2_ACCEPTANCE_DEVICE_ID is required",
-    "DEVICE_CONTROL_V2_ACCEPTANCE_EXPIRES_AT is required",
-)
-missing_acceptance = [
-    value for value in required_acceptance_contracts if value not in acceptance_compose
-]
-if missing_acceptance:
-    raise SystemExit(
-        "compose v2 acceptance deployment is missing: " + ", ".join(missing_acceptance)
-    )
 
 revoke_position = runbook.index("agent-remote device revoke --device DEVICE_ID --yes")
 uninstall_position = runbook.index("agent-remote device uninstall --yes")

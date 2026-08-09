@@ -385,7 +385,9 @@ exporter 确认、重放窗口和代次轮换方式，并由真实 Swift/Rust �
 本节定义并记录截图型 Computer Use 向结构化状态优先模式演进的完整架构。v2 请求 schema、
 Swift/Rust 严格解码、AX full/diff、状态绑定元素动作、adaptive settle、图片分级、紧凑 MCP 面和
 Node capability 传播已经实现；v1 仍是缺少能力或版本不匹配时的完整兼容路径。这里的“已实现”
-不表示已生产放行：默认启用仍须完成第 12 节外部门禁、真实 macOS/浏览器验证和灰度指标验收。
+自 `v0.2.5` 起表示正式默认能力：升级后的新 generation 在完整 capability 集合下直接协商 v2，
+通用生产发布证据仍按第 12 节验证。真实 macOS/浏览器回归和指标证据继续作为发布质量审计，
+不再构成运行时启用条件。
 
 #### 6.5.1 当前基线与优化目标
 
@@ -532,8 +534,9 @@ skill 核心只保留通用状态规则；浏览器快路径、AX 使用和确�
 v2 通过完整 session binding 上的 capability 协商启用，例如 `ax_state_v2`、`observation_mode_v2` 和
 `adaptive_settle_v2`。Server 从 Node 心跳中只选择完整三项集合并写入 generation-bound context；Node
 严格拒绝部分集合和同 generation 降级，旧 Node 或缺少任一项时写入空集合并回退完整 v1。未知
-capability、协议版本不匹配或任一端不支持时不能部分解释 v2 frame。上线先使用 shadow mode：本机
-生成有界 AX 状态但仍返回 v1 screenshot，用无内容指标验证稳定性后再按设备 capability 灰度切换。
+capability、协议版本不匹配或任一端不支持时不能部分解释 v2 frame。早期版本曾以 shadow mode
+验证有界 AX 状态；正式版本不再按设备灰度，而是由完整 capability 集合
+自动选择 v2。质量回归触发全局紧急开关，使后续新 generation 原子回退 v1。
 
 允许记录的优化遥测仅限动作类型、观察模式、节点数、diff/图片/总 frame 字节数、各阶段耗时、
 settle 状态、错误码、重试次数和 fallback 类型。禁止记录 AX 文本、URL、标题、图片、输入、坐标、
@@ -622,35 +625,31 @@ Token 优化分为三层，指标必须分别记录，不能用 bridge bytes 冒
 因此本文不声称复刻“Codex 原本逻辑”。第三方 `open-codex-computer-use` 只用于比较 bounded AX tree、
 element index 和常用应用操作体验，其实现不能越过本项目安全边界。
 
-#### 6.5.11 灰度、回滚与完成定义
+#### 6.5.11 自动协商、回滚与完成定义
 
-上线顺序固定为：`v1 baseline -> v2 shadow -> 内部测试设备 -> 小比例签名设备 -> 分应用扩大 -> 默认
-启用`。每一阶段都必须绑定相同制品摘要、应用/OS/浏览器版本和无敏感数据 corpus，并同时满足成本、
-成功率、安全与确认门禁。部分 capability、错误目标、敏感遥测、stale/fallback 激增、成功率回退或
-p95 超阈值时，Server 对新 generation 下发空 capability 集合，完整回到 v1；活动 generation 不做
-中途协议降级，先终止并重新审批。回滚不删除审计证据，也不自动重放状态未知的动作。
+Computer Use v2 是正式默认能力。Server 在 `DEVICE_CONTROL_V2_ENABLED=true` 时只对 Node 广告的完整
+三项 capability 集合启用 v2；部分、未知或畸形集合完整回退 v1。混合版本部署由这一能力协商自然兼容，
+不使用设备百分比分桶或临时验收窗口。活动 generation 固定其 capability 集合，不做中途协议切换。
+部分 capability、错误目标、敏感遥测、stale/fallback 激增、成功率回退或 p95 超阈值时，管理员把开关
+设为 `false`，终止受影响 session，并让重新审批的新 generation 使用 v1。回滚不删除审计证据，也不
+自动重放状态未知的动作。
 
-Server 的 `DEVICE_CONTROL_V2_ROLLOUT_PERCENT` 默认必须为 `0`。非零值采用稳定设备 cohort：仅当
-`device_id.int % 100 < percent` 且 Node 广告完整三项 capability 时，新 generation 才能选择 v2；同一
-设备不会因重启或重连随机漂移。建议扩大量固定为 `1% -> 5% -> 25% -> 50% -> 100%`，每一级至少完成
-一次完整 corpus 和一个预先约定的观察窗口。百分比只控制新 generation，不能把活动 generation 从
-v2 原地降为 v1。
-
-生产中把百分比从 `0` 提高到任意非零值之前，签名 release-evidence manifest 必须额外绑定一份
-Computer Use v2 专项证据。该证据必须绑定精确 application/proxy/Node/Server 摘要，并证明：签名安装、
+签名 release-evidence manifest 继续证明协调版本、供应链身份和通用生产门禁。Computer Use v2 专项
+证据是可选质量记录，不是运行时授权。该证据可以绑定精确 application/proxy/Node/Server 摘要，并证明：签名安装、
 Safari/Chrome/Firefox、AX 不完整 Electron fallback、golden prompt replay、零敏感内容遥测审计、错误
 目标数为零、成功率无回退、模型可见图片减少至少 70%、普通动作 p95 不高于 1 秒、settle p95 不高于
-5 秒、坐标 fallback 低于 20%，以及新 generation 回到 v1 的回滚演练。清单过期、摘要不匹配、专项
-字段缺失或任一断言失败时，Server 必须拒绝非零 rollout。专项对象的 `report_sha256` 还必须对应
+5 秒、坐标 fallback 低于 20%，以及新 generation 回到 v1 的回滚演练。若选择生成 schema 4，专项
+对象的 `report_sha256` 还必须对应
 `security-tests.evidence.tar.gz` 内真实存在的普通报告文件，不能只提交布尔结论。该签名绑定现已由发布组装器和 Server 运行时
 验证器共同验证：Apple profile 组装器将已验证的 `security-tests` 记录摘要写入
 `computer_use_v2_evidence_sha256`；Community schema 2/3 固定为 `null`，schema 4 则要求受保护的
-Community v2 记录、原始报告归档、同版本四组件摘要和明确风险接受。Server 在启动和运行期都拒绝缺少
-该摘要的非零 rollout。生产仍须提供真实签名制品报告；开发环境只能使用合成、非敏感数据验证。
+Community v2 记录、原始报告归档、同版本四组件摘要和明确风险接受。Server 在启动和运行期验证通用
+发布清单，但不以该可选摘要决定 v2 capability。
 
-“完整优化完成”要求同时具备：跨语言协议 fixture、负向和预算测试、三浏览器与 AX 不完整应用真实
-回归、签名构建 benchmark、零内容遥测审计、Claude Code/MCP 当前版本兼容报告、灰度与回滚演练、
-独立安全评审。仓库内代码和合成测试完成只能标记为“已实现，待生产验收”。
+“正式支持”要求跨语言协议 fixture、负向和预算测试、能力协商、完整 v1 fallback 与通用签名发布
+门禁，这些从 `v0.2.5` 起作为默认部署路径。三浏览器与 AX 不完整应用真实回归、签名构建 benchmark、
+零内容遥测审计、Claude Code/MCP 当前版本兼容报告和回滚演练仍用于持续质量验收；缺少单次可选报告
+不关闭已经正式支持的 v2 能力。
 
 ## 7. 本地 Claude 硬隔离
 
@@ -881,8 +880,8 @@ Node、macOS 应用、MCP proxy、SBOM、来源证明及上述第 2 至 8 项证
 - P1（已实现）：observation mode 使无需图片的动作跳过像素捕获和编码；
 - P2（已实现）：bounded AX full/diff、state-bound element handle 和元素动作；
 - P3（已实现，待真实应用验收）：adaptive settle、compact/standard/region 图片和浏览器调用策略；
-- P4（部分完成）：capability 协商、紧凑 MCP 工具面和完整 v1 回退已实现；shadow 指标、生产灰度
-  默认切换和签名安装包回退演练仍未完成。
+- P4（已实现）：capability 协商、紧凑 MCP 工具面、默认 v2 选择和完整 v1 回退已实现；签名安装包
+  benchmark 与回退演练作为持续发布质量证据维护，不作为运行时授权条件。
 
 每个子阶段必须独立通过第 12 节门禁。不得先把 skill 切换到 AX 主路径，再补本机 freshness、
 secure field、diff reset 或 fallback 测试。
