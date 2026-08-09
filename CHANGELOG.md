@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.3 - 2026-08-09
+
+- test: add device acceptance deployment profile (542a14b)
+
 ## v0.2.2 - 2026-08-07
 
 - Release metadata update.
