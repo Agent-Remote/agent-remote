@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.5 - 2026-08-09
+
+- feat(device-control): make computer use v2 upgrade-ready (9384d41)
+
 ## v0.2.4 - 2026-08-09
 
 - feat(release): authorize community computer use v2 evidence (f5ed754)
