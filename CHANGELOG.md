@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.4 - 2026-08-09
+
+- feat(release): authorize community computer use v2 evidence (f5ed754)
+
 ## v0.2.3 - 2026-08-09
 
 - test: add device acceptance deployment profile (542a14b)
