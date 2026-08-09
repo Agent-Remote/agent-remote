@@ -35,6 +35,10 @@ The API is available at `http://127.0.0.1:8000` and Admin Web at
 - `proxy/`: standalone Linux amd64 and arm64 glibc MCP proxies.
 - `images/`: Linux amd64 and arm64 Server and Admin Web Docker image archives.
 
+Managed proxy tar entries are normalized to numeric root ownership (`0:0`) on both
+macOS and Linux packagers. The runtime rejects an extracted managed proxy directory
+or binary that is not root-owned.
+
 The production CLI intentionally rejects the ad-hoc application because it does not carry the
 protected Apple Team ID. For this test build, unzip and launch the app directly. Full control still
 fails closed unless the required local outbound-policy attestor and macOS permissions are present.

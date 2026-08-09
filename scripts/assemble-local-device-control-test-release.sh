@@ -49,8 +49,32 @@ cp "$root/docs/local-device-control-test-release.md" "$output/README.md"
 ditto -c -k --keepParent "$app" "$output/macos/Agent Remote Device.app.zip"
 cp "$cli_archive" "$output/cli/"
 cp "$node_amd64" "$node_arm64" "$output/node/"
-tar -C "$proxy_amd64" -czf "$output/proxy/agent-remote-device-proxy-$release_version-linux-amd64-glibc.tar.gz" .
-tar -C "$proxy_arm64" -czf "$output/proxy/agent-remote-device-proxy-$release_version-linux-arm64-glibc.tar.gz" .
+
+package_managed_proxy() {
+  local source_dir=$1
+  local label=$2
+  local staging="$output/proxy/.managed-$label"
+  local archive="$output/proxy/agent-remote-device-proxy-$release_version-$label.tar.gz"
+  mkdir -p "$staging/bin"
+  install -m 0755 "$source_dir/agent-remote-device-proxy" \
+    "$staging/bin/agent-remote-device-proxy"
+  cp "$source_dir/VERSION" "$staging/VERSION"
+  (
+    cd "$staging"
+    shasum -a 256 bin/agent-remote-device-proxy > SHA256SUMS
+  )
+  if tar --version 2>/dev/null | head -n 1 | grep -qi bsdtar; then
+    tar --no-xattrs --uid 0 --gid 0 --uname root --gname root \
+      -C "$staging" -czf "$archive" bin VERSION SHA256SUMS
+  else
+    tar --no-xattrs --owner=0 --group=0 --numeric-owner \
+      -C "$staging" -czf "$archive" bin VERSION SHA256SUMS
+  fi
+  rm -rf "$staging"
+}
+
+package_managed_proxy "$proxy_amd64" linux-amd64-glibc
+package_managed_proxy "$proxy_arm64" linux-arm64-glibc
 
 build_image_archive() {
   local repository=$1

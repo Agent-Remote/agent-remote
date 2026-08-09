@@ -53,6 +53,23 @@ following deployment-owned values after that profile's release gates pass:
 - `DEVICE_SESSION_AUDIT_RETENTION_DAYS`: approved non-zero audit period, not shorter than the
   session period.
 - `DEVICE_CONTROL_ENABLED=true`: set only after the preceding values and external policy are ready.
+- `DEVICE_CONTROL_V2_ROLLOUT_PERCENT=0`: keep the safe default until the signed release evidence
+  includes the matching Computer Use v2 acceptance report; then raise it through the rollout stages
+  in `device-control-operations-runbook.md`.
+
+For the bounded Community acceptance window, keep the global rollout at `0`, set the exact device
+UUID and a timezone-aware expiry no more than 24 hours ahead, and add the acceptance overlay:
+
+```sh
+DEVICE_CONTROL_V2_ACCEPTANCE_DEVICE_ID=DEVICE_UUID \
+DEVICE_CONTROL_V2_ACCEPTANCE_EXPIRES_AT=EXPIRY_TIMESTAMP \
+docker compose --env-file deploy/compose/.env \
+  -f deploy/compose/docker-compose.yml \
+  -f deploy/compose/docker-compose.device-acceptance.yml up -d --no-deps server
+```
+
+End the validation generation when the window closes, remove the two values, and run the base
+Compose file without the overlay to remove the acceptance settings from the Server container.
 
 Production Server startup rejects an enabled capability when either retention period is zero or
 the signed evidence cannot be verified. A schema 3 `community-local-trust` manifest may validly
