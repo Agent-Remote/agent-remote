@@ -1,7 +1,9 @@
 import hashlib
+import io
 import json
 import subprocess
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 
@@ -151,11 +153,89 @@ def arguments(root: Path) -> tuple[list[str], Path]:
     return values, output
 
 
-def test_community_assembler_creates_an_explicit_production_profile(tmp_path: Path) -> None:
+def add_v2_arguments(root: Path, values: list[str]) -> tuple[Path, Path]:
+    target = "linux-amd64-glibc"
+    report = b"zero-content Community Computer Use v2 acceptance report"
+    report_digest = hashlib.sha256(report).hexdigest()
+    archive = root / "community-computer-use-v2.evidence.tar.gz"
+    with tarfile.open(archive, mode="w:gz") as output:
+        member = tarfile.TarInfo("reports/computer-use-v2.json")
+        member.size = len(report)
+        output.addfile(member, io.BytesIO(report))
+    details = {
+        "action_latency_p95_ms": 900,
+        "artifact_digest_bound": True,
+        "chrome_passed": True,
+        "coordinate_fallback_percent": 19.99,
+        "current_mcp_runtime_passed": True,
+        "electron_fallback_passed": True,
+        "firefox_passed": True,
+        "golden_prompt_replay_passed": True,
+        "model_usage_summary_bound": True,
+        "model_visible_image_reduction_percent": 70,
+        "native_application_passed": True,
+        "report_sha256": report_digest,
+        "rollback_rehearsed": True,
+        "safari_passed": True,
+        "sensitive_telemetry_detected": False,
+        "settle_latency_p95_ms": 5_000,
+        "signed_installation": True,
+        "success_rate_regressed": False,
+        "wrong_target_count": 0,
+    }
+    application = root / "application.artifact"
+    record = write(
+        root / "community-computer-use-v2-evidence.json",
+        {
+            "schema_version": 1,
+            "release_version": VERSION,
+            "release_profile": "community-local-trust",
+            "target": target,
+            "artifacts": {
+                "server": "a" * 64,
+                "node": hashlib.sha256(
+                    (root / f"node-{target}.artifact").read_bytes()
+                ).hexdigest(),
+                "application": hashlib.sha256(application.read_bytes()).hexdigest(),
+                "proxy": hashlib.sha256(
+                    (root / f"proxy-{target}.artifact").read_bytes()
+                ).hexdigest(),
+            },
+            "collected_at": "2026-07-31T07:00:00Z",
+            "evidence_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+            "producer": "protected Community acceptance Mac",
+            "method": "signed artifact-bound acceptance corpus",
+            "details": details,
+        },
+    )
+    risk_path = root / "risk.json"
+    risk = json.loads(risk_path.read_text(encoding="utf-8"))
+    risk["accepted_risks"].append(
+        "community_computer_use_v2_without_apple_notarization"
+    )
+    risk_path.write_text(json.dumps(risk), encoding="utf-8")
+    values.extend(
+        (
+            "--computer-use-v2-evidence",
+            str(record),
+            "--computer-use-v2-evidence-archive",
+            str(archive),
+            "--computer-use-v2-target",
+            target,
+        )
+    )
+    return record, archive
+
+
+def test_community_assembler_creates_an_explicit_production_profile(
+    tmp_path: Path,
+) -> None:
     values, output = arguments(tmp_path)
     subprocess.run(values, check=True)
 
-    draft = json.loads((output / "release-evidence-draft.json").read_text(encoding="utf-8"))
+    draft = json.loads(
+        (output / "release-evidence-draft.json").read_text(encoding="utf-8")
+    )
     assert draft["schema_version"] == 3
     assert draft["release_profile"] == "community-local-trust"
     assert draft["production_ready"] is True
@@ -193,8 +273,97 @@ def test_community_assembler_rejects_missing_risk_acceptance(tmp_path: Path) -> 
     assert "risk acceptance is incomplete" in result.stderr
 
 
+def test_community_assembler_creates_schema_v4_with_bound_v2_evidence(
+    tmp_path: Path,
+) -> None:
+    values, output = arguments(tmp_path)
+    record, archive = add_v2_arguments(tmp_path, values)
+
+    subprocess.run(values, check=True)
+
+    draft = json.loads(
+        (output / "release-evidence-draft.json").read_text(encoding="utf-8")
+    )
+    assert draft["schema_version"] == 4
+    assert (
+        draft["computer_use_v2_evidence_sha256"]
+        == hashlib.sha256(record.read_bytes()).hexdigest()
+    )
+    assert (output / record.name).read_bytes() == record.read_bytes()
+    assert (output / archive.name).read_bytes() == archive.read_bytes()
+
+
+def test_community_assembler_rejects_v2_artifact_mismatch(tmp_path: Path) -> None:
+    values, _ = arguments(tmp_path)
+    record, _ = add_v2_arguments(tmp_path, values)
+    content = json.loads(record.read_text(encoding="utf-8"))
+    content["artifacts"]["proxy"] = "f" * 64
+    record.write_text(json.dumps(content), encoding="utf-8")
+
+    result = subprocess.run(values, capture_output=True, text=True, check=False)
+
+    assert result.returncode == 2
+    assert "not bound to the release" in result.stderr
+
+
+def test_community_assembler_rejects_v2_threshold_failure(tmp_path: Path) -> None:
+    values, _ = arguments(tmp_path)
+    record, _ = add_v2_arguments(tmp_path, values)
+    content = json.loads(record.read_text(encoding="utf-8"))
+    content["details"]["wrong_target_count"] = 1
+    record.write_text(json.dumps(content), encoding="utf-8")
+
+    result = subprocess.run(values, capture_output=True, text=True, check=False)
+
+    assert result.returncode == 2
+    assert "wrong-target actions" in result.stderr
+
+
+def test_community_assembler_requires_bound_report_archive_member(
+    tmp_path: Path,
+) -> None:
+    values, _ = arguments(tmp_path)
+    record, _ = add_v2_arguments(tmp_path, values)
+    content = json.loads(record.read_text(encoding="utf-8"))
+    content["details"]["report_sha256"] = "f" * 64
+    record.write_text(json.dumps(content), encoding="utf-8")
+
+    result = subprocess.run(values, capture_output=True, text=True, check=False)
+
+    assert result.returncode == 2
+    assert "report is not present" in result.stderr
+
+
+def test_community_assembler_requires_explicit_v2_risk_acceptance(
+    tmp_path: Path,
+) -> None:
+    values, _ = arguments(tmp_path)
+    add_v2_arguments(tmp_path, values)
+    risk_path = tmp_path / "risk.json"
+    risk = json.loads(risk_path.read_text(encoding="utf-8"))
+    risk["accepted_risks"].remove(
+        "community_computer_use_v2_without_apple_notarization"
+    )
+    risk_path.write_text(json.dumps(risk), encoding="utf-8")
+
+    result = subprocess.run(values, capture_output=True, text=True, check=False)
+
+    assert result.returncode == 2
+    assert "risk acceptance is incomplete" in result.stderr
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as first:
         test_community_assembler_creates_an_explicit_production_profile(Path(first))
     with tempfile.TemporaryDirectory() as second:
         test_community_assembler_rejects_missing_risk_acceptance(Path(second))
+    with tempfile.TemporaryDirectory() as third:
+        test_community_assembler_creates_schema_v4_with_bound_v2_evidence(Path(third))
+    with tempfile.TemporaryDirectory() as fourth:
+        test_community_assembler_rejects_v2_artifact_mismatch(Path(fourth))
+    with tempfile.TemporaryDirectory() as fifth:
+        test_community_assembler_rejects_v2_threshold_failure(Path(fifth))
+    with tempfile.TemporaryDirectory() as sixth:
+        test_community_assembler_requires_bound_report_archive_member(Path(sixth))
+    with tempfile.TemporaryDirectory() as seventh:
+        test_community_assembler_requires_explicit_v2_risk_acceptance(Path(seventh))

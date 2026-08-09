@@ -12,6 +12,9 @@ external_gates = Path(".github/workflows/device-control-external-gates.yml").rea
 community_evidence = Path(
     ".github/workflows/community-device-control-release-evidence.yml"
 ).read_text(encoding="utf-8")
+community_v2_evidence = Path(
+    ".github/workflows/community-computer-use-v2-evidence.yml"
+).read_text(encoding="utf-8")
 
 required_release_fragments = (
     'test "$GITHUB_REF" = "refs/tags/v${version}"',
@@ -130,6 +133,14 @@ required_community_evidence_fragments = (
     'current_run["path"] == ".github/workflows/release.yml"',
     'current_run["head_sha"] != sha',
     'current_run["status"] != "in_progress"',
+    "computer_use_v2_run_id",
+    'case "$RUN_ID" in',
+    "community-computer-use-v2-evidence-${VERSION}",
+    '.path == ".github/workflows/community-computer-use-v2-evidence.yml"',
+    "--computer-use-v2-evidence",
+    "--computer-use-v2-evidence-archive",
+    "--computer-use-v2-target",
+    "community_computer_use_v2_without_apple_notarization",
 )
 missing_community_evidence = [
     fragment
@@ -140,6 +151,27 @@ if missing_community_evidence:
     raise SystemExit(
         "community release evidence workflow is missing: "
         + ", ".join(missing_community_evidence)
+    )
+
+required_community_v2_fragments = (
+    'test "$GITHUB_REF" = "refs/tags/v${VERSION}"',
+    "runs-on: [self-hosted, macOS, ARM64, agent-remote-device-gates]",
+    "environment: production-device-release-gates",
+    "COMMUNITY_COMPUTER_USE_V2_EVIDENCE_DIRECTORY",
+    "collect-community-computer-use-v2-evidence.py",
+    "community-computer-use-v2-evidence-${{ inputs.version }}",
+    "if-no-files-found: error",
+    "retention-days: 30",
+)
+missing_community_v2 = [
+    fragment
+    for fragment in required_community_v2_fragments
+    if fragment not in community_v2_evidence
+]
+if missing_community_v2:
+    raise SystemExit(
+        "Community Computer Use v2 evidence workflow is missing: "
+        + ", ".join(missing_community_v2)
     )
 
 test_compose = Path("deploy/compose/docker-compose.device-test.yml").read_text(

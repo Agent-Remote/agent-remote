@@ -35,8 +35,9 @@ secure field hand-off、stale target 拒绝或应用审批的理由。
 Server 已提供默认 `0%`、按设备 UUID 稳定分桶的 `DEVICE_CONTROL_V2_ROLLOUT_PERCENT`。Apple profile
 组装器现在要求 `security-tests.computer_use_v2` 的精确浏览器、指标、零错误目标、零敏感遥测和回滚
 断言，验证 `report_sha256` 对应文件真实存在于受限原始证据归档，并把记录摘要作为
-`computer_use_v2_evidence_sha256` 纳入规范 Ed25519 签名载荷；Community profile
-固定该字段为 `null`。Server 启动和运行期均拒绝缺少该摘要的非零百分比，配置运行中漂移也会在下一次
+`computer_use_v2_evidence_sha256` 纳入规范 Ed25519 签名载荷；Community schema 2/3
+固定该字段为 `null`，schema 4 仅在受保护工作流校验同版本、同制品的真实报告后写入摘要。Server
+启动和运行期均拒绝缺少该摘要的非零百分比，配置运行中漂移也会在下一次
 会话推进时 fail closed。当前仍没有绑定真实签名制品的三浏览器/Electron 报告，因此生产结论仍是
 `DEVICE_CONTROL_V2_ROLLOUT_PERCENT=0`；门禁实现完成不等于外部证据已经产生。
 

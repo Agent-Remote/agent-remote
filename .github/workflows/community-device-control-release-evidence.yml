@@ -11,6 +11,16 @@ on:
         description: Accept the documented community-local-trust residual risks
         required: true
         type: boolean
+      computer_use_v2_run_id:
+        description: Optional successful Community v2 evidence workflow run ID
+        required: false
+        type: string
+        default: ""
+      computer_use_v2_target:
+        description: Linux target exercised by the optional Community v2 evidence
+        required: false
+        type: string
+        default: ""
   workflow_call:
     inputs:
       version:
@@ -21,6 +31,16 @@ on:
         description: Accept the documented community-local-trust residual risks
         required: true
         type: boolean
+      computer_use_v2_run_id:
+        description: Optional successful Community v2 evidence workflow run ID
+        required: false
+        type: string
+        default: ""
+      computer_use_v2_target:
+        description: Linux target exercised by the optional Community v2 evidence
+        required: false
+        type: string
+        default: ""
 
 permissions:
   actions: read
@@ -291,9 +311,44 @@ jobs:
           with open("release-input/community/ci-runs.json", "w", encoding="utf-8") as output:
               json.dump(result, output, sort_keys=True)
           PY
+      - name: Download optional trusted Community Computer Use v2 evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.computer_use_v2_run_id }}
+          TARGET: ${{ inputs.computer_use_v2_target }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if { [ -n "$RUN_ID" ] && [ -z "$TARGET" ]; } || \
+             { [ -z "$RUN_ID" ] && [ -n "$TARGET" ]; }; then
+            echo "Community v2 run ID and target must be provided together" >&2
+            exit 1
+          fi
+          if [ -z "$RUN_ID" ]; then
+            exit 0
+          fi
+          case "$RUN_ID" in
+            *[!0-9]*) echo "Community v2 run ID must be numeric" >&2; exit 1 ;;
+          esac
+          case "$TARGET" in
+            linux-amd64-glibc|linux-arm64-glibc|linux-amd64-musl|linux-arm64-musl) ;;
+            *) echo "unsupported Community v2 target: $TARGET" >&2; exit 1 ;;
+          esac
+          run=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")
+          tag_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/v${VERSION}" --jq .sha)
+          jq -e \
+            --arg sha "$tag_sha" \
+            '.conclusion == "success" and .event == "workflow_dispatch" and
+             .path == ".github/workflows/community-computer-use-v2-evidence.yml" and
+             .head_sha == $sha' <<<"$run" >/dev/null
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "community-computer-use-v2-evidence-${VERSION}" \
+            --dir release-input/community-v2
       - name: Assemble and sign community production evidence
         env:
           ACTOR: ${{ github.actor }}
+          COMPUTER_USE_V2_RUN_ID: ${{ inputs.computer_use_v2_run_id }}
+          COMPUTER_USE_V2_TARGET: ${{ inputs.computer_use_v2_target }}
           PRIVATE_KEY_PEM: ${{ secrets.DEVICE_CONTROL_RELEASE_PRIVATE_KEY_PEM }}
           VERSION: ${{ inputs.version }}
         run: |
@@ -306,9 +361,16 @@ jobs:
             --slurpfile ci_runs "$community/ci-runs.json" \
             '{schema_version:1,release_version:$version,profile:"community-local-trust",production_ready:true,official_runners_only:true,critical_high_vulnerabilities:0,checks:{coordinated_release:true,protocol_tests:true,cross_component_e2e:true,fuzz:true,stop_revocation:true,compatibility:true,supply_chain:true},ci_runs:$ci_runs[0]}' \
             > "$community/automation.json"
+          accepted_risks='["apple_notarization_absent","manual_gatekeeper_trust","system_network_filter_absent","independent_security_review_absent"]'
+          if [ -n "$COMPUTER_USE_V2_RUN_ID" ]; then
+            accepted_risks=$(jq -c \
+              '. + ["community_computer_use_v2_without_apple_notarization"]' \
+              <<<"$accepted_risks")
+          fi
           jq -n \
             --arg actor "$ACTOR" --arg accepted_at "$issued_at" --arg version "$VERSION" \
-            '{schema_version:1,release_version:$version,profile:"community-local-trust",accepted:true,accepted_by:$actor,accepted_at:$accepted_at,accepted_risks:["apple_notarization_absent","manual_gatekeeper_trust","system_network_filter_absent","independent_security_review_absent"]}' \
+            --argjson accepted_risks "$accepted_risks" \
+            '{schema_version:1,release_version:$version,profile:"community-local-trust",accepted:true,accepted_by:$actor,accepted_at:$accepted_at,accepted_risks:$accepted_risks}' \
             > "$community/risk-acceptance.json"
 
           arguments=(python3 scripts/assemble-community-device-control-release-evidence.py \
@@ -336,6 +398,15 @@ jobs:
               --provenance "proxy-${target}=release-input/proxy-provenance-${target}.json"
             )
           done
+          if [ -n "$COMPUTER_USE_V2_RUN_ID" ]; then
+            arguments+=(
+              --computer-use-v2-evidence \
+                release-input/community-v2/community-computer-use-v2-evidence.json
+              --computer-use-v2-evidence-archive \
+                release-input/community-v2/community-computer-use-v2.evidence.tar.gz
+              --computer-use-v2-target "$COMPUTER_USE_V2_TARGET"
+            )
+          fi
           "${arguments[@]}"
 
           key="$RUNNER_TEMP/device-control-release-key.pem"

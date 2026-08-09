@@ -1,0 +1,50 @@
+name: community-computer-use-v2-evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact coordinated release version without a v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-computer-use-v2-evidence-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: [self-hosted, macOS, ARM64, agent-remote-device-gates]
+    environment: production-device-release-gates
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - name: Verify immutable source tag and protected evidence directory
+        env:
+          EVIDENCE_DIRECTORY: ${{ vars.COMMUNITY_COMPUTER_USE_V2_EVIDENCE_DIRECTORY }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/tags/v${VERSION}"
+          test "$(tr -d '[:space:]' < VERSION)" = "$VERSION"
+          test -n "$EVIDENCE_DIRECTORY"
+          test -d "$EVIDENCE_DIRECTORY"
+          test ! -L "$EVIDENCE_DIRECTORY"
+      - name: Validate and collect Community Computer Use v2 evidence
+        env:
+          EVIDENCE_DIRECTORY: ${{ vars.COMMUNITY_COMPUTER_USE_V2_EVIDENCE_DIRECTORY }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/collect-community-computer-use-v2-evidence.py \
+            --source-directory "$EVIDENCE_DIRECTORY" \
+            --output-directory community-computer-use-v2-evidence \
+            --release-version "$VERSION"
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: community-computer-use-v2-evidence-${{ inputs.version }}
+          path: community-computer-use-v2-evidence
+          if-no-files-found: error
+          retention-days: 30

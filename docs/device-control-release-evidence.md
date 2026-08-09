@@ -15,7 +15,8 @@ Two release profiles are supported and their claims must not be mixed:
   the `device-control-release-evidence` workflow.
 
 Both workflows must run from the exact coordinated `vVERSION` tag. The community workflow binds
-all four supported Linux Node and standalone proxy targets into one schema 3 manifest.
+all four supported Linux Node and standalone proxy targets into one schema 3 manifest by default,
+or a schema 4 manifest when it consumes a trusted, artifact-bound Computer Use v2 evidence run.
 
 ## Coordinated Release Order
 
@@ -59,6 +60,31 @@ dependency vulnerability reports,
 project self-signed App identity, and successful same-commit CI for all six repositories. It then
 records the administrator's explicit acceptance of the documented reduced-security profile and
 signs a schema 3 manifest with the deployment-owned Ed25519 key.
+
+Community production v2 uses a second protected workflow. On the dedicated acceptance Mac, place
+exactly `community-computer-use-v2-evidence.json` and
+`community-computer-use-v2.evidence.tar.gz` in the directory configured by the protected
+`COMMUNITY_COMPUTER_USE_V2_EVIDENCE_DIRECTORY` variable, then dispatch:
+
+```sh
+gh workflow run community-computer-use-v2-evidence.yml \
+  --repo Agent-Remote/agent-remote --ref vVERSION -f version=VERSION
+```
+
+After that run succeeds, reissue the Community manifest with its run ID and the tested target:
+
+```sh
+gh workflow run community-device-control-release-evidence.yml \
+  --repo Agent-Remote/agent-remote --ref vVERSION \
+  -f version=VERSION -f accept_reduced_security=true \
+  -f computer_use_v2_run_id=RUN_ID \
+  -f computer_use_v2_target=linux-amd64-glibc
+```
+
+The evidence workflow accepts only a successful run from the dedicated workflow on the exact same
+tag commit. It validates the report thresholds, archive member digest, collection age, selected
+Node/proxy target, Server image, and application archive before signing schema 4. Schema 4 also
+requires explicit acceptance of `community_computer_use_v2_without_apple_notarization`.
 
 The workflow does not claim Apple notarization, Gatekeeper trust, system-level network filtering,
 independent security review, or unattended public distribution. Those are accepted limitations of
@@ -185,8 +211,9 @@ application archive.
 
 `DEVICE_CONTROL_V2_ROLLOUT_PERCENT` must remain `0` unless the signed manifest binds a Computer Use
 v2 report to the exact Server, Node, application, and proxy artifacts. The Apple-profile assembler
-validates the exact `security-tests.computer_use_v2` object and writes the validated record digest
-to `computer_use_v2_evidence_sha256`; that field is covered by the canonical Ed25519 signature.
+validates `security-tests.computer_use_v2`; the Community assembler validates the equivalent
+protected schema 4 record and its selected multi-architecture target. Both write the validated
+record digest to `computer_use_v2_evidence_sha256`, covered by the canonical Ed25519 signature.
 The object also names the raw report with `report_sha256`, and assembly fails unless a file with
 that exact digest exists in the bounded security-tests evidence archive.
 
@@ -200,9 +227,10 @@ prompts, responses, AX text, URLs, screenshots, input, coordinates, or clipboard
 telemetry.
 
 The production Server checks this field both at startup and while processing device-control
-operations, so a missing field or runtime rollout drift fails closed. Community local-trust
-manifests always emit `null` and cannot imply this evidence through risk acceptance. The repository
-remains "implemented, awaiting production evidence" until a real report from the signed release
+operations, so a missing field or runtime rollout drift fails closed. Community schema 2 and 3
+manifests keep the field `null`; only schema 4 can carry it, and risk acceptance alone cannot imply
+the evidence. The repository remains "implemented, awaiting production evidence" until a real
+report from the signed release
 artifacts passes this gate.
 
 The assembler verifies every raw evidence archive, hashes the complete validated records, and

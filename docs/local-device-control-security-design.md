@@ -644,7 +644,8 @@ Safari/Chrome/Firefox、AX 不完整 Electron fallback、golden prompt replay、
 字段缺失或任一断言失败时，Server 必须拒绝非零 rollout。专项对象的 `report_sha256` 还必须对应
 `security-tests.evidence.tar.gz` 内真实存在的普通报告文件，不能只提交布尔结论。该签名绑定现已由发布组装器和 Server 运行时
 验证器共同验证：Apple profile 组装器将已验证的 `security-tests` 记录摘要写入
-`computer_use_v2_evidence_sha256`，Community profile 固定为 `null`，Server 在启动和运行期都拒绝缺少
+`computer_use_v2_evidence_sha256`；Community schema 2/3 固定为 `null`，schema 4 则要求受保护的
+Community v2 记录、原始报告归档、同版本四组件摘要和明确风险接受。Server 在启动和运行期都拒绝缺少
 该摘要的非零 rollout。生产仍须提供真实签名制品报告；开发环境只能使用合成、非敏感数据验证。
 
 “完整优化完成”要求同时具备：跨语言协议 fixture、负向和预算测试、三浏览器与 AX 不完整应用真实

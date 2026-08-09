@@ -49,6 +49,19 @@ Root 仓库继续使用 `production-device-release-evidence` 保存发布清单 
 Base64 raw Ed25519 公钥。私钥的本地备份位于 git-ignored 的
 `dist/community-release-evidence-key`，必须另行离线备份。
 
+## Computer Use v2
+
+普通 Community 清单继续使用 schema 3，并保持 `computer_use_v2_evidence_sha256=null`。需要生产启用
+Computer Use v2 时，必须先在受保护的目标 Mac 上用同版本正式 App、Server、Node 和 proxy 生成零内容
+验收报告。`community-computer-use-v2-evidence` 工作流只从受保护目录收集结构化记录和原始报告归档；
+随后 `community-device-control-release-evidence` 工作流验证同 tag run、报告成员摘要、四组件摘要、浏览器
+与应用覆盖、Token/图片指标、延迟、错误目标、敏感遥测和回滚结果，并签发 schema 4 清单。
+
+Schema 4 不把 Community 自签名描述为 Apple 公证。它额外记录部署方对
+`community_computer_use_v2_without_apple_notarization` 的明确风险接受。缺少真实报告、制品不匹配、报告
+超过 30 天或任一阈值失败时，组装器拒绝输出；Server 仍拒绝非零 rollout。首次生产放量必须按
+`1% -> 5% -> 25% -> 50% -> 100%` 执行，不能用 schema 4 的存在跳过观察窗口。
+
 ## 明确接受的风险
 
 - Gatekeeper 不会把 App 识别为已验证开发者，安装必须显式移除 quarantine。
