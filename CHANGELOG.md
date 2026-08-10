@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.6 - 2026-08-10
+
+- Release metadata update.
+
 ## v0.2.5 - 2026-08-09
 
 - feat(device-control): make computer use v2 upgrade-ready (9384d41)
