@@ -181,6 +181,7 @@ jobs:
             "${admin_image}@${admin_digest}"
           gh attestation verify "oci://${admin_image}@${admin_digest}" \
             --repo Agent-Remote/agent-remote-admin-web \
+            --bundle ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.provenance.jsonl" \
             --source-ref "refs/tags/v${ADMIN_VERSION}" \
             --signer-workflow "Agent-Remote/agent-remote-admin-web/.github/workflows/${ADMIN_WORKFLOW}"
       - name: Build deployment bundle

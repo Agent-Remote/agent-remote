@@ -118,11 +118,14 @@ missing_evidence = [fragment for fragment in required_evidence_fragments if frag
 if missing_evidence:
     raise SystemExit(f"release evidence workflow is missing: {', '.join(missing_evidence)}")
 
-unsupported_oci_bundle = '--bundle "$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl"'
-if unsupported_oci_bundle in evidence or unsupported_oci_bundle in community_evidence:
-    raise SystemExit("OCI provenance must use online GitHub attestation verification")
-if '--bundle ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.provenance.jsonl"' in release:
-    raise SystemExit("Admin OCI provenance must use online GitHub attestation verification")
+server_oci_bundle = '--bundle "$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl"'
+if server_oci_bundle not in evidence or server_oci_bundle not in community_evidence:
+    raise SystemExit("server OCI provenance must use the checksummed release bundle")
+admin_oci_bundle = (
+    '--bundle ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.provenance.jsonl"'
+)
+if admin_oci_bundle not in release:
+    raise SystemExit("Admin OCI provenance must use the checksummed release bundle")
 
 required_external_gate_fragments = (
     'test "$GITHUB_REF" = "refs/tags/v${VERSION}"',
