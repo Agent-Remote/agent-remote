@@ -178,8 +178,9 @@ The gate-specific `details` contracts are:
   Screen Recording first grant, denial, revocation and post-change restart; signed installation,
   same-version reinstall, upgrade, downgrade rejection, device revoke, uninstall and absence of
   permission residue; the three application control levels, per-session application and clipboard
-  approval, the single-session machine lock and crash release; hiding, capture exclusion and
-  restoration of unapproved applications; global Escape without delivery to the target; release of
+  approval, the single-session machine lock and crash release; foreground preservation during
+  approval and passive observation, prior-foreground restoration after interactive actions, and
+  capture exclusion of unapproved windows; global Escape without delivery to the target; release of
   mouse-down, drag and modifier state after disconnect; Retina scaling, negative-origin
   multi-display coordinates, moving a window between displays, display hot-plug, fast user
   switching, sleep/wake, and network switching.
