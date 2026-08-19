@@ -48,6 +48,7 @@ required_release_fragments = (
     "SERVER_IMAGE=${server_image}@${server_digest}",
     "admin-workflow: ${{ steps.manifest.outputs.admin-workflow }}",
     "${ADMIN_WORKFLOW}@refs/tags/v${ADMIN_VERSION}",
+    '--source-ref "refs/tags/v${ADMIN_VERSION}"',
 )
 
 if "\n        env:\n        run:" in release:
@@ -72,7 +73,8 @@ required_evidence_fragments = (
     "gh attestation verify",
     ".spdx.json.sigstore.json",
     "verify_sbom",
-    "--bundle \"$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl\"",
+    '--source-ref "refs/tags/v${SERVER_VERSION}"',
+    'Agent-Remote/agent-remote-server/.github/workflows/${SERVER_WORKFLOW}',
     "notarization-${DEVICE_VERSION}.json",
     '"$device/$signing_evidence.sigstore.json"',
     "pip-audit.json",
@@ -93,6 +95,12 @@ required_evidence_fragments = (
 missing_evidence = [fragment for fragment in required_evidence_fragments if fragment not in evidence]
 if missing_evidence:
     raise SystemExit(f"release evidence workflow is missing: {', '.join(missing_evidence)}")
+
+unsupported_oci_bundle = '--bundle "$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl"'
+if unsupported_oci_bundle in evidence or unsupported_oci_bundle in community_evidence:
+    raise SystemExit("OCI provenance must use online GitHub attestation verification")
+if '--bundle ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.provenance.jsonl"' in release:
+    raise SystemExit("Admin OCI provenance must use online GitHub attestation verification")
 
 required_external_gate_fragments = (
     'test "$GITHUB_REF" = "refs/tags/v${VERSION}"',

@@ -60,6 +60,23 @@ jobs:
           git tag "v${version}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
           git push origin "v${version}"
-          gh workflow run release.yml --ref "v${version}" -f version="${version}"
+          release_commit=$(git rev-parse HEAD)
+          for attempt in 1 2 3; do
+            if gh workflow run release.yml --ref "v${version}" -f version="${version}"; then
+              exit 0
+            fi
+            sleep 3
+            if gh run list --workflow release.yml --event workflow_dispatch \
+              --commit "$release_commit" --limit 10 --json databaseId \
+              --jq 'length > 0' | grep -qx true; then
+              echo "Release workflow was created despite a dispatch API error"
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 3))
+            fi
+          done
+          echo "Failed to dispatch release workflow" >&2
+          exit 1
         env:
           GH_TOKEN: ${{ github.token }}
