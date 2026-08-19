@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact coordinated release version without a v prefix
+        description: Exact root distribution version without a v prefix
         required: true
         type: string
 

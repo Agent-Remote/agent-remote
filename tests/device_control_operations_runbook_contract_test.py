@@ -20,7 +20,7 @@ required_contracts = (
     "DEVICE_SESSION_RETENTION_DAYS",
     "DEVICE_SESSION_AUDIT_RETENTION_DAYS",
     "不得用未经评审的原始 SQL",
-    "--version VERSION --require-clean --require-tag --require-origin",
+    "--manifest release-manifest.json --require-clean --require-tag --require-origin",
     'agent-remote device install --source "/path/to/Agent Remote Device.app"',
     "agent-remote device revoke --device DEVICE_ID --yes",
     "agent-remote device uninstall --yes",

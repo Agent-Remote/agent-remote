@@ -56,11 +56,11 @@ Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENT
 
 ### 3.1 激活前检查
 
-1. 六个仓库使用同一协调版本、不可变 tag 和允许的干净提交：
+1. 根发布清单为六个仓库分别固定独立版本、不可变 tag 和允许的干净提交：
 
    ```sh
    python3 scripts/check-device-control-release-readiness.py \
-     --version VERSION --require-clean --require-tag --require-origin
+     --manifest release-manifest.json --require-clean --require-tag --require-origin
    ```
 
 2. 选择并验证一种发布配置：无 Apple 账号时按 `community-local-trust-release.md` 验证 Server、Node、
@@ -78,7 +78,7 @@ Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENT
 
 ### 3.2 本机安装和升级
 
-只使用已验证的同版本发布 app，不接受项目仓库或 API 返回的下载地址：
+只使用生产组合清单选中并已验证摘要的发布 app，不接受项目仓库或 API 返回的下载地址：
 
 ```sh
 agent-remote device install --source "/path/to/Agent Remote Device.app"

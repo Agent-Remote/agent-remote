@@ -10,6 +10,9 @@ from pathlib import Path
 
 SCRIPT = Path("scripts/assemble-device-control-release-evidence.py").resolve()
 DIGEST = "a" * 64
+DISTRIBUTION_VERSION = "9.8.7"
+SERVER_VERSION = "1.2.3"
+DEVICE_VERSION = "5.6.7"
 LABELS = ("server", "node", "application", "proxy")
 PUBLIC_ACTIONS = [
     "double_click",
@@ -218,7 +221,7 @@ def write_gate(
         "gate": name,
         "method": f"release-bound {name} validation",
         "producer": "production-device-release environment",
-        "release_version": "1.2.3",
+        "release_version": DISTRIBUTION_VERSION,
         "schema_version": 1,
         "status": "approved" if name == "security-review" else "passed",
     }
@@ -226,9 +229,39 @@ def write_gate(
 
 
 def command(root: Path, output: Path) -> list[str]:
+    manifest = write(
+        root / "release-manifest.json",
+        json.dumps(
+            {
+                "schema_version": 2,
+                "distribution_version": DISTRIBUTION_VERSION,
+                "components": {
+                    name: {
+                        "repository": f"Agent-Remote/{name}",
+                        "release_workflow": "release.yml",
+                        "version": {
+                            "agent-remote-server": SERVER_VERSION,
+                            "agent-remote-node": "2.3.4",
+                            "agent-remote-cli": "3.4.5",
+                            "agent-remote-admin-web": "4.5.6",
+                            "agent-remote-device": DEVICE_VERSION,
+                        }[name],
+                        "commit": "c" * 40,
+                    }
+                    for name in (
+                        "agent-remote-server",
+                        "agent-remote-node",
+                        "agent-remote-cli",
+                        "agent-remote-admin-web",
+                        "agent-remote-device",
+                    )
+                },
+            }
+        ),
+    )
     server_metadata = write(
         root / "server.json",
-        json.dumps({"version": "1.2.3", "digest": f"sha256:{DIGEST}"}),
+        json.dumps({"version": SERVER_VERSION, "digest": f"sha256:{DIGEST}"}),
     )
     node = write(root / "node.tar.gz", "node")
     application = write(root / "application.zip", "application")
@@ -243,7 +276,11 @@ def command(root: Path, output: Path) -> list[str]:
         sys.executable,
         str(SCRIPT),
         "--release-version",
-        "1.2.3",
+        SERVER_VERSION,
+        "--distribution-version",
+        DISTRIBUTION_VERSION,
+        "--release-manifest",
+        str(manifest),
         "--server-metadata",
         str(server_metadata),
         "--node-artifact",
@@ -296,7 +333,7 @@ def command(root: Path, output: Path) -> list[str]:
                 "notarization_status": "Accepted",
                 "notarization_submission_id": "12345678-1234-1234-1234-123456789abc",
                 "outbound_policy_identifier": "com.example.agent-remote-egress",
-                "release_version": "1.2.3",
+                "release_version": DEVICE_VERSION,
                 "schema_version": 1,
                 "stapler_validated": True,
                 "status": "passed",
@@ -328,6 +365,8 @@ def test_assembler_writes_exact_artifact_and_inventory_digests() -> None:
 
         assert result.returncode == 0, result.stderr
         draft = json.loads((output / "release-evidence-draft.json").read_text())
+        assert draft["schema_version"] == 7
+        assert draft["distribution_version"] == DISTRIBUTION_VERSION
         assert draft["server_sha256"] == DIGEST
         assert draft["node_sha256"] == hashlib.sha256(b"node").hexdigest()
         assert draft["application_sha256"] == hashlib.sha256(b"application").hexdigest()
@@ -340,6 +379,50 @@ def test_assembler_writes_exact_artifact_and_inventory_digests() -> None:
         assert (output / "release-evidence-draft.json").stat().st_mode & 0o777 == 0o600
         assert (output / "gates" / "security-tests.json").is_file()
         assert (output / "gates" / "security-tests.evidence.tar.gz").is_file()
+
+
+def test_assembler_preserves_legacy_schema_for_one_version_composition() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        arguments[arguments.index("--distribution-version") + 1] = SERVER_VERSION
+
+        manifest_path = Path(arguments[arguments.index("--release-manifest") + 1])
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["distribution_version"] = SERVER_VERSION
+        for component in manifest["components"].values():
+            component["version"] = SERVER_VERSION
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        for option in (
+            "security-tests",
+            "security-review",
+            "outbound-policy",
+            "local-claude-isolation",
+            "stop-revocation",
+            "compatibility",
+        ):
+            gate_path = Path(arguments[arguments.index(f"--{option}") + 1])
+            gate = json.loads(gate_path.read_text(encoding="utf-8"))
+            gate["release_version"] = SERVER_VERSION
+            gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        notarization_path = Path(
+            arguments[arguments.index("--signing-notarization") + 1]
+        )
+        notarization = json.loads(notarization_path.read_text(encoding="utf-8"))
+        notarization["release_version"] = SERVER_VERSION
+        notarization_path.write_text(json.dumps(notarization), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode == 0, result.stderr
+        draft = json.loads((output / "release-evidence-draft.json").read_text())
+        assert draft["schema_version"] == 1
+        assert "distribution_version" not in draft
+        assert "release_manifest_sha256" not in draft
+        assert "components" not in draft
 
 
 def test_assembler_rejects_symlinks_and_existing_output() -> None:
@@ -698,6 +781,7 @@ def test_assembler_rejects_external_gate_evidence_older_than_thirty_days() -> No
 
 if __name__ == "__main__":
     test_assembler_writes_exact_artifact_and_inventory_digests()
+    test_assembler_preserves_legacy_schema_for_one_version_composition()
     test_assembler_rejects_symlinks_and_existing_output()
     test_assembler_rejects_cross_artifact_gate_evidence()
     test_assembler_rejects_gate_specific_false_claims()

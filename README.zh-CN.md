@@ -56,12 +56,14 @@ scripts/run-local-device-control-e2e.sh
 
 ## 发布
 
-每个仓库都有 `prepare-release` workflow。使用版本号运行后，会更新该仓库负责的版本文件、更新 `CHANGELOG.md`、提交 `chore: release vX.Y.Z`、推送 tag，并触发 release workflow。
+每个组件仓库都有独立的发布版本和节奏。其 `prepare-release` workflow 只更新本仓库负责的版本文件与
+`CHANGELOG.md`，提交并标记不可变源码，然后触发该组件自己的 release workflow。
 
 Release workflow 会发布部署归档、CLI/Node 二进制、GHCR 镜像和 GitHub Release notes。
 设备控制的生产证据使用独立的受保护装配流程，详见
-`docs/device-control-release-evidence.md`。根仓库的协调发布会把已签名的多架构 Community
-清单内置到部署包中；该流程不会自动启用 capability。
+`docs/device-control-release-evidence.md`。根仓库的 `release-manifest.json` 认证一组使用独立版本的
+精确生产组合，包括每个组件的制品签名 workflow 身份。根发布会验证清单固定的 tag、commit、制品和兼容门禁，把已签名的多架构 Community
+证据内置到部署包，并按 digest 固定部署镜像；该流程不会自动启用 capability。
 
 ## 许可证
 

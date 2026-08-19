@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 
@@ -29,6 +30,9 @@ required_release_fragments = (
     "sha256sum --check",
     "fail_on_unmatched_files: true",
     "check-device-control-release-readiness.py",
+    "--manifest release-manifest.json",
+    "needs.resolve.outputs.server-version",
+    "needs.resolve.outputs.device-version",
     "--require-clean",
     "--require-tag",
     "--require-origin",
@@ -40,6 +44,10 @@ required_release_fragments = (
     "> device-control-release-evidence.SHA256SUMS",
     "DEVICE_CONTROL_RELEASE_EVIDENCE_FILE=./device-control-release-evidence.json",
     '(cd ".release/device-control-release-evidence"',
+    "production-release-manifest.json",
+    "SERVER_IMAGE=${server_image}@${server_digest}",
+    "admin-workflow: ${{ steps.manifest.outputs.admin-workflow }}",
+    "${ADMIN_WORKFLOW}@refs/tags/v${ADMIN_VERSION}",
 )
 
 missing = [fragment for fragment in required_release_fragments if fragment not in release]
@@ -61,8 +69,8 @@ required_evidence_fragments = (
     "gh attestation verify",
     ".spdx.json.sigstore.json",
     "verify_sbom",
-    "--bundle \"$server/agent-remote-server-${VERSION}.provenance.jsonl\"",
-    "notarization-${VERSION}.json",
+    "--bundle \"$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl\"",
+    "notarization-${DEVICE_VERSION}.json",
     '"$device/$signing_evidence.sigstore.json"',
     "pip-audit.json",
     "govulncheck.json",
@@ -70,6 +78,10 @@ required_evidence_fragments = (
     "swift-osv.json",
     'any(.[]; has("finding")) | not',
     "assemble-device-control-release-evidence.py",
+    "export-release-manifest.py",
+    '--release-version "$SERVER_VERSION"',
+    '--distribution-version "$DISTRIBUTION_VERSION"',
+    "--release-manifest release-manifest.json",
     "--gate-evidence security-tests=",
     "create_device_control_release_evidence.py",
     "DEVICE_CONTROL_RELEASE_PRIVATE_KEY_PEM",
@@ -106,14 +118,17 @@ required_community_evidence_fragments = (
     "official_runners_only",
     "critical_high_vulnerabilities:0",
     "community-signing.json",
-    'verify_blob Agent-Remote/agent-remote-server release.yml',
+    'verify_blob Agent-Remote/agent-remote-server "$SERVER_WORKFLOW" "$SERVER_VERSION"',
+    'verify_blob Agent-Remote/agent-remote-device "$DEVICE_WORKFLOW" "$DEVICE_VERSION"',
+    "workflows/${DEVICE_WORKFLOW}",
     "govulncheck.json.sha256",
     "swift-osv.json.sha256",
-    "commits/v{version}",
+    "identity['version']",
+    'if sha != identity["commit"]',
     'run["event"] == "push"',
     'run["path"] == ".github/workflows/ci.yml"',
     'run["event"] == "workflow_dispatch"',
-    '"agent-remote-device": ".github/workflows/prepare-release.yml"',
+    'trusted_release = f".github/workflows/{identity[\'release_workflow\']}"',
     "! -name SHA256SUMS",
     "assemble-community-device-control-release-evidence.py",
     "create_device_control_release_evidence.py",
@@ -126,8 +141,8 @@ required_community_evidence_fragments = (
     "linux-arm64-musl",
     "--node-artifact",
     "--proxy-artifact",
-    "node-${target}=release-input/node/agent-remote-node-${VERSION}.spdx.json",
-    "proxy-${target}=release-input/device/agent-remote-device-proxy-${target}-${VERSION}.spdx.json",
+    "node-${target}=release-input/node/agent-remote-node-${NODE_VERSION}.spdx.json",
+    "proxy-${target}=release-input/device/agent-remote-device-proxy-${target}-${DEVICE_VERSION}.spdx.json",
     "for attempt in range(40)",
     "time.sleep(30)",
     'current_run["path"] == ".github/workflows/release.yml"',
@@ -135,7 +150,7 @@ required_community_evidence_fragments = (
     'current_run["status"] != "in_progress"',
     "computer_use_v2_run_id",
     'case "$RUN_ID" in',
-    "community-computer-use-v2-evidence-${VERSION}",
+    "community-computer-use-v2-evidence-${DISTRIBUTION_VERSION}",
     '.path == ".github/workflows/community-computer-use-v2-evidence.yml"',
     "--computer-use-v2-evidence",
     "--computer-use-v2-evidence-archive",
@@ -185,11 +200,21 @@ for fragment in (
         raise SystemExit(f"local device test compose is missing: {fragment}")
 
 release_version = Path("VERSION").read_text(encoding="utf-8").strip()
+release_manifest = json.loads(Path("release-manifest.json").read_text(encoding="utf-8"))
+if release_manifest["schema_version"] != 2:
+    raise SystemExit("release manifest must bind signing workflow identities")
+for name, component in release_manifest["components"].items():
+    if not component.get("release_workflow", "").endswith((".yml", ".yaml")):
+        raise SystemExit(f"release manifest workflow identity is missing for {name}")
+server_version = release_manifest["components"]["agent-remote-server"]["version"]
+admin_version = release_manifest["components"]["agent-remote-admin-web"]["version"]
 test_environment = Path("deploy/compose/.env.device-test").read_text(encoding="utf-8")
 for fragment in (
     f"AGENT_REMOTE_VERSION={release_version}",
-    "SERVER_IMAGE=agent-remote-server:device-test-${AGENT_REMOTE_VERSION}",
-    "ADMIN_WEB_IMAGE=agent-remote-admin-web:device-test-${AGENT_REMOTE_VERSION}",
+    f"SERVER_VERSION={server_version}",
+    f"ADMIN_WEB_VERSION={admin_version}",
+    "SERVER_IMAGE=agent-remote-server:device-test-${SERVER_VERSION}",
+    "ADMIN_WEB_IMAGE=agent-remote-admin-web:device-test-${ADMIN_WEB_VERSION}",
 ):
     if fragment not in test_environment:
         raise SystemExit(f"local device test environment is missing: {fragment}")
@@ -198,9 +223,9 @@ test_release_assembler = Path(
     "scripts/assemble-local-device-control-test-release.sh"
 ).read_text(encoding="utf-8")
 for fragment in (
-    'release_version=$(tr -d',
-    'agent-remote-cli-$release_version-aarch64-apple-darwin.tar.gz',
-    'agent-remote-node-$release_version-linux-amd64-glibc.tar.gz',
+    'release_version=$(jq -er .distribution_version',
+    'agent-remote-cli-$cli_version-aarch64-apple-darwin.tar.gz',
+    'agent-remote-node-$node_version-linux-amd64-glibc.tar.gz',
     '"$proxy_amd64/SHA256SUMS"',
     '"$proxy_arm64/SHA256SUMS"',
     'shasum -a 256 --check SHA256SUMS',
@@ -212,6 +237,7 @@ for fragment in (
     '-C "$staging" -czf "$archive" bin VERSION SHA256SUMS',
     'docker buildx build',
     '--platform "linux/$architecture"',
+    '--build-arg "AGENT_REMOTE_VERSION=$version"',
     '--output "type=docker,dest=$archive"',
     "for architecture in amd64 arm64",
     "image_platforms=linux/amd64,linux/arm64",

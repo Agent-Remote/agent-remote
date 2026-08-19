@@ -20,6 +20,7 @@ fi
 python3 - "$VERSION" <<'PY'
 from __future__ import annotations
 
+import json
 import re
 import stat
 import sys
@@ -29,6 +30,14 @@ from pathlib import Path
 version = sys.argv[1]
 
 Path("VERSION").write_text(f"{version}\n")
+
+manifest = Path("release-manifest.json")
+document = json.loads(manifest.read_text(encoding="utf-8"))
+document["distribution_version"] = version
+manifest.write_text(
+    json.dumps(document, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
 
 test_environment = Path("deploy/compose/.env.device-test")
 text = test_environment.read_text()

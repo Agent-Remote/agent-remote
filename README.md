@@ -64,13 +64,17 @@ credentials and relay clients continue to require `https/wss`.
 
 ## Releases
 
-Each repository has a `prepare-release` workflow. Running it with a version updates repository-owned version files, updates `CHANGELOG.md`, commits `chore: release vX.Y.Z`, pushes the tag, and dispatches the release workflow.
+Each component repository has its own release version and cadence. Its `prepare-release` workflow
+updates only repository-owned version files and `CHANGELOG.md`, commits and tags the immutable
+source, and dispatches that component's release workflow.
 
 Release workflows publish deployment archives, CLI/node binaries, GHCR images, and GitHub Release notes.
 Device-control production evidence has a separate protected assembly flow documented in
-`docs/device-control-release-evidence.md`. The coordinated root release embeds the signed
-multi-architecture community manifest in its deployment bundle; it never enables the capability
-automatically.
+`docs/device-control-release-evidence.md`. The root `release-manifest.json` certifies one exact,
+independently versioned production composition, including each artifact-signing workflow identity.
+A root release verifies every pinned tag, commit, artifact, and compatibility gate, embeds the
+signed multi-architecture evidence, and pins deployed
+images by digest; it never enables the capability automatically.
 
 ## License
 

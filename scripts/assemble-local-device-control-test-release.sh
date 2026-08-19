@@ -8,20 +8,26 @@ cli_repo=$(cd "$root/../agent-remote-cli" && pwd)
 admin_repo=$(cd "$root/../agent-remote-admin-web" && pwd)
 device_repo=$(cd "$root/../agent-remote-device" && pwd)
 output="$root/dist/device-control-test-release"
-release_version=$(tr -d '[:space:]' < "$root/VERSION")
+manifest="$root/release-manifest.json"
+release_version=$(jq -er .distribution_version "$manifest")
 if ! [[ "$release_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]; then
-  echo "invalid coordinated test-release version: $release_version" >&2
+  echo "invalid distribution test-release version: $release_version" >&2
   exit 2
 fi
+server_version=$(jq -er '.components["agent-remote-server"].version' "$manifest")
+node_version=$(jq -er '.components["agent-remote-node"].version' "$manifest")
+cli_version=$(jq -er '.components["agent-remote-cli"].version' "$manifest")
+admin_version=$(jq -er '.components["agent-remote-admin-web"].version' "$manifest")
+device_version=$(jq -er '.components["agent-remote-device"].version' "$manifest")
 
 app="$device_repo/dist/development/Agent Remote Device.app"
-cli_archive="$cli_repo/dist/test-release/agent-remote-cli-$release_version-aarch64-apple-darwin.tar.gz"
-node_amd64="$node_repo/dist/test-release/agent-remote-node-$release_version-linux-amd64-glibc.tar.gz"
-node_arm64="$node_repo/dist/test-release/agent-remote-node-$release_version-linux-arm64-glibc.tar.gz"
+cli_archive="$cli_repo/dist/test-release/agent-remote-cli-$cli_version-aarch64-apple-darwin.tar.gz"
+node_amd64="$node_repo/dist/test-release/agent-remote-node-$node_version-linux-amd64-glibc.tar.gz"
+node_arm64="$node_repo/dist/test-release/agent-remote-node-$node_version-linux-arm64-glibc.tar.gz"
 proxy_amd64="$device_repo/dist/test-release/device-proxies/linux-amd64-glibc"
 proxy_arm64="$device_repo/dist/test-release/device-proxies/linux-arm64-glibc"
-server_image="agent-remote-server:device-test-$release_version"
-admin_image="agent-remote-admin-web:device-test-$release_version"
+server_image="agent-remote-server:device-test-$server_version"
+admin_image="agent-remote-admin-web:device-test-$admin_version"
 
 for path in "$app" "$cli_archive" "$node_amd64" "$node_arm64" \
   "$proxy_amd64/agent-remote-device-proxy" "$proxy_amd64/VERSION" \
@@ -54,7 +60,7 @@ package_managed_proxy() {
   local source_dir=$1
   local label=$2
   local staging="$output/proxy/.managed-$label"
-  local archive="$output/proxy/agent-remote-device-proxy-$release_version-$label.tar.gz"
+  local archive="$output/proxy/agent-remote-device-proxy-$device_version-$label.tar.gz"
   mkdir -p "$staging/bin"
   install -m 0755 "$source_dir/agent-remote-device-proxy" \
     "$staging/bin/agent-remote-device-proxy"
@@ -80,12 +86,13 @@ build_image_archive() {
   local repository=$1
   local image=$2
   local component=$3
-  local architecture=$4
-  local archive="$output/images/${component}-device-test-$release_version-linux-$architecture.tar"
+  local version=$4
+  local architecture=$5
+  local archive="$output/images/${component}-device-test-$version-linux-$architecture.tar"
 
   docker buildx build \
     --platform "linux/$architecture" \
-    --build-arg "AGENT_REMOTE_VERSION=$release_version" \
+    --build-arg "AGENT_REMOTE_VERSION=$version" \
     --tag "$image" \
     --output "type=docker,dest=$archive" \
     "$repository"
@@ -93,14 +100,19 @@ build_image_archive() {
 }
 
 for architecture in amd64 arm64; do
-  build_image_archive "$server_repo" "$server_image" agent-remote-server "$architecture"
-  build_image_archive "$admin_repo" "$admin_image" agent-remote-admin-web "$architecture"
+  build_image_archive "$server_repo" "$server_image" agent-remote-server "$server_version" "$architecture"
+  build_image_archive "$admin_repo" "$admin_image" agent-remote-admin-web "$admin_version" "$architecture"
 done
 
 {
   printf 'kind=device-control-test-release\n'
   printf 'production_ready=false\n'
-  printf 'release_version=%s\n' "$release_version"
+  printf 'distribution_version=%s\n' "$release_version"
+  printf 'server_version=%s\n' "$server_version"
+  printf 'node_version=%s\n' "$node_version"
+  printf 'cli_version=%s\n' "$cli_version"
+  printf 'admin_version=%s\n' "$admin_version"
+  printf 'device_version=%s\n' "$device_version"
   printf 'image_platforms=linux/amd64,linux/arm64\n'
   printf 'created_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'root_head=%s\n' "$(git -C "$root" rev-parse HEAD)"

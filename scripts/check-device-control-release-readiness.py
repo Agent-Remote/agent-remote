@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate one immutable device-control release train across all repositories."""
+"""Validate one immutable production distribution across component repositories."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+
+from release_manifest import COMPONENTS, load_release_manifest
 
 REPOSITORIES = (
     "agent-remote",
@@ -27,7 +29,7 @@ EXPECTED_ORIGINS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument(
         "--repository",
         action="append",
@@ -173,10 +175,39 @@ def declared_versions(name: str, path: Path) -> dict[str, str]:
     raise ValueError(f"unsupported repository: {name}")
 
 
+def load_manifest(path: Path) -> tuple[str, dict[str, dict[str, str]]]:
+    value = load_release_manifest(path)
+    distribution_version = value["distribution_version"]
+    raw_components = value["components"]
+    assert isinstance(distribution_version, str)
+    assert isinstance(raw_components, dict)
+    components: dict[str, dict[str, str]] = {}
+    for name in COMPONENTS:
+        component = raw_components[name]
+        assert isinstance(component, dict)
+        repository = component["repository"]
+        version = component["version"]
+        commit = component["commit"]
+        release_workflow = component.get("release_workflow", "release.yml")
+        assert isinstance(repository, str)
+        assert isinstance(version, str)
+        assert isinstance(commit, str)
+        assert isinstance(release_workflow, str)
+        components[name] = {
+            "repository": repository,
+            "version": version,
+            "commit": commit,
+            "release_workflow": release_workflow,
+        }
+    return distribution_version, components
+
+
 def inspect_repository(
     name: str,
     path: Path,
     version: str,
+    expected_commit: str | None,
+    release_workflow: str | None,
     *,
     require_clean: bool,
     require_tag: bool,
@@ -194,6 +225,11 @@ def inspect_repository(
     for source, declared in versions.items():
         if declared != version:
             errors.append(f"{name}: {source} declares {declared}, expected {version}")
+    if release_workflow is not None:
+        workflow_path = path / ".github" / "workflows" / release_workflow
+        result["release_workflow"] = release_workflow
+        if not workflow_path.is_file() or workflow_path.is_symlink():
+            errors.append(f"{name}: release workflow is missing: {release_workflow}")
 
     try:
         head = run_git(path, "rev-parse", "HEAD")
@@ -201,6 +237,8 @@ def inspect_repository(
         head = None
         errors.append(f"{name}: repository has no commit at HEAD")
     result["head"] = head
+    if expected_commit is not None and head is not None and head != expected_commit:
+        errors.append(f"{name}: HEAD is {head}, expected manifest commit {expected_commit}")
     try:
         dirty = bool(run_git(path, "status", "--porcelain=v1", "--untracked-files=all"))
     except subprocess.CalledProcessError:
@@ -228,6 +266,11 @@ def inspect_repository(
             errors.append(f"{name}: tag v{version} is missing")
         else:
             result["tagged_commit"] = tagged_commit
+            if expected_commit is not None and tagged_commit != expected_commit:
+                errors.append(
+                    f"{name}: tag v{version} points to {tagged_commit}, "
+                    f"expected manifest commit {expected_commit}"
+                )
             if head is not None and tagged_commit != head:
                 errors.append(f"{name}: tag v{version} does not point to HEAD")
     return result, errors
@@ -235,29 +278,42 @@ def inspect_repository(
 
 def main() -> int:
     args = parse_args()
-    version = args.version.removeprefix("v")
-    if SEMVER.fullmatch(version) is None:
-        print(f"invalid semantic version: {args.version}", file=sys.stderr)
-        return 2
     try:
         paths = repository_paths(parse_overrides(args.repository))
-    except ValueError as error:
+        distribution_version, components = load_manifest(args.manifest)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
         print(error, file=sys.stderr)
         return 2
 
-    inventory: dict[str, object] = {"schema_version": 1, "release_version": version}
+    inventory: dict[str, object] = {
+        "schema_version": 2,
+        "distribution_version": distribution_version,
+        "manifest": str(args.manifest.resolve()),
+    }
     repositories: dict[str, object] = {}
     errors: list[str] = []
     for name in REPOSITORIES:
+        if name == "agent-remote":
+            version = distribution_version
+            expected_commit = None
+            release_workflow = None
+        else:
+            version = components[name]["version"]
+            expected_commit = components[name]["commit"]
+            release_workflow = components[name]["release_workflow"]
         result, repository_errors = inspect_repository(
             name,
             paths[name],
             version,
+            expected_commit,
+            release_workflow,
             require_clean=args.require_clean,
             require_tag=args.require_tag,
             require_origin=args.require_origin,
         )
         repositories[name] = result
+        if name != "agent-remote":
+            result["manifest"] = components[name]
         errors.extend(repository_errors)
     inventory["repositories"] = repositories
     inventory["ready"] = not errors

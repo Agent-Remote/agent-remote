@@ -15,6 +15,8 @@ from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
+from release_manifest import load_release_manifest, release_manifest_sha256
+
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -429,7 +431,7 @@ def validate_automation(path: Path, version: str) -> None:
         raise ValueError("community automation evidence is incomplete")
     checks = value.get("checks")
     required_checks = {
-        "coordinated_release",
+        "certified_composition",
         "protocol_tests",
         "cross_component_e2e",
         "fuzz",
@@ -493,10 +495,12 @@ def validate_risk_acceptance(path: Path, version: str, require_v2: bool) -> None
 
 
 def main() -> None:
-    """Validate inputs and create a schema-3 or schema-4 unsigned production draft."""
+    """Validate inputs and create a certified multi-version production draft."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-version", required=True)
+    parser.add_argument("--distribution-version", required=True)
+    parser.add_argument("--release-manifest", type=Path, required=True)
     parser.add_argument("--server-metadata", type=Path, required=True)
     parser.add_argument("--node-artifact", action="append", default=[])
     parser.add_argument("--application-artifact", type=Path, required=True)
@@ -518,6 +522,19 @@ def main() -> None:
     try:
         if SEMVER.fullmatch(args.release_version) is None:
             raise ValueError("release version is invalid")
+        manifest = load_release_manifest(args.release_manifest)
+        components = manifest["components"]
+        assert isinstance(components, dict)
+        if manifest["distribution_version"] != args.distribution_version:
+            raise ValueError("distribution version does not match the release manifest")
+        server_component = components["agent-remote-server"]
+        node_component = components["agent-remote-node"]
+        device_component = components["agent-remote-device"]
+        assert isinstance(server_component, dict)
+        assert isinstance(node_component, dict)
+        assert isinstance(device_component, dict)
+        if server_component["version"] != args.release_version:
+            raise ValueError("server version does not match the release manifest")
         issued_at = validate_timestamp(args.issued_at, "issued_at")
         expires_at = validate_timestamp(args.expires_at, "expires_at")
         issued_at_value = parse_timestamp(issued_at, "issued_at")
@@ -561,11 +578,13 @@ def main() -> None:
         provenance = labeled_paths(args.provenance, "provenance", inventory_labels)
         validate_community_signing(
             args.community_signing,
-            args.release_version,
+            str(device_component["version"]),
             application_sha256,
         )
-        validate_automation(args.automation_evidence, args.release_version)
-        validate_risk_acceptance(args.risk_acceptance, args.release_version, v2_enabled)
+        validate_automation(args.automation_evidence, args.distribution_version)
+        validate_risk_acceptance(
+            args.risk_acceptance, args.distribution_version, v2_enabled
+        )
 
         v2_evidence_sha256 = None
         if v2_enabled:
@@ -574,7 +593,7 @@ def main() -> None:
                 args.computer_use_v2_evidence,
                 args.computer_use_v2_evidence_archive,
                 target,
-                args.release_version,
+                args.distribution_version,
                 {
                     "server": server_sha256,
                     "node": node_digests[target],
@@ -617,8 +636,20 @@ def main() -> None:
         automation_sha256 = digest(args.automation_evidence)
         signing_sha256 = digest(args.community_signing)
         risk_sha256 = digest(args.risk_acceptance)
+        legacy_coordinated = (
+            args.distribution_version == args.release_version
+            and all(
+                isinstance(component, dict)
+                and component.get("version") == args.release_version
+                for component in components.values()
+            )
+        )
         draft = {
-            "schema_version": 4 if v2_enabled else 3,
+            "schema_version": (
+                4 if v2_enabled else 3
+            ) if legacy_coordinated else (
+                6 if v2_enabled else 5
+            ),
             "release_profile": "community-local-trust",
             "production_ready": True,
             "apple_notarized": False,
@@ -646,6 +677,16 @@ def main() -> None:
             "risk_acceptance_sha256": risk_sha256,
             "ci_run_url": args.ci_run_url,
         }
+        if not legacy_coordinated:
+            draft.update(
+                {
+                    "distribution_version": args.distribution_version,
+                    "release_manifest_sha256": release_manifest_sha256(
+                        args.release_manifest
+                    ),
+                    "components": components,
+                }
+            )
         write_new(
             args.output_directory / "release-evidence-draft.json", canonical(draft)
         )

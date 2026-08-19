@@ -643,7 +643,7 @@ Safari/Chrome/Firefox、AX 不完整 Electron fallback、golden prompt replay、
 `security-tests.evidence.tar.gz` 内真实存在的普通报告文件，不能只提交布尔结论。该签名绑定现已由发布组装器和 Server 运行时
 验证器共同验证：Apple profile 组装器将已验证的 `security-tests` 记录摘要写入
 `computer_use_v2_evidence_sha256`；Community schema 2/3 固定为 `null`，schema 4 则要求受保护的
-Community v2 记录、原始报告归档、同版本四组件摘要和明确风险接受。Server 在启动和运行期验证通用
+Community v2 记录、原始报告归档、清单选中四组件摘要和明确风险接受。Server 在启动和运行期验证通用
 发布清单，但不以该可选摘要决定 v2 capability。
 
 “正式支持”要求跨语言协议 fixture、负向和预算测试、能力协商、完整 v1 fallback 与通用签名发布

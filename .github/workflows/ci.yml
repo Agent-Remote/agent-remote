@@ -22,8 +22,10 @@ jobs:
         run: python3 tests/test_collect_community_computer_use_v2_evidence.py
       - name: Test protected external-gate collector
         run: python3 tests/test_collect_device_control_external_gates.py
-      - name: Test coordinated release readiness verifier
+      - name: Test certified composition readiness verifier
         run: python3 tests/test_device_control_release_readiness.py
+      - name: Test component composition updater
+        run: python3 tests/test_update_release_component.py
       - name: Validate compose bundle
         run: docker compose --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml config --quiet
   session-port-forwarding-e2e:

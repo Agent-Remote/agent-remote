@@ -124,12 +124,14 @@ Production browser sessions require `browser_public_base_url` to point to a node
 
 ## Automated Releases
 
-Every repository uses a two-step release flow:
+Every component repository releases independently with a two-step flow:
 
 1. Run the `prepare-release` workflow on `main` with the target version.
 2. Let the pushed `v*` tag trigger the release build.
 
-The prepare workflow updates repository-owned version files, commits `chore: release vX.Y.Z`, pushes `main`, and then pushes the matching tag. Tag-triggered release workflows only build and publish artifacts; they do not modify source files.
+The prepare workflow updates only repository-owned version files, commits `chore: release vX.Y.Z`,
+pushes `main`, and then pushes the matching tag. It never changes another repository's version.
+Tag-triggered release workflows only build and publish artifacts; they do not modify source files.
 
 - `agent-remote` publishes a deployment bundle containing `deploy/`, `docs/`, `scripts/`, license
   notices, and the automatically generated signed multi-architecture community release evidence.
@@ -138,13 +140,33 @@ The prepare workflow updates repository-owned version files, commits `chore: rel
 - `agent-remote-node` publishes Linux release archives.
 - `agent-remote-cli` publishes Windows x64/ARM64, macOS, and Linux release archives with managed Mutagen and the WireGuard helper. Windows packages integrate with the official WireGuard for Windows tunnel service and the built-in OpenSSH Client.
 
-Create a release from GitHub Actions by running `prepare-release` in the repositories that need to ship together:
+Release a component from its own repository whenever it is ready:
 
 ```sh
 gh workflow run prepare-release.yml --ref main -f version=0.2.7
 ```
 
-For local manual releases, run the repository's prepare script first, then commit and tag the same version:
+The root repository has a separate distribution version. `release-manifest.json` pins the exact
+version, commit, and release-signing workflow of each supported production component. After a
+component release, update its pin without changing any other component or the root distribution
+version:
+
+```sh
+python3 scripts/update-release-component.py \
+  agent-remote-server 0.3.1 FULL_40_CHARACTER_COMMIT_SHA \
+  --release-workflow release.yml
+python3 scripts/check-device-control-release-readiness.py \
+  --manifest release-manifest.json --require-clean --require-tag --require-origin
+```
+
+Commit the manifest update and let CI validate the exact composition. When that composition is
+ready for production, run the root `prepare-release` with a new root distribution version. The
+root workflow downloads each component from its independently pinned tag, verifies the manifest
+commit, signatures, SBOMs, provenance, vulnerability reports, and cross-component tests, then
+publishes a deployment bundle whose Server and Admin images are pinned by digest.
+
+For a local manual component release, run that repository's prepare script, then commit and tag its
+own version:
 
 ```sh
 scripts/prepare-release.sh 0.2.7

@@ -14,31 +14,45 @@ Two release profiles are supported and their claims must not be mixed:
 - `apple-developer-id` uses Developer ID signing, Apple notarization, protected external gates, and
   the `device-control-release-evidence` workflow.
 
-Both workflows must run from the exact coordinated `vVERSION` tag. The community workflow binds
-all four supported Linux Node and standalone proxy targets into one schema 3 manifest by default,
-or a schema 4 manifest when it consumes a trusted, artifact-bound Computer Use v2 evidence run.
+Both workflows run from the exact root distribution tag. `release-manifest.json` independently
+pins the version, canonical repository, 40-character commit, and artifact-signing workflow for
+Server, Node, CLI, Admin Web, and Device. The workflow checks out and downloads each component from
+its own tag and rejects a tag whose commit or signing identity differs from the manifest.
 
-## Coordinated Release Order
+## Independent Components And Certified Compositions
 
-Prepare and tag all six repositories with one exact version. Before any tag is pushed, run each
-repository's quality gate and then run the readiness verifier from the root repository. The final
-tagged check is:
+Release each component when it is ready. A component release changes only that repository's
+version. To adopt it in the supported production composition, update only its root manifest pin:
 
 ```sh
+python3 scripts/update-release-component.py COMPONENT VERSION FULL_COMMIT_SHA \
+  --release-workflow release.yml
 python3 scripts/check-device-control-release-readiness.py \
-  --version VERSION --require-clean --require-tag --require-origin
+  --manifest release-manifest.json --require-clean --require-tag --require-origin
 ```
 
-Publish in this dependency order for either profile:
+The production flow is:
 
-1. `agent-remote-device`, producing the macOS application and every Linux proxy target.
-2. `agent-remote-node`, which downloads and embeds the exact same-version proxy artifacts.
-3. `agent-remote-server`, `agent-remote-cli`, and `agent-remote-admin-web`; these may run in parallel.
-4. `agent-remote`, after all five component tags exist. Its release workflow checks out every exact
-   tag and reruns the readiness verifier before creating the deployment bundle.
-5. The root release automatically calls the community evidence workflow from the same tag, waits
-   for its tagged readiness and session E2E validation plus protected-environment approval, and
-   embeds the signed manifest in the deployment bundle.
+1. Device publishes the macOS application and standalone proxy artifacts on its own cadence.
+2. Node's `release-dependencies.json` explicitly pins the Device proxy version and commit embedded
+   in Node archives. A Node release is required only when Node source or that embedded dependency
+   changes; Node and Device version numbers need not match.
+3. Server, CLI, and Admin Web publish independently.
+4. A reviewed root manifest update selects an exact combination. CI verifies every declared source
+   version, tag, commit, origin, and cross-component contract.
+5. The root distribution release runs the protected evidence workflow and embeds both the source
+   manifest and resolved, digest-pinned production manifest in its deployment bundle.
+
+Legacy all-equal compositions continue to emit evidence schemas 1, 3, or 4 so an already released
+Server can validate them during migration. A genuinely independently versioned composition emits
+schema 5 (Community), schema 6 (Community with v2 evidence), or schema 7 (Apple). These schemas add
+`distribution_version`, `release_manifest_sha256`, and the complete `components` identity map while
+keeping `release_version` bound to the exact Server version checked at runtime.
+
+The `release_workflow` pin is part of each component identity. Keep it unchanged when the component
+continues using the same signer; pass `--release-workflow` when adopting a release whose signing
+workflow changed. This preserves verification of older releases such as Device `v0.2.7`, which was
+signed by `prepare-release.yml`, while later Device releases use `release.yml`.
 
 ## Community Local-Trust Profile
 
@@ -57,9 +71,10 @@ This workflow runs only on `ubuntu-latest`. It verifies all `linux-amd64-glibc`,
 `linux-arm64-glibc`, `linux-amd64-musl`, and `linux-arm64-musl` Node and proxy artifacts, plus the
 exact release checksums, Sigstore workflow identities, GitHub provenance, signed SPDX SBOMs,
 dependency vulnerability reports,
-project self-signed App identity, and successful same-commit CI for all six repositories. It then
+project self-signed App identity, and successful automation for every manifest-pinned commit. It then
 records the administrator's explicit acceptance of the documented reduced-security profile and
-signs a schema 3 manifest with the deployment-owned Ed25519 key.
+signs the applicable legacy schema 3 or independently versioned schema 5 manifest with the
+deployment-owned Ed25519 key.
 
 Optional Community v2 quality evidence uses a second protected workflow. It is not required for
 runtime capability negotiation. On the dedicated acceptance Mac, place
@@ -84,7 +99,7 @@ gh workflow run community-device-control-release-evidence.yml \
 
 The evidence workflow accepts only a successful run from the dedicated workflow on the exact same
 tag commit. It validates the report thresholds, archive member digest, collection age, selected
-Node/proxy target, Server image, and application archive before signing schema 4. Schema 4 also
+Node/proxy target, Server image, and application archive before signing schema 4 or 6. Both schemas
 requires explicit acceptance of `community_computer_use_v2_without_apple_notarization`.
 
 The workflow does not claim Apple notarization, Gatekeeper trust, system-level network filtering,
@@ -134,7 +149,8 @@ export used to reach the recorded result. Its actual SHA-256 digest must equal t
 Every record uses exactly these common fields:
 
 - `schema_version`: integer `1`.
-- `release_version`: exact coordinated version.
+- `release_version`: exact root distribution version exercised by the external gate run. Component
+  versions and commits come from the root release manifest.
 - `gate`: exact filename stem, such as `outbound-policy`.
 - `status`: `approved` for `security-review`, otherwise `passed`.
 - `artifacts`: an object containing exactly `server`, `node`, `application`, and `proxy`, with the

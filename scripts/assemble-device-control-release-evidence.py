@@ -18,6 +18,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Iterator
 from urllib.parse import urlsplit
 
+from release_manifest import load_release_manifest, release_manifest_sha256
+
 _SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MAXIMUM_INPUT_BYTES = 256 * 1024 * 1024
@@ -914,6 +916,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-version", required=True)
+    parser.add_argument("--distribution-version", required=True)
+    parser.add_argument("--release-manifest", type=Path, required=True)
     parser.add_argument("--server-metadata", type=Path, required=True)
     parser.add_argument("--node-artifact", type=Path, required=True)
     parser.add_argument("--application-artifact", type=Path, required=True)
@@ -945,6 +949,18 @@ def main() -> None:
         version = args.release_version
         if not _SEMVER.fullmatch(version):
             raise ValueError("release version is not semantic")
+        manifest = load_release_manifest(args.release_manifest)
+        components = manifest["components"]
+        assert isinstance(components, dict)
+        server_component = components["agent-remote-server"]
+        device_component = components["agent-remote-device"]
+        assert isinstance(server_component, dict)
+        assert isinstance(device_component, dict)
+        if manifest["distribution_version"] != args.distribution_version:
+            raise ValueError("distribution version does not match the release manifest")
+        if server_component["version"] != version:
+            raise ValueError("server version does not match the release manifest")
+        device_version = str(device_component["version"])
         if not args.ci_run_url.startswith("https://github.com/"):
             raise ValueError("CI run URL must be a GitHub HTTPS URL")
         issued_at = parse_timestamp(args.issued_at, "issued-at")
@@ -980,7 +996,7 @@ def main() -> None:
                 path,
                 gate_evidence_paths[gate],
                 gate,
-                version,
+                args.distribution_version,
                 artifact_digests,
                 issued_at,
             )
@@ -998,7 +1014,7 @@ def main() -> None:
             )
         notarization = validate_notarization(
             args.signing_notarization,
-            version,
+            device_version,
             artifact_digests["application"],
         )
         outbound_policy = load_json_object(external_gates["outbound-policy"], "outbound-policy")
@@ -1022,13 +1038,29 @@ def main() -> None:
         try:
             sbom_path = output_directory / "device-control-sbom-inventory.json"
             provenance_path = output_directory / "device-control-provenance-inventory.json"
-            write_new(sbom_path, canonical_json(inventory(version, sbom_paths)))
+            write_new(
+                sbom_path,
+                canonical_json(inventory(args.distribution_version, sbom_paths)),
+            )
             written.append(sbom_path)
-            write_new(provenance_path, canonical_json(inventory(version, provenance_paths)))
+            write_new(
+                provenance_path,
+                canonical_json(
+                    inventory(args.distribution_version, provenance_paths)
+                ),
+            )
             written.append(provenance_path)
 
+            legacy_coordinated = (
+                args.distribution_version == version
+                and all(
+                    isinstance(component, dict)
+                    and component.get("version") == version
+                    for component in components.values()
+                )
+            )
             draft: dict[str, object] = {
-                "schema_version": 1,
+                "schema_version": 1 if legacy_coordinated else 7,
                 "release_version": version,
                 "issued_at": args.issued_at,
                 "expires_at": args.expires_at,
@@ -1040,6 +1072,16 @@ def main() -> None:
                 "provenance_sha256": sha256(provenance_path),
                 "ci_run_url": args.ci_run_url,
             }
+            if not legacy_coordinated:
+                draft.update(
+                    {
+                        "distribution_version": args.distribution_version,
+                        "release_manifest_sha256": release_manifest_sha256(
+                            args.release_manifest
+                        ),
+                        "components": components,
+                    }
+                )
             draft.update({field: sha256(path) for field, path in gate_paths.items()})
             draft_path = output_directory / "release-evidence-draft.json"
             write_new(draft_path, canonical_json(draft))

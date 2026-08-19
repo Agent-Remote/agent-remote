@@ -49,6 +49,7 @@ jobs:
             git add \
               CHANGELOG.md \
               VERSION \
+              release-manifest.json \
               deploy/compose/.env.device-test \
               docs/deployment.md \
               docs/local-device-control-test-release.md \

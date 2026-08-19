@@ -27,7 +27,7 @@ services:
       retries: 10
 
   server:
-    image: ${SERVER_IMAGE:-ghcr.io/agent-remote/agent-remote-server:latest}
+    image: ${SERVER_IMAGE:?SERVER_IMAGE is required}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -57,7 +57,7 @@ services:
       - "8000"
 
   admin-web:
-    image: ${ADMIN_WEB_IMAGE:-ghcr.io/agent-remote/agent-remote-admin-web:latest}
+    image: ${ADMIN_WEB_IMAGE:?ADMIN_WEB_IMAGE is required}
     restart: unless-stopped
     expose:
       - "80"

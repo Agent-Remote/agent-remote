@@ -22,6 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.value }}
+      server-version: ${{ steps.manifest.outputs.server-version }}
+      node-version: ${{ steps.manifest.outputs.node-version }}
+      cli-version: ${{ steps.manifest.outputs.cli-version }}
+      admin-version: ${{ steps.manifest.outputs.admin-version }}
+      admin-workflow: ${{ steps.manifest.outputs.admin-workflow }}
+      device-version: ${{ steps.manifest.outputs.device-version }}
     steps:
       - uses: actions/checkout@v7.0.0
       - name: Resolve release version
@@ -39,6 +45,34 @@ jobs:
           test "$GITHUB_REF" = "refs/tags/v${version}"
           test "$(tr -d '[:space:]' < VERSION)" = "$version"
           echo "value=${version}" >> "$GITHUB_OUTPUT"
+      - name: Resolve certified component versions
+        id: manifest
+        env:
+          DISTRIBUTION_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          test "$(jq -er .schema_version release-manifest.json)" = "2"
+          test "$(jq -er .distribution_version release-manifest.json)" = \
+            "$DISTRIBUTION_VERSION"
+          for entry in \
+            server=agent-remote-server \
+            node=agent-remote-node \
+            cli=agent-remote-cli \
+            admin=agent-remote-admin-web \
+            device=agent-remote-device; do
+            output=${entry%%=*}
+            component=${entry#*=}
+            version=$(jq -er --arg name "$component" '.components[$name].version' release-manifest.json)
+            commit=$(jq -er --arg name "$component" '.components[$name].commit' release-manifest.json)
+            workflow=$(jq -er --arg name "$component" '.components[$name].release_workflow' release-manifest.json)
+            test "$(jq -er --arg name "$component" '.components[$name].repository' release-manifest.json)" = \
+              "Agent-Remote/${component}"
+            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]
+            [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$workflow" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.ya?ml$ ]]
+            echo "${output}-version=${version}" >> "$GITHUB_OUTPUT"
+            echo "${output}-workflow=${workflow}" >> "$GITHUB_OUTPUT"
+          done
 
   validate:
     needs: resolve
@@ -48,34 +82,33 @@ jobs:
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-cli
-          ref: v${{ needs.resolve.outputs.version }}
+          ref: v${{ needs.resolve.outputs.cli-version }}
           path: .e2e/agent-remote-cli
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-node
-          ref: v${{ needs.resolve.outputs.version }}
+          ref: v${{ needs.resolve.outputs.node-version }}
           path: .e2e/agent-remote-node
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-server
-          ref: v${{ needs.resolve.outputs.version }}
+          ref: v${{ needs.resolve.outputs.server-version }}
           path: .release/agent-remote-server
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-admin-web
-          ref: v${{ needs.resolve.outputs.version }}
+          ref: v${{ needs.resolve.outputs.admin-version }}
           path: .release/agent-remote-admin-web
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-device
-          ref: v${{ needs.resolve.outputs.version }}
+          ref: v${{ needs.resolve.outputs.device-version }}
           path: .release/agent-remote-device
-      - name: Verify coordinated immutable release train
+      - name: Verify certified immutable production composition
         env:
-          VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           python3 scripts/check-device-control-release-readiness.py \
-            --version "$VERSION" \
+            --manifest release-manifest.json \
             --require-clean \
             --require-tag \
             --require-origin \
@@ -113,13 +146,53 @@ jobs:
         with:
           name: community-device-control-release-evidence-${{ needs.resolve.outputs.version }}
           path: .release/device-control-release-evidence
+      - uses: sigstore/cosign-installer@v4.0.0
+      - name: Resolve immutable deployment images
+        env:
+          ADMIN_VERSION: ${{ needs.resolve.outputs.admin-version }}
+          ADMIN_WORKFLOW: ${{ needs.resolve.outputs.admin-workflow }}
+          GH_TOKEN: ${{ github.token }}
+          SERVER_VERSION: ${{ needs.resolve.outputs.server-version }}
+        run: |
+          set -euo pipefail
+          mkdir -p .release/server .release/admin
+          gh release download "v${SERVER_VERSION}" \
+            --repo Agent-Remote/agent-remote-server --dir .release/server \
+            --pattern "agent-remote-server-${SERVER_VERSION}.json" \
+            --pattern "agent-remote-server-${SERVER_VERSION}.sha256"
+          gh release download "v${ADMIN_VERSION}" \
+            --repo Agent-Remote/agent-remote-admin-web --dir .release/admin \
+            --pattern "agent-remote-admin-web-${ADMIN_VERSION}.json" \
+            --pattern "agent-remote-admin-web-${ADMIN_VERSION}.provenance.jsonl" \
+            --pattern "agent-remote-admin-web-${ADMIN_VERSION}.sha256"
+          (cd .release/server && sha256sum --ignore-missing --check \
+            "agent-remote-server-${SERVER_VERSION}.sha256")
+          (cd .release/admin && sha256sum --ignore-missing --check \
+            "agent-remote-admin-web-${ADMIN_VERSION}.sha256")
+          admin_image=$(jq -er .image \
+            ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.json")
+          admin_digest=$(jq -er .digest \
+            ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.json")
+          cosign verify \
+            --certificate-identity \
+              "https://github.com/Agent-Remote/agent-remote-admin-web/.github/workflows/${ADMIN_WORKFLOW}@refs/tags/v${ADMIN_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${admin_image}@${admin_digest}"
+          gh attestation verify "oci://${admin_image}@${admin_digest}" \
+            --repo Agent-Remote/agent-remote-admin-web \
+            --bundle ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.provenance.jsonl" \
+            --source-ref "refs/tags/v${ADMIN_VERSION}" \
+            --signer-workflow "Agent-Remote/agent-remote-admin-web/.github/workflows/${ADMIN_WORKFLOW}"
       - name: Build deployment bundle
+        env:
+          ADMIN_VERSION: ${{ needs.resolve.outputs.admin-version }}
+          SERVER_VERSION: ${{ needs.resolve.outputs.server-version }}
         run: |
           set -euo pipefail
           version="${{ needs.resolve.outputs.version }}"
           package="agent-remote-deploy-${version}"
           mkdir -p "dist/${package}"
-          cp -R deploy docs scripts README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md VERSION "dist/${package}/"
+          cp -R deploy docs scripts README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md VERSION release-manifest.json "dist/${package}/"
           cp \
             ".release/device-control-release-evidence/device-control-release-evidence-${version}.json" \
             "dist/${package}/deploy/compose/device-control-release-evidence.json"
@@ -131,6 +204,24 @@ jobs:
           sed -i \
             's#^DEVICE_CONTROL_RELEASE_EVIDENCE_FILE=.*#DEVICE_CONTROL_RELEASE_EVIDENCE_FILE=./device-control-release-evidence.json#' \
             "dist/${package}/deploy/compose/.env.example"
+          server_image=$(jq -er .image \
+            ".release/server/agent-remote-server-${SERVER_VERSION}.json")
+          server_digest=$(jq -er .digest \
+            ".release/server/agent-remote-server-${SERVER_VERSION}.json")
+          admin_image=$(jq -er .image \
+            ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.json")
+          admin_digest=$(jq -er .digest \
+            ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.json")
+          sed -i "s#^SERVER_IMAGE=.*#SERVER_IMAGE=${server_image}@${server_digest}#" \
+            "dist/${package}/deploy/compose/.env.example"
+          sed -i "s#^ADMIN_WEB_IMAGE=.*#ADMIN_WEB_IMAGE=${admin_image}@${admin_digest}#" \
+            "dist/${package}/deploy/compose/.env.example"
+          jq \
+            --arg server_image "${server_image}@${server_digest}" \
+            --arg admin_image "${admin_image}@${admin_digest}" \
+            '.components["agent-remote-server"].image = $server_image |
+             .components["agent-remote-admin-web"].image = $admin_image' \
+            release-manifest.json > "dist/${package}/production-release-manifest.json"
           tar -C dist -czf "dist/${package}.tar.gz" "${package}"
           sha256sum "dist/${package}.tar.gz" > "dist/${package}.tar.gz.sha256"
       - name: Generate deployment bundle SBOM
