@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.10 - 2026-08-19
+
+- test: execute pinned GitHub CLI installer (5cc3fff)
+- fix: pin GitHub CLI for OCI attestations (a14b1af)
+
 ## v0.2.9 - 2026-08-19
 
 - fix: make release dispatch and OCI verification reliable (e1ca8c3)
