@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.12 - 2026-08-19
+
+- fix: avoid cross-repository token for OCI verification (a8bacd5)
+
 ## v0.2.11 - 2026-08-19
 
 - fix: verify OCI attestations from release bundles (64b131c)
