@@ -41,6 +41,8 @@ class State:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
+        self.dev_requests: list[str] = []
+        self.runtime_requests: list[str] = []
         self.remote_port = 0
         self.local_port = 0
         self.token_generation = 0
@@ -53,6 +55,14 @@ class State:
         with self.lock:
             self.token_generation += 1
             return f"e2e-connect-token-{self.token_generation:04d}-0123456789abcdef"
+
+    def record_dev_request(self, path: str) -> None:
+        with self.lock:
+            self.dev_requests.append(path)
+
+    def record_runtime_request(self, request_id: str) -> None:
+        with self.lock:
+            self.runtime_requests.append(request_id)
 
 
 def forward_data(state: State, status: str) -> dict[str, Any]:
@@ -214,6 +224,7 @@ class ControlHandler(BaseHTTPRequestHandler):
 
 
 class DevHandler(BaseHTTPRequestHandler):
+    state: State
     protocol_version = "HTTP/1.1"
     concurrency_barrier = threading.Barrier(100)
 
@@ -221,6 +232,7 @@ class DevHandler(BaseHTTPRequestHandler):
         return
 
     def do_GET(self) -> None:  # noqa: N802
+        self.state.record_dev_request(self.path)
         if self.headers.get("upgrade", "").lower() == "websocket":
             self._websocket()
             return
@@ -283,11 +295,13 @@ class ReusableUnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamSer
 
 
 class RuntimeHelperHandler(socketserver.BaseRequestHandler):
+    state: State
     target_port: int
 
     def handle(self) -> None:
         stream = self.request.makefile("rb")
         request = json.loads(stream.readline())
+        self.state.record_runtime_request(str(request.get("request_id", "")))
         payload = request.get("payload", {})
         if request.get("operation") != "dial_session_loopback" or payload.get("runtime_backend") != "native":
             raise RuntimeError("unexpected Runtime Helper request")
@@ -513,7 +527,8 @@ def main() -> int:
     state = State()
     control_handler = type("BoundControlHandler", (ControlHandler,), {"state": state})
     control = ReusableThreadingHTTPServer(("127.0.0.1", 0), control_handler)
-    dev = ReusableThreadingHTTPServer(("127.0.0.1", 0), DevHandler)
+    dev_handler = type("BoundDevHandler", (DevHandler,), {"state": state})
+    dev = ReusableThreadingHTTPServer(("127.0.0.1", 0), dev_handler)
     state.remote_port = int(dev.server_address[1])
     control_thread = threading.Thread(target=control.serve_forever, daemon=True)
     dev_thread = threading.Thread(target=dev.serve_forever, daemon=True)
@@ -524,7 +539,9 @@ def main() -> int:
         root = Path(temporary)
         runtime_socket = root / "runtime.sock"
         runtime_handler = type(
-            "BoundRuntimeHelperHandler", (RuntimeHelperHandler,), {"target_port": state.remote_port}
+            "BoundRuntimeHelperHandler",
+            (RuntimeHelperHandler,),
+            {"state": state, "target_port": state.remote_port},
         )
         runtime = ReusableUnixServer(str(runtime_socket), runtime_handler)
         runtime_thread = threading.Thread(target=runtime.serve_forever, daemon=True)
@@ -613,7 +630,9 @@ def main() -> int:
         if failure is not None:
             raise AssertionError(
                 f"E2E failed: {failure}\nCLI output:\n{output}\n"
-                f"Control requests: {state.requests}"
+                f"Control requests: {state.requests}\n"
+                f"Runtime requests: {state.runtime_requests}\n"
+                f"Dev requests: {state.dev_requests}"
             ) from failure
         if process.returncode != 0:
             raise AssertionError(f"CLI exited with {process.returncode}:\n{output}")
