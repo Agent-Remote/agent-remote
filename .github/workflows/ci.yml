@@ -16,6 +16,28 @@ jobs:
         run: |
           bash scripts/install-github-cli.sh
           "$(tail -n 1 "$GITHUB_PATH")/gh" version | grep -F "gh version 2.89.0"
+      - name: Verify certified Server OCI attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repository=$(jq -er '.components["agent-remote-server"].repository' release-manifest.json)
+          version=$(jq -er '.components["agent-remote-server"].version' release-manifest.json)
+          workflow=$(jq -er '.components["agent-remote-server"].release_workflow' release-manifest.json)
+          directory=$(mktemp -d)
+          gh release download "v${version}" --repo "$repository" --dir "$directory" \
+            --pattern "agent-remote-server-${version}.json" \
+            --pattern "agent-remote-server-${version}.provenance.jsonl"
+          metadata="$directory/agent-remote-server-${version}.json"
+          bundle="$directory/agent-remote-server-${version}.provenance.jsonl"
+          image=$(jq -er .image "$metadata")
+          digest=$(jq -er .digest "$metadata")
+          env -u GH_TOKEN -u GITHUB_TOKEN \
+            gh attestation verify "oci://${image}@${digest}" \
+              --repo "$repository" --bundle "$bundle" \
+              --source-ref "refs/tags/v${version}" \
+              --signer-workflow "${repository}/.github/workflows/${workflow}" \
+              --format json | jq -e 'length > 0' >/dev/null
       - name: Validate GitHub Actions workflows
         uses: raven-actions/actionlint@v2.1.1
         with:

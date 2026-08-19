@@ -179,7 +179,8 @@ jobs:
               "https://github.com/Agent-Remote/agent-remote-admin-web/.github/workflows/${ADMIN_WORKFLOW}@refs/tags/v${ADMIN_VERSION}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "${admin_image}@${admin_digest}"
-          gh attestation verify "oci://${admin_image}@${admin_digest}" \
+          env -u GH_TOKEN -u GITHUB_TOKEN \
+            gh attestation verify "oci://${admin_image}@${admin_digest}" \
             --repo Agent-Remote/agent-remote-admin-web \
             --bundle ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.provenance.jsonl" \
             --source-ref "refs/tags/v${ADMIN_VERSION}" \

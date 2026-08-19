@@ -31,6 +31,14 @@ for name, workflow in (
 if 'gh" version | grep -F "gh version 2.89.0"' not in ci:
     raise SystemExit("CI must execute and verify the pinned GitHub CLI")
 for fragment in (
+    "Verify certified Server OCI attestation",
+    "agent-remote-server-${version}.provenance.jsonl",
+    "env -u GH_TOKEN -u GITHUB_TOKEN",
+    'gh attestation verify "oci://${image}@${digest}"',
+):
+    if fragment not in ci:
+        raise SystemExit(f"CI OCI attestation smoke test is missing: {fragment}")
+for fragment in (
     "version=2.89.0",
     "d0422caade520530e76c1c558da47daebaa8e1203d6b7ff10ad7d6faba3490d8",
     "sha256sum --check",
@@ -121,11 +129,19 @@ if missing_evidence:
 server_oci_bundle = '--bundle "$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl"'
 if server_oci_bundle not in evidence or server_oci_bundle not in community_evidence:
     raise SystemExit("server OCI provenance must use the checksummed release bundle")
+anonymous_oci_verification = "env -u GH_TOKEN -u GITHUB_TOKEN"
+if (
+    anonymous_oci_verification not in evidence
+    or anonymous_oci_verification not in community_evidence
+):
+    raise SystemExit("server OCI verification must not send a cross-repository token")
 admin_oci_bundle = (
     '--bundle ".release/admin/agent-remote-admin-web-${ADMIN_VERSION}.provenance.jsonl"'
 )
 if admin_oci_bundle not in release:
     raise SystemExit("Admin OCI provenance must use the checksummed release bundle")
+if anonymous_oci_verification not in release:
+    raise SystemExit("Admin OCI verification must not send a cross-repository token")
 
 required_external_gate_fragments = (
     'test "$GITHUB_REF" = "refs/tags/v${VERSION}"',

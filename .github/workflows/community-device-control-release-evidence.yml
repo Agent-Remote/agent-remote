@@ -220,7 +220,8 @@ jobs:
               "https://github.com/Agent-Remote/agent-remote-server/.github/workflows/${SERVER_WORKFLOW}@refs/tags/v${SERVER_VERSION}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "${server_image}@${server_digest}"
-          gh attestation verify "oci://${server_image}@${server_digest}" \
+          env -u GH_TOKEN -u GITHUB_TOKEN \
+            gh attestation verify "oci://${server_image}@${server_digest}" \
             --repo Agent-Remote/agent-remote-server \
             --bundle "$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl" \
             --source-ref "refs/tags/v${SERVER_VERSION}" \
