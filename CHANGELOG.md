@@ -2,6 +2,16 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.8 - 2026-08-19
+
+- test: trace forwarding data-path stages (196e4dc)
+- test: close forwarding HTTP streams deterministically (e2fe28d)
+- chore: certify v0.2.8 component releases (3873f9b)
+- test: allow macos forwarding streams to settle (a8681ec)
+- fix: harden release validation and forwarding smoke test (3e7d9f8)
+- fix: validate release workflow semantics (4bceb18)
+- feat: certify independently versioned releases (93e7859)
+
 ## v0.2.7 - 2026-08-13
 
 - Release metadata update.
