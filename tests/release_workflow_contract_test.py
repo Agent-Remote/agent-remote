@@ -50,6 +50,9 @@ required_release_fragments = (
     "${ADMIN_WORKFLOW}@refs/tags/v${ADMIN_VERSION}",
 )
 
+if "\n        env:\n        run:" in release:
+    raise SystemExit("release workflow contains an empty env mapping")
+
 missing = [fragment for fragment in required_release_fragments if fragment not in release]
 if missing:
     raise SystemExit(f"release workflow is missing: {', '.join(missing)}")

@@ -105,7 +105,6 @@ jobs:
           ref: v${{ needs.resolve.outputs.device-version }}
           path: .release/agent-remote-device
       - name: Verify certified immutable production composition
-        env:
         run: |
           python3 scripts/check-device-control-release-readiness.py \
             --manifest release-manifest.json \
