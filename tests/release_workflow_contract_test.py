@@ -4,6 +4,7 @@ from pathlib import Path
 
 release = Path(".github/workflows/release.yml").read_text(encoding="utf-8")
 prepare = Path(".github/workflows/prepare-release.yml").read_text(encoding="utf-8")
+ci = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
 evidence = Path(".github/workflows/device-control-release-evidence.yml").read_text(
     encoding="utf-8"
 )
@@ -18,14 +19,17 @@ community_v2_evidence = Path(
 ).read_text(encoding="utf-8")
 github_cli_installer = Path("scripts/install-github-cli.sh").read_text(encoding="utf-8")
 
-github_cli_setup = "run: bash scripts/install-github-cli.sh"
+github_cli_setup = "bash scripts/install-github-cli.sh"
 for name, workflow in (
+    ("CI", ci),
     ("release", release),
     ("device release evidence", evidence),
     ("community release evidence", community_evidence),
 ):
     if github_cli_setup not in workflow:
         raise SystemExit(f"{name} workflow must install the pinned GitHub CLI")
+if 'gh" version | grep -F "gh version 2.89.0"' not in ci:
+    raise SystemExit("CI must execute and verify the pinned GitHub CLI")
 for fragment in (
     "version=2.89.0",
     "d0422caade520530e76c1c558da47daebaa8e1203d6b7ff10ad7d6faba3490d8",
