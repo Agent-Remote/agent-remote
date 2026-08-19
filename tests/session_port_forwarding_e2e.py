@@ -406,7 +406,8 @@ if count == 1:
     child = subprocess.Popen(
         command, stdin=sys.stdin.buffer, stdout=sys.stdout.buffer, env=environment
     )
-    deadline = time.monotonic() + 30
+    # This is only a cleanup backstop; the test triggers the disconnect explicitly.
+    deadline = time.monotonic() + 120
     while (
         child.poll() is None
         and not os.path.exists(disconnect_path)
