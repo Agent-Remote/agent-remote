@@ -58,6 +58,8 @@ required_release_fragments = (
     "actions/attest-build-provenance@",
     "gh attestation verify",
     "sha256sum --check",
+    '(cd dist && sha256sum "${package}.tar.gz" > "${package}.tar.gz.sha256")',
+    '(cd dist && sha256sum --check "agent-remote-deploy-${VERSION}.tar.gz.sha256")',
     "fail_on_unmatched_files: true",
     "check-device-control-release-readiness.py",
     "--manifest release-manifest.json",
@@ -87,6 +89,9 @@ if "\n        env:\n        run:" in release:
 missing = [fragment for fragment in required_release_fragments if fragment not in release]
 if missing:
     raise SystemExit(f"release workflow is missing: {', '.join(missing)}")
+
+if 'sha256sum "dist/${package}.tar.gz"' in release:
+    raise SystemExit("deployment checksum must not contain the dist/ staging path")
 
 expected_dispatch = 'gh workflow run release.yml --ref "v${version}" -f version="${version}"'
 if expected_dispatch not in prepare:

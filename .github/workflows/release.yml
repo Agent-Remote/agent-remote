@@ -225,7 +225,7 @@ jobs:
              .components["agent-remote-admin-web"].image = $admin_image' \
             release-manifest.json > "dist/${package}/production-release-manifest.json"
           tar -C dist -czf "dist/${package}.tar.gz" "${package}"
-          sha256sum "dist/${package}.tar.gz" > "dist/${package}.tar.gz.sha256"
+          (cd dist && sha256sum "${package}.tar.gz" > "${package}.tar.gz.sha256")
       - name: Generate deployment bundle SBOM
         uses: anchore/sbom-action@v0
         with:
@@ -240,7 +240,7 @@ jobs:
         run: |
           set -euo pipefail
           archive="dist/agent-remote-deploy-${VERSION}.tar.gz"
-          sha256sum --check "$archive.sha256"
+          (cd dist && sha256sum --check "agent-remote-deploy-${VERSION}.tar.gz.sha256")
           cosign sign-blob --yes --bundle "$archive.sigstore.json" "$archive"
           cosign verify-blob \
             --bundle "$archive.sigstore.json" \
