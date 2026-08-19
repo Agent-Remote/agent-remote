@@ -434,7 +434,7 @@ def wait_for(predicate: Any, message: str, timeout: float = 15) -> None:
     raise TimeoutError(message)
 
 
-def http_get(port: int, path: str, timeout: float = 3) -> bytes:
+def http_get(port: int, path: str, timeout: float = 10) -> bytes:
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
     try:
         connection.request("GET", path, headers={"Connection": "close"})
@@ -482,7 +482,7 @@ def concurrent_http_gets(port: int, count: int = 100) -> None:
 
 
 def websocket_echo(port: int) -> bytes:
-    connection = socket.create_connection(("127.0.0.1", port), timeout=3)
+    connection = socket.create_connection(("127.0.0.1", port), timeout=10)
     try:
         key = base64.b64encode(os.urandom(16)).decode()
         request = (

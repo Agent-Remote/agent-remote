@@ -251,6 +251,15 @@ for fragment in (
     if fragment not in test_compose:
         raise SystemExit(f"local device test compose is missing: {fragment}")
 
+forwarding_e2e = Path("tests/session_port_forwarding_e2e.py").read_text(encoding="utf-8")
+for fragment in (
+    'def http_get(port: int, path: str, timeout: float = 10)',
+    'socket.create_connection(("127.0.0.1", port), timeout=10)',
+    'headers={"Connection": "close"}',
+):
+    if fragment not in forwarding_e2e:
+        raise SystemExit(f"forwarding E2E timeout contract is missing: {fragment}")
+
 release_version = Path("VERSION").read_text(encoding="utf-8").strip()
 release_manifest = json.loads(Path("release-manifest.json").read_text(encoding="utf-8"))
 if release_manifest["schema_version"] != 2:
