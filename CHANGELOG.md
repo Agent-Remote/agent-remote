@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.13 - 2026-08-19
+
+- test: allow forwarding responses under runner load (d0ecaf7)
+- chore: certify node v0.2.9 (22a3d98)
+
 ## v0.2.12 - 2026-08-19
 
 - fix: avoid cross-repository token for OCI verification (a8bacd5)
