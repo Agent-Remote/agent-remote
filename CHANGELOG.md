@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.14 - 2026-08-19
+
+- test: avoid premature forwarding disconnect (7c68943)
+- fix: make release checksums portable (6b4a96e)
+
 ## v0.2.13 - 2026-08-19
 
 - test: allow forwarding responses under runner load (d0ecaf7)
