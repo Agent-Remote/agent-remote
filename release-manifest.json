@@ -19,10 +19,10 @@
       "version": "0.2.8"
     },
     "agent-remote-node": {
-      "commit": "1e5b0e98f51f8ba4b7c1cd9c83e47c538492b2cc",
+      "commit": "43979b1aa166d10743b98ce0cae2b114d035fd78",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-node",
-      "version": "0.2.8"
+      "version": "0.2.9"
     },
     "agent-remote-server": {
       "commit": "c7521e4e5e1ff3edd2ce6e1c22ed94a062af3004",
