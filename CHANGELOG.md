@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.9 - 2026-08-19
+
+- fix: make release dispatch and OCI verification reliable (e1ca8c3)
+
 ## v0.2.8 - 2026-08-19
 
 - test: trace forwarding data-path stages (196e4dc)
