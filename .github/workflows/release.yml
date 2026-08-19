@@ -146,6 +146,8 @@ jobs:
           name: community-device-control-release-evidence-${{ needs.resolve.outputs.version }}
           path: .release/device-control-release-evidence
       - uses: sigstore/cosign-installer@v4.0.0
+      - name: Install pinned GitHub CLI
+        run: bash scripts/install-github-cli.sh
       - name: Resolve immutable deployment images
         env:
           ADMIN_VERSION: ${{ needs.resolve.outputs.admin-version }}

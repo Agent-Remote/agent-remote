@@ -16,6 +16,24 @@ community_evidence = Path(
 community_v2_evidence = Path(
     ".github/workflows/community-computer-use-v2-evidence.yml"
 ).read_text(encoding="utf-8")
+github_cli_installer = Path("scripts/install-github-cli.sh").read_text(encoding="utf-8")
+
+github_cli_setup = "run: bash scripts/install-github-cli.sh"
+for name, workflow in (
+    ("release", release),
+    ("device release evidence", evidence),
+    ("community release evidence", community_evidence),
+):
+    if github_cli_setup not in workflow:
+        raise SystemExit(f"{name} workflow must install the pinned GitHub CLI")
+for fragment in (
+    "version=2.89.0",
+    "d0422caade520530e76c1c558da47daebaa8e1203d6b7ff10ad7d6faba3490d8",
+    "sha256sum --check",
+    'echo "$extract/bin" >> "$GITHUB_PATH"',
+):
+    if fragment not in github_cli_installer:
+        raise SystemExit(f"GitHub CLI installer is missing: {fragment}")
 
 required_release_fragments = (
     'test "$GITHUB_REF" = "refs/tags/v${version}"',

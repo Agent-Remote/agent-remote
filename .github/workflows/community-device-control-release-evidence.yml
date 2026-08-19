@@ -77,6 +77,8 @@ jobs:
         with:
           python-version: "3.13"
       - uses: sigstore/cosign-installer@v4.0.0
+      - name: Install pinned GitHub CLI
+        run: bash scripts/install-github-cli.sh
       - name: Download exact certified component artifacts
         env:
           GH_TOKEN: ${{ github.token }}
