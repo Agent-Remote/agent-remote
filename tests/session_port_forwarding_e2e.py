@@ -571,8 +571,12 @@ def main() -> int:
             )
             if int(ssh_count.read_text() or "0") != 1:
                 raise AssertionError("SSH failure injection ran before the initial data-path checks")
-            if http_get(state.local_port, "/asset.js") != b"window.__agentRemoteE2E = true;":
-                raise AssertionError("static HTTP asset changed in transit")
+            wait_for(
+                lambda: _http_matches(
+                    state.local_port, "/asset.js", b"window.__agentRemoteE2E = true;"
+                ),
+                "static HTTP asset did not arrive intact",
+            )
             events = http_get(state.local_port, "/events")
             if b"event: ready" not in events or b"event: update" not in events:
                 raise AssertionError(f"SSE payload changed in transit: {events!r}")

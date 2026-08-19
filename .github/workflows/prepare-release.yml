@@ -58,7 +58,7 @@ jobs:
           fi
           git diff --exit-code
           git tag "v${version}"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          git push origin "HEAD:${GITHUB_REF_NAME}"
           git push origin "v${version}"
           gh workflow run release.yml --ref "v${version}" -f version="${version}"
         env:
