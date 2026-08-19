@@ -244,6 +244,7 @@ class DevHandler(BaseHTTPRequestHandler):
         self._payload(b"agent-remote-e2e", "text/plain")
 
     def _payload(self, payload: bytes, content_type: str) -> None:
+        self.close_connection = True
         self.send_response(200)
         self.send_header("content-type", content_type)
         self.send_header("content-length", str(len(payload)))
@@ -419,10 +420,10 @@ def wait_for(predicate: Any, message: str, timeout: float = 15) -> None:
     raise TimeoutError(message)
 
 
-def http_get(port: int, path: str, timeout: float = 10) -> bytes:
+def http_get(port: int, path: str, timeout: float = 3) -> bytes:
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
     try:
-        connection.request("GET", path)
+        connection.request("GET", path, headers={"Connection": "close"})
         response = connection.getresponse()
         payload = response.read()
         if response.status != 200:
@@ -467,7 +468,7 @@ def concurrent_http_gets(port: int, count: int = 100) -> None:
 
 
 def websocket_echo(port: int) -> bytes:
-    connection = socket.create_connection(("127.0.0.1", port), timeout=10)
+    connection = socket.create_connection(("127.0.0.1", port), timeout=3)
     try:
         key = base64.b64encode(os.urandom(16)).decode()
         request = (
