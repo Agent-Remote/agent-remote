@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.15 - 2026-08-20
+
+- chore: certify device v0.2.9 and node v0.2.10 (0d7c8a9)
+- fix: align device control foreground evidence (8946598)
+
 ## v0.2.14 - 2026-08-19
 
 - test: avoid premature forwarding disconnect (7c68943)
