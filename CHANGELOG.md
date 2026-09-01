@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.16 - 2026-09-01
+
+- chore(release): certify server v0.2.9 (14dd6ee)
+- feat(device-control): ship permanent release evidence (b03eb63)
+
 ## v0.2.15 - 2026-08-20
 
 - chore: certify device v0.2.9 and node v0.2.10 (0d7c8a9)
