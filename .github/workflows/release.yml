@@ -195,8 +195,18 @@ jobs:
           package="agent-remote-deploy-${version}"
           mkdir -p "dist/${package}"
           cp -R deploy docs scripts README.md README.zh-CN.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md VERSION release-manifest.json "dist/${package}/"
+          evidence_source=".release/device-control-release-evidence/device-control-release-evidence-${version}.json"
+          manifest_sha256=$(sha256sum release-manifest.json | cut -d ' ' -f 1)
+          jq -e \
+            --arg distribution_version "$version" \
+            --arg manifest_sha256 "$manifest_sha256" \
+            '.schema_version == 8 and
+             .distribution_version == $distribution_version and
+             .release_manifest_sha256 == $manifest_sha256 and
+             (has("expires_at") | not)' \
+            "$evidence_source" >/dev/null
           cp \
-            ".release/device-control-release-evidence/device-control-release-evidence-${version}.json" \
+            "$evidence_source" \
             "dist/${package}/deploy/compose/device-control-release-evidence.json"
           (cd ".release/device-control-release-evidence" && \
             sha256sum --check SHA256SUMS)

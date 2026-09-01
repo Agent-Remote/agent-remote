@@ -643,11 +643,11 @@ Computer Use v2 是正式默认能力。Server 在 `DEVICE_CONTROL_V2_ENABLED=tr
 证据是可选质量记录，不是运行时授权。该证据可以绑定精确 application/proxy/Node/Server 摘要，并证明：签名安装、
 Safari/Chrome/Firefox、AX 不完整 Electron fallback、golden prompt replay、零敏感内容遥测审计、错误
 目标数为零、成功率无回退、模型可见图片减少至少 70%、普通动作 p95 不高于 1 秒、settle p95 不高于
-5 秒、坐标 fallback 低于 20%，以及新 generation 回到 v1 的回滚演练。若选择生成 schema 4，专项
+5 秒、坐标 fallback 低于 20%，以及新 generation 回到 v1 的回滚演练。若选择在 schema 8 中记录，专项
 对象的 `report_sha256` 还必须对应
 `security-tests.evidence.tar.gz` 内真实存在的普通报告文件，不能只提交布尔结论。该签名绑定现已由发布组装器和 Server 运行时
 验证器共同验证：Apple profile 组装器将已验证的 `security-tests` 记录摘要写入
-`computer_use_v2_evidence_sha256`；Community schema 2/3 固定为 `null`，schema 4 则要求受保护的
+`computer_use_v2_evidence_sha256`；schema 8 缺少专项报告时为 `null`，存在时则要求受保护的
 Community v2 记录、原始报告归档、清单选中四组件摘要和明确风险接受。Server 在启动和运行期验证通用
 发布清单，但不以该可选摘要决定 v2 capability。
 
@@ -831,9 +831,11 @@ Apple Developer ID profile 的任何一项不满足均不得启用对应生产 c
 `community-local-trust-release.md` 定义；不得把自签名状态记录成 Developer ID 或 notarization 成功。
 
 生产控制面不得只依靠 capability 布尔开关声明上述条件已满足。启用时必须验证由部署方固定
-Ed25519 公钥签名、有效期不超过 30 天且绑定当前服务端版本的发布证据清单；清单至少固定 Server、
-Node、macOS 应用、MCP proxy、SBOM、来源证明及上述第 2 至 8 项证据的 SHA-256 摘要。该签名门禁
-只证明部署方批准了这些精确证据，不替代系统级出站策略、实际隔离采集、Apple 公证或独立安全评审。
+Ed25519 公钥签名、与当前根版本及精确 Server/组件/制品组合绑定的 schema 8 发布证据清单；该清单
+不包含 `expires_at`，对同一签名组合永久有效，只有版本或制品替换、签名密钥轮换、明确撤销或关闭
+设备控制时失效。清单至少固定 Server、Node、macOS 应用、MCP proxy、SBOM、来源证明及上述第 2
+至 8 项证据的 SHA-256 摘要。schema 1-7 仅在迁移期间接受并继续执行原 30 天规则。该签名门禁只
+证明部署方批准了这些精确证据，不替代系统级出站策略、实际隔离采集、Apple 公证或独立安全评审。
 
 
 

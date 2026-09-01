@@ -168,8 +168,6 @@ def arguments(root: Path) -> tuple[list[str], Path]:
         "https://github.com/Agent-Remote/agent-remote/actions/runs/1",
         "--issued-at",
         "2026-07-31T08:00:00Z",
-        "--expires-at",
-        "2026-08-07T08:00:00Z",
         "--output-directory",
         str(output),
     ]
@@ -271,9 +269,10 @@ def test_community_assembler_creates_an_explicit_production_profile(
     draft = json.loads(
         (output / "release-evidence-draft.json").read_text(encoding="utf-8")
     )
-    assert draft["schema_version"] == 5
+    assert draft["schema_version"] == 8
     assert draft["distribution_version"] == DISTRIBUTION_VERSION
     assert draft["components"]["agent-remote-node"]["version"] == "2.3.4"
+    assert "expires_at" not in draft
     assert draft["release_profile"] == "community-local-trust"
     assert draft["production_ready"] is True
     assert draft["apple_notarized"] is False
@@ -298,7 +297,7 @@ def test_community_assembler_creates_an_explicit_production_profile(
         assert draft[field] is None
 
 
-def test_community_assembler_preserves_legacy_schema_for_one_version_composition(
+def test_community_assembler_keeps_composition_binding_for_one_version_composition(
     tmp_path: Path,
 ) -> None:
     values, output = arguments(tmp_path)
@@ -322,10 +321,11 @@ def test_community_assembler_preserves_legacy_schema_for_one_version_composition
     draft = json.loads(
         (output / "release-evidence-draft.json").read_text(encoding="utf-8")
     )
-    assert draft["schema_version"] == 3
-    assert "distribution_version" not in draft
-    assert "release_manifest_sha256" not in draft
-    assert "components" not in draft
+    assert draft["schema_version"] == 8
+    assert draft["distribution_version"] == VERSION
+    assert draft["release_manifest_sha256"]
+    assert "components" in draft
+    assert "expires_at" not in draft
 
 
 def test_community_assembler_rejects_missing_risk_acceptance(tmp_path: Path) -> None:
@@ -351,7 +351,7 @@ def test_community_assembler_creates_schema_v4_with_bound_v2_evidence(
     draft = json.loads(
         (output / "release-evidence-draft.json").read_text(encoding="utf-8")
     )
-    assert draft["schema_version"] == 6
+    assert draft["schema_version"] == 8
     assert (
         draft["computer_use_v2_evidence_sha256"]
         == hashlib.sha256(record.read_bytes()).hexdigest()
@@ -423,7 +423,7 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as first:
         test_community_assembler_creates_an_explicit_production_profile(Path(first))
     with tempfile.TemporaryDirectory() as second:
-        test_community_assembler_preserves_legacy_schema_for_one_version_composition(
+        test_community_assembler_keeps_composition_binding_for_one_version_composition(
             Path(second)
         )
     with tempfile.TemporaryDirectory() as third:

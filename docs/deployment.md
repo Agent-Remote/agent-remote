@@ -59,8 +59,11 @@ following deployment-owned values after that profile's release gates pass:
   generations; active generations never downgrade in place.
 
 Production Server startup rejects an enabled capability when either retention period is zero or
-the general signed evidence cannot be verified. Computer Use v2 acceptance metadata is optional
-quality evidence and does not authorize runtime capability negotiation. A schema 3
+the general signed schema 8 evidence cannot be verified. The evidence is shipped inside the same
+root release/deployment bundle as `release-manifest.json` and is permanently valid for that exact
+signed component/artifact composition; it is not renewed by changing a clock or copying a JSON file.
+Computer Use v2 acceptance metadata is optional
+quality evidence and does not authorize runtime capability negotiation. A schema 8
 `community-local-trust` manifest may validly
 declare `production_ready=true` while also declaring that Apple notarization, public distribution,
 and automatic trust are unavailable. The deployment administrator explicitly accepts those limits;

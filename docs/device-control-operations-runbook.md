@@ -30,7 +30,7 @@
 | relay 票据和每代连接材料 | 由 Server TTL 和一次性兑换约束 | 不备份、不归档；到期后不得重放 |
 | 设备控制 session 元数据 | PostgreSQL 持久化 | 只允许设计文档第 9 节列出的零内容字段 |
 | 审批与动作审计元数据 | PostgreSQL 持久化 | 只允许摘要、动作类型、结果和关联 ID |
-| 发布门禁清单 | 有效期最长 30 天 | 到期前重新收集并签发；续签不能替代重新验证外部门禁 |
+| 发布门禁清单 | schema 8 与根版本制品绑定，永久有效 | 仅在版本、制品、签名键或部署授权被替换/撤销时重新发布；旧 schema 1-7 仍按原 30 天迁移规则处理 |
 | Actions 总装 artifact | 当前 workflow 保留 30 天 | 需要更长审计期时转存到受控、不可变且访问留痕的证据库 |
 | PostgreSQL 备份 | 由部署方管理 | 保留期不得长于已批准的数据策略；过期副本和恢复测试副本同样删除 |
 
@@ -66,8 +66,9 @@ Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENT
 2. 选择并验证一种发布配置：无 Apple 账号时按 `community-local-trust-release.md` 验证 Server、Node、
    App 和 proxy 的摘要、SBOM、来源证明、自签名身份、官方 runner CI 与风险接受记录；Developer ID
    配置则按 `device-control-release-evidence.md` 验证 Apple 签名/公证和六项原始外部门禁证据。
-3. 把发布证据清单和对应 Ed25519 公钥作为只读部署输入设置到
-   `DEVICE_CONTROL_RELEASE_EVIDENCE_PATH` 和 `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`。
+3. 从同一个根版本部署包读取 schema 8 发布证据，确认其 `distribution_version` 与正在部署的
+   `VERSION` 一致且不存在 `expires_at`，再把证据和对应 Ed25519 公钥作为只读部署输入设置到
+   `DEVICE_CONTROL_RELEASE_EVIDENCE_PATH` 和 `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`。禁止跨版本复制证据。
 4. 设置数据负责人批准的 `DEVICE_SESSION_RETENTION_DAYS` 和
    `DEVICE_SESSION_AUDIT_RETENTION_DAYS`；后者不得短于前者，生产中都不得为 `0`。
 5. Developer ID 配置由 MDM 负责人确认 Network Extension 已启用、策略证明服务可用，并在签名测试
@@ -100,7 +101,7 @@ agent-remote device launch
 活动 generation 固定其 capability 集合，中途不升级也不降级。
 
 升级后创建一个新的无副作用 session，确认 context task 携带完整三项 capability，并验证 AX-first、
-状态绑定、stale 拒绝、adaptive settle、图片 fallback 和停止恢复。schema 4 专项报告仍可用于长期质量
+状态绑定、stale 拒绝、adaptive settle、图片 fallback 和停止恢复。schema 8 中的专项报告仍可用于长期质量
 审计，但缺失不影响已经正式支持的 v2。记录不得包含 AX 文本、URL、标题、截图、输入、坐标或剪贴板
 内容。
 
@@ -217,8 +218,9 @@ agent-remote device diagnose
 3. 在同一次 Server 部署中原子更新清单和 `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`，再重启验证。
 4. 验证旧公钥不能接受新清单、新公钥不能接受旧清单，并销毁可恢复副本之外的旧私钥。
 
-疑似泄露时先关闭 capability、撤销受影响设备和未到期清单，再执行轮换。只有旧键未泄露且旧清单仍
-在有效期内时，才允许同时回滚旧公钥和旧清单；不得只回滚其中一项。清单到期续签不等于密钥轮换。
+疑似泄露时先关闭 capability、撤销受影响设备和当前部署清单，再执行轮换。schema 8 没有到期续签：
+只有旧键未泄露、旧版本制品仍受支持且组合未被撤销时，才允许同时回滚旧公钥和旧清单；不得只回滚
+其中一项。更换签名键或证据组合必须随新的根版本部署。
 
 ### 6.3 出站策略证明键
 
@@ -234,7 +236,7 @@ mach service 和策略 ID。改变其中任何一项都要求新的签名、公�
 ## 7. 回滚与演练
 
 应用不支持降级安装。回滚必须结束 session、关闭 capability、撤销受影响设备，重新安装仍受支持且
-发布证据未过期的签名版本；若该版本的密钥、策略或制品受事件影响，则不能回滚，只能前向修复。恢复
+具有匹配 schema 8 发布证据和签名公钥的版本；若该版本的密钥、策略或制品受事件影响，则不能回滚，只能前向修复。恢复
 后重新注册/轮换设备凭据并执行第 3 节验证。
 
 Computer Use v2 出现部分 capability、错误目标、敏感遥测、stale/坐标 fallback 激增、成功率回退、
@@ -249,5 +251,5 @@ Computer Use v2 出现部分 capability、错误目标、敏感遥测、stale/�
 制品摘要并保持零内容；失败项进入发布阻塞清单，不能用本运行手册的存在替代实际证据。
 
 每次相关发布还应演练：`true -> false` 的新 generation 选择、活动 v2 session 终止、重新审批后的 v1
-工具面、Node 缺失单项 capability，以及回滚期间没有动作自动重放。该演练可纳入可选的 schema 4 质量
+工具面、Node 缺失单项 capability，以及回滚期间没有动作自动重放。该演练可纳入 schema 8 中的可选质量
 证据，但不是运行时依赖。

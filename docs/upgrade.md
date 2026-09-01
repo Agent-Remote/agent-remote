@@ -2,6 +2,12 @@
 
 ## Control Plane
 
+The signed device-control release evidence is part of the root deployment bundle, not a separately
+expiring lease. Upgrade the Server image and the read-only evidence file from the same root release;
+do not copy an evidence file from another version. Schema 8 has no `expires_at`; the Server verifies
+the exact root composition and signature at startup. A schema 1-7 file is migration-only and must be
+replaced by the schema 8 file before enabling device control on the upgraded release.
+
 Before upgrading:
 
 ```sh

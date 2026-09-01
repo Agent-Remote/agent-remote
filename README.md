@@ -73,8 +73,9 @@ Device-control production evidence has a separate protected assembly flow docume
 `docs/device-control-release-evidence.md`. The root `release-manifest.json` certifies one exact,
 independently versioned production composition, including each artifact-signing workflow identity.
 A root release verifies every pinned tag, commit, artifact, and compatibility gate, embeds the
-signed multi-architecture evidence, and pins deployed
-images by digest; it never enables the capability automatically.
+signed schema 8 multi-architecture evidence in the same deployment bundle as the release manifest,
+and pins deployed images by digest. The evidence has no time expiry and is valid only for that exact
+signed composition; the release never enables the capability automatically.
 
 ## License
 

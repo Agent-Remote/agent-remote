@@ -937,7 +937,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--ci-run-url", required=True)
     parser.add_argument("--issued-at", required=True)
-    parser.add_argument("--expires-at", required=True)
     parser.add_argument("--output-directory", type=Path, required=True)
     return parser
 
@@ -965,9 +964,6 @@ def main() -> None:
         if not args.ci_run_url.startswith("https://github.com/"):
             raise ValueError("CI run URL must be a GitHub HTTPS URL")
         issued_at = parse_timestamp(args.issued_at, "issued-at")
-        expires_at = parse_timestamp(args.expires_at, "expires-at")
-        if expires_at <= issued_at or expires_at > issued_at + timedelta(days=30):
-            raise ValueError("evidence lifetime must be positive and no more than 30 days")
 
         _, server_digest = load_server_metadata(args.server_metadata, version)
         sbom_paths = parse_labeled_paths(args.sbom, "sbom")
@@ -1052,19 +1048,13 @@ def main() -> None:
             )
             written.append(provenance_path)
 
-            legacy_coordinated = (
-                args.distribution_version == version
-                and all(
-                    isinstance(component, dict)
-                    and component.get("version") == version
-                    for component in components.values()
-                )
-            )
             draft: dict[str, object] = {
-                "schema_version": 1 if legacy_coordinated else 7,
+                "schema_version": 8,
                 "release_version": version,
                 "issued_at": args.issued_at,
-                "expires_at": args.expires_at,
+                "distribution_version": args.distribution_version,
+                "release_manifest_sha256": release_manifest_sha256(args.release_manifest),
+                "components": components,
                 "server_sha256": server_digest,
                 "node_sha256": artifact_digests["node"],
                 "application_sha256": artifact_digests["application"],
@@ -1073,16 +1063,6 @@ def main() -> None:
                 "provenance_sha256": sha256(provenance_path),
                 "ci_run_url": args.ci_run_url,
             }
-            if not legacy_coordinated:
-                draft.update(
-                    {
-                        "distribution_version": args.distribution_version,
-                        "release_manifest_sha256": release_manifest_sha256(
-                            args.release_manifest
-                        ),
-                        "components": components,
-                    }
-                )
             draft.update({field: sha256(path) for field, path in gate_paths.items()})
             draft_path = output_directory / "release-evidence-draft.json"
             write_new(draft_path, canonical_json(draft))

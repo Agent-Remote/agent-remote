@@ -28,7 +28,8 @@ Anthropic/Claude 域。此控制不等价于 MDM 或 Network Extension。
 4. SHA-256、SPDX SBOM、Sigstore workflow identity 和 GitHub provenance 通过验证。
 5. 官方 macOS runner 完成安装器、代码签名和 XPC 启动自检；目标 Mac 未授予 Accessibility 与
    Screen Recording 时应用保持不可用，并在首次会话前引导用户授权。
-6. 发布清单由部署方 Ed25519 密钥签署，绑定 Server、Node、App、proxy 和上述证据摘要。
+6. 根版本发布清单由部署方 Ed25519 密钥签署为 schema 8，绑定 Server、Node、App、proxy、完整组件版本
+   / commit、根分发版本和上述证据摘要；该签名清单随同根版本制品发布且不设置时间过期。
 7. 管理员显式接受未公证、手动信任、无系统级出站过滤和无独立第三方评审的剩余风险。
 
 Apple Developer ID 配置仍使用原严格门禁。两种配置不得共享或转换签名/公证状态字段。
@@ -53,13 +54,13 @@ Base64 raw Ed25519 公钥。私钥的本地备份位于 git-ignored 的
 
 Computer Use v2 是 Community 正式发布的默认能力。升级后的 Server 在
 `DEVICE_CONTROL_V2_ENABLED=true` 时为每个新 generation 检查 Node 上报的完整 capability 集合；三项
-能力齐全时自动选择 v2，任一缺失或畸形时完整回退 v1。旧的 schema 3 或独立版本组合使用的 schema 5
-Community 清单已经足以证明认证组合和供应链身份，不需要额外报告才能使用 v2。紧急回滚只需把该布尔开关设为 `false` 并重建受影响
+能力齐全时自动选择 v2，任一缺失或畸形时完整回退 v1。schema 8 Community 清单已经足以证明认证组合
+和供应链身份，不需要额外报告才能使用 v2。紧急回滚只需把该布尔开关设为 `false` 并重建受影响
 session，活动 generation 不做中途降级。
 
-受保护的 `community-computer-use-v2-evidence` 工作流和 schema 4/6 继续保留，用于记录清单选中正式制品的
+受保护的 `community-computer-use-v2-evidence` 工作流继续保留，用于记录 schema 8 清单选中正式制品的
 运行时质量验收。它会校验报告成员摘要、四组件摘要、浏览器与应用覆盖、Token/图片指标、延迟、错误
-目标、敏感遥测和回滚结果。Schema 4/6 不把 Community 自签名描述为 Apple 公证，并额外记录
+目标、敏感遥测和回滚结果。该可选记录不把 Community 自签名描述为 Apple 公证，并额外记录
 `community_computer_use_v2_without_apple_notarization` 风险接受；缺少或过期的专项报告只表示没有这份
 可选质量证明，不会关闭已经正式支持的 v2 功能。
 

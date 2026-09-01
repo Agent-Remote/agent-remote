@@ -515,7 +515,6 @@ def main() -> None:
     parser.add_argument("--computer-use-v2-target", choices=TARGETS)
     parser.add_argument("--ci-run-url", required=True)
     parser.add_argument("--issued-at", required=True)
-    parser.add_argument("--expires-at", required=True)
     parser.add_argument("--output-directory", type=Path, required=True)
     args = parser.parse_args()
 
@@ -536,7 +535,6 @@ def main() -> None:
         if server_component["version"] != args.release_version:
             raise ValueError("server version does not match the release manifest")
         issued_at = validate_timestamp(args.issued_at, "issued_at")
-        expires_at = validate_timestamp(args.expires_at, "expires_at")
         issued_at_value = parse_timestamp(issued_at, "issued_at")
         v2_inputs = (
             args.computer_use_v2_evidence,
@@ -636,20 +634,8 @@ def main() -> None:
         automation_sha256 = digest(args.automation_evidence)
         signing_sha256 = digest(args.community_signing)
         risk_sha256 = digest(args.risk_acceptance)
-        legacy_coordinated = (
-            args.distribution_version == args.release_version
-            and all(
-                isinstance(component, dict)
-                and component.get("version") == args.release_version
-                for component in components.values()
-            )
-        )
         draft = {
-            "schema_version": (
-                4 if v2_enabled else 3
-            ) if legacy_coordinated else (
-                6 if v2_enabled else 5
-            ),
+            "schema_version": 8,
             "release_profile": "community-local-trust",
             "production_ready": True,
             "apple_notarized": False,
@@ -657,7 +643,9 @@ def main() -> None:
             "manual_trust_required": True,
             "release_version": args.release_version,
             "issued_at": issued_at,
-            "expires_at": expires_at,
+            "distribution_version": args.distribution_version,
+            "release_manifest_sha256": release_manifest_sha256(args.release_manifest),
+            "components": components,
             "server_sha256": server_sha256,
             "application_sha256": application_sha256,
             "node_artifacts_sha256": node_digests,
@@ -677,16 +665,6 @@ def main() -> None:
             "risk_acceptance_sha256": risk_sha256,
             "ci_run_url": args.ci_run_url,
         }
-        if not legacy_coordinated:
-            draft.update(
-                {
-                    "distribution_version": args.distribution_version,
-                    "release_manifest_sha256": release_manifest_sha256(
-                        args.release_manifest
-                    ),
-                    "components": components,
-                }
-            )
         write_new(
             args.output_directory / "release-evidence-draft.json", canonical(draft)
         )

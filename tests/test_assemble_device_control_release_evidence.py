@@ -349,8 +349,6 @@ def command(root: Path, output: Path) -> list[str]:
             "https://github.com/Agent-Remote/agent-remote/actions/runs/123",
             "--issued-at",
             "2026-07-31T00:00:00+00:00",
-            "--expires-at",
-            "2026-08-07T00:00:00+00:00",
             "--output-directory",
             str(output),
         )
@@ -366,8 +364,17 @@ def test_assembler_writes_exact_artifact_and_inventory_digests() -> None:
 
         assert result.returncode == 0, result.stderr
         draft = json.loads((output / "release-evidence-draft.json").read_text())
-        assert draft["schema_version"] == 7
+        assert draft["schema_version"] == 8
         assert draft["distribution_version"] == DISTRIBUTION_VERSION
+        assert draft["release_manifest_sha256"]
+        assert set(draft["components"]) == {
+            "agent-remote-server",
+            "agent-remote-node",
+            "agent-remote-cli",
+            "agent-remote-admin-web",
+            "agent-remote-device",
+        }
+        assert "expires_at" not in draft
         assert draft["server_sha256"] == DIGEST
         assert draft["node_sha256"] == hashlib.sha256(b"node").hexdigest()
         assert draft["application_sha256"] == hashlib.sha256(b"application").hexdigest()
@@ -382,7 +389,7 @@ def test_assembler_writes_exact_artifact_and_inventory_digests() -> None:
         assert (output / "gates" / "security-tests.evidence.tar.gz").is_file()
 
 
-def test_assembler_preserves_legacy_schema_for_one_version_composition() -> None:
+def test_assembler_keeps_composition_binding_for_one_version_composition() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
         output = root / "output"
@@ -420,10 +427,11 @@ def test_assembler_preserves_legacy_schema_for_one_version_composition() -> None
 
         assert result.returncode == 0, result.stderr
         draft = json.loads((output / "release-evidence-draft.json").read_text())
-        assert draft["schema_version"] == 1
-        assert "distribution_version" not in draft
-        assert "release_manifest_sha256" not in draft
-        assert "components" not in draft
+        assert draft["schema_version"] == 8
+        assert draft["distribution_version"] == SERVER_VERSION
+        assert draft["release_manifest_sha256"]
+        assert "components" in draft
+        assert "expires_at" not in draft
 
 
 def test_assembler_rejects_symlinks_and_existing_output() -> None:
@@ -782,7 +790,7 @@ def test_assembler_rejects_external_gate_evidence_older_than_thirty_days() -> No
 
 if __name__ == "__main__":
     test_assembler_writes_exact_artifact_and_inventory_digests()
-    test_assembler_preserves_legacy_schema_for_one_version_composition()
+    test_assembler_keeps_composition_binding_for_one_version_composition()
     test_assembler_rejects_symlinks_and_existing_output()
     test_assembler_rejects_cross_artifact_gate_evidence()
     test_assembler_rejects_gate_specific_false_claims()

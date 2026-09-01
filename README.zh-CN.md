@@ -63,7 +63,8 @@ Release workflow 会发布部署归档、CLI/Node 二进制、GHCR 镜像和 Git
 设备控制的生产证据使用独立的受保护装配流程，详见
 `docs/device-control-release-evidence.md`。根仓库的 `release-manifest.json` 认证一组使用独立版本的
 精确生产组合，包括每个组件的制品签名 workflow 身份。根发布会验证清单固定的 tag、commit、制品和兼容门禁，把已签名的多架构 Community
-证据内置到部署包，并按 digest 固定部署镜像；该流程不会自动启用 capability。
+schema 8 签名证据与根版本清单一起内置到部署包，并按 digest 固定部署镜像；证据没有时间过期，仅对
+该精确签名组合有效；该流程不会自动启用 capability。
 
 ## 许可证
 

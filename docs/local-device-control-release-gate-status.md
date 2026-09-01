@@ -32,9 +32,9 @@ AX full 返回时 state generation 前进而 screenshot generation 保持不变�
 或畸形上报完整回退 v1。管理员可把开关设为 `false`，让重新审批的新 generation 使用 v1，活动
 generation 不做中途降级。
 
-Apple profile 组装器和 Community schema 4 工作流仍可生成绑定精确浏览器、指标、零错误目标、零敏感
+Apple profile 组装器和 Community schema 8 工作流仍可生成绑定精确浏览器、指标、零错误目标、零敏感
 遥测和回滚断言的专项质量证据，并验证 `report_sha256` 对应文件真实存在于受限原始证据归档。
-`computer_use_v2_evidence_sha256` 继续受规范 Ed25519 签名保护；Community schema 2/3 固定该字段为
+`computer_use_v2_evidence_sha256` 继续受规范 Ed25519 签名保护；schema 8 在缺少可选专项报告时将该字段设为
 `null`。缺少这份可选记录不再阻止正式 v2 能力，但不得把减少截图次数或延迟作为放宽确认策略、secure
 field hand-off、stale target 拒绝或应用审批的理由。
 
@@ -48,8 +48,9 @@ schema、默认 observation policy 或 skill 元数据变更都必须同步通�
 
 `device-control-release-evidence` 工作流只能从精确根分发 `vVERSION` 标签运行。它按根发布清单分别验证 Server、Node、
 macOS app 和 proxy 的摘要、签名、SBOM、provenance 与 notarization，并要求同标签、同 commit 的成功
-CI run 提供第 2、3、5、6、7、8 项真实证据。缺项即失败。受保护环境中的 Ed25519 私钥只签署短期
-清单；所有动态外部门禁必须在签发前 30 天内采集，旧记录不能靠重新签名延长有效期。该签名表示
+CI run 提供第 2、3、5、6、7、8 项真实证据。缺项即失败。受保护环境中的 Ed25519 私钥只签署与根版本
+绑定的 schema 8 永久清单；所有动态外部门禁必须在签发前 30 天内采集，旧记录不能靠重新签名延长门禁记录
+自身的新鲜度。该签名表示
 部署方批准了精确证据，不替代上述验证，也不会修改生产 capability 配置。
 
 当前本机构建目录中的候选包仅供开发验证：六个组件已统一为 `0.1.0`，但 macOS app 为 ad-hoc
@@ -74,9 +75,10 @@ install-smoke `30611235810`、Admin CI `30611228121`、Device CI `30612553250`�
 仓库内自动化门禁成功，不代替 Apple 公证、真实 TCC/MDM、Claude 隔离与兼容性、独立安全评审或
 受保护生产环境证据；本地 `v0.1.0` 标签仍未推送。
 
-本轮还收紧了三处生产门禁：Server 对启动时已验证的 release evidence 在运行期持续检查有效期，
-过期后拒绝新建、连接、审批、加锁、续租、重连、relay material 和 WebSocket，同时保留 Abort/Stop
-用于安全清理；release CLI 在编译时固定受保护环境提供的 Apple Team ID，并分别验证 App 与两个
+本轮还收紧了三处生产门禁：Server 对启动时已验证的 schema 8 release evidence 在运行期持续检查其
+永久绑定的版本/签名，不再按时间撤销；旧 schema 过期时仍拒绝新建、连接、审批、加锁、续租、重连、
+relay material 和 WebSocket，同时保留 Abort/Stop 用于安全清理；release CLI 在编译时固定受保护环境
+提供的 Apple Team ID，并分别验证 App 与两个
 XPC 的签名身份；受保护的自托管 Mac 工作流只收集固定的 12 项外部门禁原始文件，拒绝额外文件、
 符号链接、重复 JSON 字段、摘要不一致和危险归档成员。上述实现不会生成或代填任何外部门禁通过
 结果，也不能替代 Developer ID、公证、TCC/MDM、Claude 隔离、兼容性和独立安全评审证据。

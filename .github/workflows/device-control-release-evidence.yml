@@ -275,7 +275,7 @@ jobs:
                .evidence_sha256 == $evidence_sha256' \
               "$path" >/dev/null
           done
-      - name: Assemble and sign short-lived server release evidence
+      - name: Assemble and sign permanent server release evidence
         env:
           PRIVATE_KEY_PEM: ${{ secrets.DEVICE_CONTROL_RELEASE_PRIVATE_KEY_PEM }}
           TARGET: ${{ inputs.node_target }}
@@ -287,7 +287,6 @@ jobs:
           printf '%s\n' "$PRIVATE_KEY_PEM" > "$key"
           chmod 600 "$key"
           issued_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          expires_at=$(date -u -d '+7 days' +%Y-%m-%dT%H:%M:%SZ)
           node="release-input/node/agent-remote-node-${NODE_VERSION}-${TARGET}.tar.gz"
           app="release-input/device/agent-remote-device-macos-${DEVICE_VERSION}.zip"
           proxy="release-input/device/agent-remote-device-proxy-${TARGET}-${DEVICE_VERSION}.tar.gz"
@@ -322,7 +321,6 @@ jobs:
             --gate-evidence compatibility=release-input/gates/compatibility.evidence.tar.gz \
             --ci-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             --issued-at "$issued_at" \
-            --expires-at "$expires_at" \
             --output-directory device-control-release-evidence
           uv sync --project release-input/server-source --frozen
           uv run --project release-input/server-source python \
