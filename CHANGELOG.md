@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.17 - 2026-09-01
+
+- chore(release): certify device control component updates (d4ffaf5)
+
 ## v0.2.16 - 2026-09-01
 
 - chore(release): certify server v0.2.9 (14dd6ee)
