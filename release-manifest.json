@@ -13,16 +13,16 @@
       "version": "0.2.9"
     },
     "agent-remote-device": {
-      "commit": "277b197b0f058f447a7086bfb2b798fb390ba544",
+      "commit": "60cfe213a49f7ef6e1457a561401552b5155cefb",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-device",
-      "version": "0.2.10"
+      "version": "0.2.11"
     },
     "agent-remote-node": {
-      "commit": "0bce0ddf60df5701d3deb0056059fce39e18df16",
+      "commit": "38fa55ea86f55c12421fb0c9f431df6de053e823",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-node",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     "agent-remote-server": {
       "commit": "a516bd7b9277f07e5651e6f282dbd742a9c0b9ef",
