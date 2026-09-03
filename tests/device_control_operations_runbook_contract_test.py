@@ -39,6 +39,7 @@ if missing:
 required_compose_contracts = (
     "DEVICE_CONTROL_ENABLED: ${DEVICE_CONTROL_ENABLED:-false}",
     "DEVICE_CONTROL_V2_ENABLED: ${DEVICE_CONTROL_V2_ENABLED:-true}",
+    "DEVICE_SESSION_AUTHORIZATION_MODE: ${DEVICE_SESSION_AUTHORIZATION_MODE:-per_application_approval}",
     "DEVICE_CONTROL_RELEASE_EVIDENCE_PATH: /run/agent-remote/device-control-release-evidence.json",
     "source: ${DEVICE_CONTROL_RELEASE_EVIDENCE_FILE:-/dev/null}",
     "read_only: true",

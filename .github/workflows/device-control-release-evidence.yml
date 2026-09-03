@@ -17,7 +17,7 @@ on:
           - linux-amd64-musl
           - linux-arm64-musl
       evidence_run_id:
-        description: Successful same-tag run containing device-control-release-gates
+        description: Successful same-tag device-control-external-gates workflow run ID
         required: true
         type: string
 
@@ -247,7 +247,9 @@ jobs:
           jq -e \
             --arg ref "v${DISTRIBUTION_VERSION}" \
             --arg sha "$GITHUB_SHA" \
-            '.conclusion == "success" and .head_branch == $ref and .head_sha == $sha' \
+            '.conclusion == "success" and .head_branch == $ref and .head_sha == $sha and
+             .event == "workflow_dispatch" and
+             .path == ".github/workflows/device-control-external-gates.yml"' \
             <<<"$run_json" >/dev/null
           mkdir -p release-input/gates
           gh run download "$EVIDENCE_RUN_ID" \

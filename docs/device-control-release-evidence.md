@@ -2,11 +2,20 @@
 
 Production device control stays disabled by default. An evidence workflow only assembles and signs
 a release-bound approval manifest; running it does not change Server configuration or enable the
-capability. The current schema 8 manifest is permanently valid for the exact signed release
+capability. The current schema 9 manifest is permanently valid for the exact signed release
 composition. It has no `expires_at` field and is revoked only by replacing or disabling the
 corresponding release, signing key, or deployment capability.
 
-Two release profiles are supported and their claims must not be mixed:
+Schema 8 remains permanently verifiable for an already issued exact composition. Current
+assemblers never emit it: schema 9 replaces its application-approval-era compatibility claims with
+the session-full-trust, application-launch, global-clipboard, mixed-version, and consequential-action
+confirmation scenarios described below.
+Runtime verification preserves that compatibility without widening authorization: production
+`session_full_trust` requires schema 9, while schema 8 can authorize only the legacy
+`per_application_approval` policy.
+
+The evidence contract defines two profiles whose claims must not be mixed. The current release path
+supports only `community-local-trust`; the Apple path is retained as a future profile:
 
 - `community-local-trust` is the default self-hosted profile for deployments without an Apple
   Developer account. It uses GitHub-hosted runners and the
@@ -42,10 +51,10 @@ The production flow is:
 3. Server, CLI, and Admin Web publish independently.
 4. A reviewed root manifest update selects an exact combination. CI verifies every declared source
    version, tag, commit, origin, and cross-component contract.
-5. The root distribution release runs the protected evidence workflow and embeds both the source
-   manifest and resolved, digest-pinned production manifest in its deployment bundle.
+5. The root release embeds the Community manifest. Apple Developer ID packaging, notarization,
+   signed E2E, and release publication are deferred.
 
-Every new composition emits schema 8, including all-equal versions. Schema 8 always includes
+Every new composition emits schema 9, including all-equal versions. Schema 9 always includes
 `distribution_version`, `release_manifest_sha256`, and the complete `components` identity map, and
 keeps `release_version` bound to the exact Server version checked at runtime. It also binds the
 artifact, SBOM, provenance, gate, and signing digests in the same Ed25519 signature. Server versions
@@ -78,7 +87,7 @@ exact release checksums, Sigstore workflow identities, GitHub provenance, signed
 dependency vulnerability reports,
 project self-signed App identity, and successful automation for every manifest-pinned commit. It then
 records the administrator's explicit acceptance of the documented reduced-security profile and
-signs a schema 8 manifest with the deployment-owned Ed25519 key.
+signs a schema 9 manifest with the deployment-owned Ed25519 key.
 
 Optional Community v2 quality evidence uses a second protected workflow. It is not required for
 runtime capability negotiation. On the dedicated acceptance Mac, place
@@ -103,7 +112,7 @@ gh workflow run community-device-control-release-evidence.yml \
 
 The evidence workflow accepts only a successful run from the dedicated workflow on the exact same
 tag commit. It validates the report thresholds, archive member digest, collection age, selected
-Node/proxy target, Server image, and application archive before signing schema 8. The optional v2
+Node/proxy target, Server image, and application archive before signing schema 9. The optional v2
 report still requires explicit acceptance of `community_computer_use_v2_without_apple_notarization`.
 
 The workflow does not claim Apple notarization, Gatekeeper trust, system-level network filtering,
@@ -134,9 +143,11 @@ bundles.
 
 ## External Gate Artifact
 
-The `evidence_run_id` input must identify a successful run of the same root tag and commit. That
-run must publish an artifact named `device-control-release-gates` containing exactly these real
-validation records and their raw evidence archives:
+The `evidence_run_id` input must identify a successful `workflow_dispatch` run of the exact
+`.github/workflows/device-control-external-gates.yml` workflow on the same root tag and commit.
+Runs from another workflow are rejected even if they publish an artifact with the expected name.
+The accepted run must publish an artifact named `device-control-release-gates` containing exactly
+these real validation records and their raw evidence archives:
 
 - `security-tests.json`
 - `security-review.json`
@@ -181,10 +192,15 @@ The gate-specific `details` contracts are:
   `macos_scenarios` is an exact object whose values must all be true. It covers Accessibility and
   Screen Recording first grant, denial, revocation and post-change restart; signed installation,
   same-version reinstall, upgrade, downgrade rejection, device revoke, uninstall and absence of
-  permission residue; the three application control levels, per-session application and clipboard
-  approval, the single-session machine lock and crash release; foreground preservation during
-  approval and passive observation, prior-foreground restoration after interactive actions, and
-  capture exclusion of unapproved windows; global Escape without delivery to the target; release of
+  permission residue; local session selection granting session-scoped full trust, trust expiry with
+  the DeviceSession, the single-session machine lock and crash release; dynamic application identity
+  verification, exclusion of Device processes, and rejection of protected system surfaces;
+  application launch by Bundle ID, rejection of ambiguous names, and rejection of paths, URLs, and
+  arguments; global clipboard reads without prior observation and proof that clipboard content is
+  not logged; passive observation preserving the foreground and foreground restoration after launch
+  and interactive actions; mixed-version fail-closed
+  behavior; preservation of remote consequential-action confirmation; global Escape without
+  delivery to the target; release of
   mouse-down, drag and modifier state after disconnect; Retina scaling, negative-origin
   multi-display coordinates, moving a window between displays, display hot-plug, fast user
   switching, sleep/wake, and network switching.
@@ -218,10 +234,20 @@ The gate-specific `details` contracts are:
   `unconfirmed_action_replayed`, and all required `scenarios`: device/server revocation, Escape,
   executor crash, lease expiry, relay disconnect, and screen lock.
 - `compatibility`: non-empty `claude_code_version` and `mcp_protocol_version`, HTTPS
-  `test_run_url`, zero `failed`, and the exact 16 public MCP `public_actions` exposed by the proxy.
+  `test_run_url`, zero `failed`, and exactly the five public MCP `public_actions` exposed by the
+  proxy: `act`, `input_text`, `launch_application`, `observe`, and `read_clipboard`.
   The same real Claude Code run must set true `managed_mcp_configuration_verified`,
   `mcp_image_results_verified`, `long_sequence_completed`, and `turn_stop_observed`; source-level
-  schema tests do not satisfy these runtime observations.
+  schema tests do not satisfy these runtime observations. A single mixed-version boolean is not
+  accepted. `mixed_version_matrix` must contain exactly `new_server_old_device`,
+  `old_server_new_device`, `new_proxy_old_device`, `old_proxy_new_device`, and
+  `capability_policy_mismatch`. Every row records the exact Server, Node, application, and proxy
+  version, lowercase SHA-256 digest, and release-candidate role; current roles must match both the
+  version and digest selected by the root release manifest and assembled artifacts, while legacy
+  roles must use different versions and digests. Each row must pass with its
+  scenario-specific rejection result while both `full_trust_activated` and
+  `unknown_protocol_sent` remain false. `matrix_report_sha256` must match a regular file in
+  `compatibility.evidence.tar.gz`, binding the structured claims to the raw deployment report.
 
 The Device release also publishes a separately signed `signing-notarization` record. It binds the
 application archive digest to the release version, Apple Team ID, fixed bundle identifier,
@@ -236,7 +262,7 @@ Computer Use v2 is negotiated automatically for new generations when
 General production release evidence remains mandatory, but `computer_use_v2_evidence_sha256` is
 optional quality metadata rather than runtime authorization. The Apple-profile assembler validates
 `security-tests.computer_use_v2`; the Community assembler validates the equivalent protected
-schema 8 record and its selected multi-architecture target. Both write the validated record digest
+schema 9 record and its selected multi-architecture target. Both write the validated record digest
 to `computer_use_v2_evidence_sha256`, covered by the canonical Ed25519 signature. The object also
 names the raw report with `report_sha256`, and assembly fails unless a file with that exact digest
 exists in the bounded security-tests evidence archive.
@@ -251,7 +277,7 @@ prompts, responses, AX text, URLs, screenshots, input, coordinates, or clipboard
 telemetry.
 
 The production Server verifies the general signed manifest at startup and while processing
-device-control operations, but does not require this optional field. Schema 8 carries it only when a
+device-control operations, but does not require this optional field. Schema 9 carries it only when a
 real report from the signed release artifacts passes the stricter quality gate. Operators can set
 `DEVICE_CONTROL_V2_ENABLED=false` to force new generations to v1 without changing release evidence.
 
@@ -266,8 +292,8 @@ release workflow's Sigstore identity; checking SPDX structure alone is insuffici
 any release, external record, protected key, digest, signature, attestation, SBOM, or notarization
 result is missing or invalid. On success it uploads an Actions artifact containing the signed server
 manifest, unsigned draft, SBOM/provenance inventories, and the validated gate records and raw
-archives. The Actions artifact is only an intermediate transport copy and may retain for 30 days;
-the signed manifest is permanently delivered with the matching root release/deployment bundle.
-Deployment must separately pin the matching Ed25519 public key and explicitly configure the server
-evidence path. The server verifies its exact root composition, Server version, signature, and issue
-time at startup; schema 8 has no time-based expiry.
+archives. The Actions artifact is only an intermediate transport copy and may retain for 30 days.
+Apple Developer ID packaging and real signed/notarized E2E are intentionally deferred and are not a
+current release gate. Synthetic fixtures and contract tests are not Apple evidence.
+The server verifies its exact root composition, Server version, signature, and issue
+time at startup; schemas 8 and 9 have no time-based expiry.

@@ -1,12 +1,19 @@
 # Upgrade
 
+The coordinated Community upgrade procedure for the session full-trust release is documented in
+[`session-full-trust-community-upgrade.md`](session-full-trust-community-upgrade.md). It includes
+the required commit, push, CI, prepare-release sequence for every repository, component pinning,
+deployment configuration, manual macOS installation, acceptance checks, and rollback steps.
+
 ## Control Plane
 
 The signed device-control release evidence is part of the root deployment bundle, not a separately
 expiring lease. Upgrade the Server image and the read-only evidence file from the same root release;
-do not copy an evidence file from another version. Schema 8 has no `expires_at`; the Server verifies
+do not copy an evidence file from another version. Schema 9 has no `expires_at`; the Server verifies
 the exact root composition and signature at startup. A schema 1-7 file is migration-only and must be
-replaced by the schema 8 file before enabling device control on the upgraded release.
+replaced by a current schema 9 file before enabling device control on the upgraded release. Already
+issued schema 8 evidence remains permanently verifiable for its exact signed composition, but is not
+emitted for a new composition.
 
 Before upgrading:
 

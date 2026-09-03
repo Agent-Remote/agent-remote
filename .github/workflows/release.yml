@@ -200,7 +200,7 @@ jobs:
           jq -e \
             --arg distribution_version "$version" \
             --arg manifest_sha256 "$manifest_sha256" \
-            '.schema_version == 8 and
+            '.schema_version == 9 and
              .distribution_version == $distribution_version and
              .release_manifest_sha256 == $manifest_sha256 and
              (has("expires_at") | not)' \

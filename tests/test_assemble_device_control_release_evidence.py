@@ -14,30 +14,28 @@ DISTRIBUTION_VERSION = "9.8.7"
 SERVER_VERSION = "1.2.3"
 DEVICE_VERSION = "5.6.7"
 LABELS = ("server", "node", "application", "proxy")
+ARTIFACT_VERSIONS = {
+    "server": SERVER_VERSION,
+    "node": "2.3.4",
+    "application": DEVICE_VERSION,
+    "proxy": DEVICE_VERSION,
+}
 PUBLIC_ACTIONS = [
-    "double_click",
-    "hold_key",
-    "key",
-    "left_click",
-    "left_click_drag",
-    "left_mouse_down",
-    "left_mouse_up",
-    "middle_click",
-    "mouse_move",
-    "right_click",
-    "screenshot",
-    "scroll",
-    "triple_click",
-    "type",
-    "wait",
-    "zoom",
+    "act",
+    "input_text",
+    "launch_application",
+    "observe",
+    "read_clipboard",
 ]
 MACOS_SECURITY_SCENARIOS = [
-    "application_control_levels",
-    "clipboard_permission",
+    "application_launch_bundle_id",
+    "application_launch_name_ambiguity_rejected",
+    "application_launch_paths_urls_arguments_rejected",
     "device_revoke",
+    "device_processes_excluded",
     "display_hotplug",
     "drag_disconnect_release",
+    "dynamic_application_identity_verified",
     "downgrade_rejected",
     "escape_global_stop",
     "escape_not_delivered_to_target",
@@ -48,7 +46,9 @@ MACOS_SECURITY_SCENARIOS = [
     "mouse_down_disconnect_release",
     "multi_display_negative_origin",
     "network_switch",
-    "per_session_application_approval",
+    "full_trust_expires_with_device_session",
+    "global_clipboard_content_not_logged",
+    "global_clipboard_without_observation",
     "process_restart_after_tcc_change",
     "retina_scaling",
     "same_version_reinstall",
@@ -62,13 +62,38 @@ MACOS_SECURITY_SCENARIOS = [
     "tcc_screen_recording_revoked",
     "uninstall",
     "uninstall_permission_residue_absent",
-    "approval_preserves_foreground_application",
+    "foreground_restored_after_launch_and_action",
+    "mixed_version_fails_closed",
     "passive_observation_preserves_foreground_application",
     "interactive_action_restores_foreground_application",
-    "unapproved_windows_excluded_from_capture",
+    "protected_system_surfaces_rejected",
+    "remote_consequential_action_confirmation_preserved",
+    "session_selection_grants_full_trust",
     "upgrade_signed_app",
     "window_move_between_displays",
 ]
+MIXED_VERSION_SCENARIOS = {
+    "capability_policy_mismatch": (
+        {"application", "node", "proxy", "server"},
+        "authorization_mismatch_rejected",
+    ),
+    "new_proxy_old_device": (
+        {"node", "proxy", "server"},
+        "launch_clipboard_unsupported",
+    ),
+    "new_server_old_device": (
+        {"node", "proxy", "server"},
+        "device_upgrade_required",
+    ),
+    "old_proxy_new_device": (
+        {"application", "node", "server"},
+        "old_proxy_candidate_rejected",
+    ),
+    "old_server_new_device": (
+        {"application", "node", "proxy"},
+        "server_version_unsupported",
+    ),
+}
 
 
 def write(path: Path, value: str) -> Path:
@@ -84,7 +109,9 @@ def write_evidence_archive(path: Path, name: str, content: bytes) -> Path:
     return path
 
 
-def gate_details(name: str) -> dict[str, object]:
+def gate_details(
+    name: str, artifacts: dict[str, str] | None = None
+) -> dict[str, object]:
     if name == "security-tests":
         return {
             "application_signature_verified": True,
@@ -194,13 +221,42 @@ def gate_details(name: str) -> dict[str, object]:
             "unconfirmed_action_replayed": False,
         }
     if name == "compatibility":
+        assert artifacts is not None
         return {
             "claude_code_version": "1.2.3",
             "failed": 0,
             "long_sequence_completed": True,
             "managed_mcp_configuration_verified": True,
+            "matrix_report_sha256": hashlib.sha256(b"raw-compatibility").hexdigest(),
             "mcp_image_results_verified": True,
             "mcp_protocol_version": "2025-11-25",
+            "mixed_version_matrix": {
+                scenario: {
+                    "components": {
+                        component: {
+                            "release_candidate": component in current,
+                            "sha256": (
+                                artifacts[component]
+                                if component in current
+                                else hashlib.sha256(
+                                    f"legacy-{scenario}-{component}".encode()
+                                ).hexdigest()
+                            ),
+                            "version": (
+                                ARTIFACT_VERSIONS[component]
+                                if component in current
+                                else "0.9.0"
+                            ),
+                        }
+                        for component in LABELS
+                    },
+                    "expected_result": expected_result,
+                    "full_trust_activated": False,
+                    "passed": True,
+                    "unknown_protocol_sent": False,
+                }
+                for scenario, (current, expected_result) in MIXED_VERSION_SCENARIOS.items()
+            },
             "public_actions": PUBLIC_ACTIONS,
             "test_run_url": "https://github.com/Agent-Remote/agent-remote/actions/runs/101",
             "turn_stop_observed": True,
@@ -217,7 +273,7 @@ def write_gate(
     value = {
         "artifacts": artifacts,
         "collected_at": "2026-07-30T23:00:00+00:00",
-        "details": gate_details(name),
+        "details": gate_details(name, artifacts),
         "evidence_sha256": evidence_digest,
         "gate": name,
         "method": f"release-bound {name} validation",
@@ -364,7 +420,7 @@ def test_assembler_writes_exact_artifact_and_inventory_digests() -> None:
 
         assert result.returncode == 0, result.stderr
         draft = json.loads((output / "release-evidence-draft.json").read_text())
-        assert draft["schema_version"] == 8
+        assert draft["schema_version"] == 9
         assert draft["distribution_version"] == DISTRIBUTION_VERSION
         assert draft["release_manifest_sha256"]
         assert set(draft["components"]) == {
@@ -414,6 +470,11 @@ def test_assembler_keeps_composition_binding_for_one_version_composition() -> No
             gate_path = Path(arguments[arguments.index(f"--{option}") + 1])
             gate = json.loads(gate_path.read_text(encoding="utf-8"))
             gate["release_version"] = SERVER_VERSION
+            if option == "compatibility":
+                for row in gate["details"]["mixed_version_matrix"].values():
+                    for identity in row["components"].values():
+                        if identity["release_candidate"]:
+                            identity["version"] = SERVER_VERSION
             gate_path.write_text(json.dumps(gate), encoding="utf-8")
 
         notarization_path = Path(
@@ -427,7 +488,7 @@ def test_assembler_keeps_composition_binding_for_one_version_composition() -> No
 
         assert result.returncode == 0, result.stderr
         draft = json.loads((output / "release-evidence-draft.json").read_text())
-        assert draft["schema_version"] == 8
+        assert draft["schema_version"] == 9
         assert draft["distribution_version"] == SERVER_VERSION
         assert draft["release_manifest_sha256"]
         assert "components" in draft
@@ -617,6 +678,116 @@ def test_assembler_requires_observed_claude_code_compatibility_behaviors() -> No
         assert not output.exists()
 
 
+def test_assembler_requires_complete_mixed_version_matrix() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        gate_path = Path(arguments[arguments.index("--compatibility") + 1])
+        gate = json.loads(gate_path.read_text())
+        del gate["details"]["mixed_version_matrix"]["old_server_new_device"]
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode != 0
+        assert "compatibility mixed-version matrix is incomplete" in result.stderr
+        assert not output.exists()
+
+
+def test_assembler_rejects_current_digest_for_legacy_matrix_component() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        gate_path = Path(arguments[arguments.index("--compatibility") + 1])
+        gate = json.loads(gate_path.read_text())
+        gate["details"]["mixed_version_matrix"]["new_server_old_device"][
+            "components"
+        ]["application"]["sha256"] = gate["artifacts"]["application"]
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode != 0
+        assert "application is not an older artifact" in result.stderr
+        assert not output.exists()
+
+
+def test_assembler_binds_current_matrix_component_version() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        gate_path = Path(arguments[arguments.index("--compatibility") + 1])
+        gate = json.loads(gate_path.read_text())
+        gate["details"]["mixed_version_matrix"]["old_server_new_device"][
+            "components"
+        ]["application"]["version"] = "9.9.9"
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode != 0
+        assert "application version is not the release candidate" in result.stderr
+        assert not output.exists()
+
+
+def test_assembler_rejects_current_version_for_legacy_matrix_component() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        gate_path = Path(arguments[arguments.index("--compatibility") + 1])
+        gate = json.loads(gate_path.read_text())
+        gate["details"]["mixed_version_matrix"]["new_proxy_old_device"][
+            "components"
+        ]["application"]["version"] = DEVICE_VERSION
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode != 0
+        assert "application version is not older" in result.stderr
+        assert not output.exists()
+
+
+def test_assembler_rejects_full_trust_activation_in_mixed_version_matrix() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        gate_path = Path(arguments[arguments.index("--compatibility") + 1])
+        gate = json.loads(gate_path.read_text())
+        gate["details"]["mixed_version_matrix"]["old_proxy_new_device"][
+            "full_trust_activated"
+        ] = True
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode != 0
+        assert "compatibility old_proxy_new_device did not fail closed" in result.stderr
+        assert not output.exists()
+
+
+def test_assembler_binds_mixed_version_report_to_raw_archive() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        output = root / "output"
+        arguments = command(root, output)
+        gate_path = Path(arguments[arguments.index("--compatibility") + 1])
+        gate = json.loads(gate_path.read_text())
+        gate["details"]["matrix_report_sha256"] = "e" * 64
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+
+        result = subprocess.run(arguments, capture_output=True, text=True)
+
+        assert result.returncode != 0
+        assert "compatibility report digest is not present" in result.stderr
+        assert not output.exists()
+
+
 def test_assembler_requires_independent_signed_security_review_scope() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
@@ -800,6 +971,12 @@ if __name__ == "__main__":
     test_assembler_rejects_computer_use_v2_gate_failures()
     test_assembler_binds_computer_use_v2_report_to_raw_archive()
     test_assembler_requires_observed_claude_code_compatibility_behaviors()
+    test_assembler_requires_complete_mixed_version_matrix()
+    test_assembler_rejects_current_digest_for_legacy_matrix_component()
+    test_assembler_binds_current_matrix_component_version()
+    test_assembler_rejects_current_version_for_legacy_matrix_component()
+    test_assembler_rejects_full_trust_activation_in_mixed_version_matrix()
+    test_assembler_binds_mixed_version_report_to_raw_archive()
     test_assembler_requires_independent_signed_security_review_scope()
     test_assembler_binds_security_review_report_to_raw_archive()
     test_assembler_requires_complete_signed_macos_sensor_evidence()

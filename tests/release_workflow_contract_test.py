@@ -49,7 +49,7 @@ for fragment in (
 
 required_release_fragments = (
     'test "$GITHUB_REF" = "refs/tags/v${version}"',
-    'tr -d \'[:space:]\' < VERSION',
+    "tr -d '[:space:]' < VERSION",
     "id-token: write",
     "attestations: write",
     "anchore/sbom-action@",
@@ -73,8 +73,8 @@ required_release_fragments = (
     "needs: [resolve, validate, community-evidence]",
     "community-device-control-release-evidence-${{ needs.resolve.outputs.version }}",
     'evidence_source=".release/device-control-release-evidence/device-control-release-evidence-${version}.json"',
-    ".schema_version == 8",
-    '(has(\"expires_at\") | not)',
+    ".schema_version == 9",
+    '(has("expires_at") | not)',
     "manifest_sha256=$(sha256sum release-manifest.json",
     '"dist/${package}/deploy/compose/device-control-release-evidence.json"',
     "> device-control-release-evidence.SHA256SUMS",
@@ -90,14 +90,18 @@ required_release_fragments = (
 if "\n        env:\n        run:" in release:
     raise SystemExit("release workflow contains an empty env mapping")
 
-missing = [fragment for fragment in required_release_fragments if fragment not in release]
+missing = [
+    fragment for fragment in required_release_fragments if fragment not in release
+]
 if missing:
     raise SystemExit(f"release workflow is missing: {', '.join(missing)}")
 
 if 'sha256sum "dist/${package}.tar.gz"' in release:
     raise SystemExit("deployment checksum must not contain the dist/ staging path")
 
-expected_dispatch = 'gh workflow run release.yml --ref "v${version}" -f version="${version}"'
+expected_dispatch = (
+    'gh workflow run release.yml --ref "v${version}" -f version="${version}"'
+)
 if expected_dispatch not in prepare:
     raise SystemExit("prepare workflow must dispatch the immutable release tag")
 
@@ -106,14 +110,16 @@ required_evidence_fragments = (
     "environment: production-device-release-evidence",
     "device-control-release-gates",
     "${name}.evidence.tar.gz",
-    '.evidence_sha256 == $evidence_sha256',
-    '.conclusion == "success" and .head_branch == $ref and .head_sha == $sha',
+    ".evidence_sha256 == $evidence_sha256",
+    '.conclusion == "success" and .head_branch == $ref and .head_sha == $sha and',
+    '.event == "workflow_dispatch"',
+    '.path == ".github/workflows/device-control-external-gates.yml"',
     "cosign verify-blob",
     "gh attestation verify",
     ".spdx.json.sigstore.json",
     "verify_sbom",
     '--source-ref "refs/tags/v${SERVER_VERSION}"',
-    'Agent-Remote/agent-remote-server/.github/workflows/${SERVER_WORKFLOW}',
+    "Agent-Remote/agent-remote-server/.github/workflows/${SERVER_WORKFLOW}",
     "notarization-${DEVICE_VERSION}.json",
     '"$device/$signing_evidence.sigstore.json"',
     "pip-audit.json",
@@ -133,11 +139,17 @@ required_evidence_fragments = (
     "DEVICE_CONTROL_RELEASE_PRIVATE_KEY_PEM",
     "retention-days: 30",
 )
-missing_evidence = [fragment for fragment in required_evidence_fragments if fragment not in evidence]
+missing_evidence = [
+    fragment for fragment in required_evidence_fragments if fragment not in evidence
+]
 if missing_evidence:
-    raise SystemExit(f"release evidence workflow is missing: {', '.join(missing_evidence)}")
+    raise SystemExit(
+        f"release evidence workflow is missing: {', '.join(missing_evidence)}"
+    )
 
-server_oci_bundle = '--bundle "$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl"'
+server_oci_bundle = (
+    '--bundle "$server/agent-remote-server-${SERVER_VERSION}.provenance.jsonl"'
+)
 if server_oci_bundle not in evidence or server_oci_bundle not in community_evidence:
     raise SystemExit("server OCI provenance must use the checksummed release bundle")
 anonymous_oci_verification = "env -u GH_TOKEN -u GITHUB_TOKEN"
@@ -165,7 +177,9 @@ required_external_gate_fragments = (
     "retention-days: 30",
 )
 missing_external_gates = [
-    fragment for fragment in required_external_gate_fragments if fragment not in external_gates
+    fragment
+    for fragment in required_external_gate_fragments
+    if fragment not in external_gates
 ]
 if missing_external_gates:
     raise SystemExit(
@@ -191,7 +205,7 @@ required_community_evidence_fragments = (
     'run["event"] == "push"',
     'run["path"] == ".github/workflows/ci.yml"',
     'run["event"] == "workflow_dispatch"',
-    'trusted_release = f".github/workflows/{identity[\'release_workflow\']}"',
+    "trusted_release = f\".github/workflows/{identity['release_workflow']}\"",
     "! -name SHA256SUMS",
     "assemble-community-device-control-release-evidence.py",
     "create_device_control_release_evidence.py",
@@ -262,9 +276,11 @@ for fragment in (
     if fragment not in test_compose:
         raise SystemExit(f"local device test compose is missing: {fragment}")
 
-forwarding_e2e = Path("tests/session_port_forwarding_e2e.py").read_text(encoding="utf-8")
+forwarding_e2e = Path("tests/session_port_forwarding_e2e.py").read_text(
+    encoding="utf-8"
+)
 for fragment in (
-    'def http_get(port: int, path: str, timeout: float = 10)',
+    "def http_get(port: int, path: str, timeout: float = 10)",
     'socket.create_connection(("127.0.0.1", port), timeout=10)',
     'headers={"Connection": "close"}',
 ):
@@ -295,19 +311,19 @@ test_release_assembler = Path(
     "scripts/assemble-local-device-control-test-release.sh"
 ).read_text(encoding="utf-8")
 for fragment in (
-    'release_version=$(jq -er .distribution_version',
-    'agent-remote-cli-$cli_version-aarch64-apple-darwin.tar.gz',
-    'agent-remote-node-$node_version-linux-amd64-glibc.tar.gz',
+    "release_version=$(jq -er .distribution_version",
+    "agent-remote-cli-$cli_version-aarch64-apple-darwin.tar.gz",
+    "agent-remote-node-$node_version-linux-amd64-glibc.tar.gz",
     '"$proxy_amd64/SHA256SUMS"',
     '"$proxy_arm64/SHA256SUMS"',
-    'shasum -a 256 --check SHA256SUMS',
+    "shasum -a 256 --check SHA256SUMS",
     '"$staging/bin/agent-remote-device-proxy"',
-    'shasum -a 256 bin/agent-remote-device-proxy > SHA256SUMS',
-    '--uid 0 --gid 0 --uname root --gname root',
-    '--owner=0 --group=0 --numeric-owner',
-    'tar --no-xattrs',
+    "shasum -a 256 bin/agent-remote-device-proxy > SHA256SUMS",
+    "--uid 0 --gid 0 --uname root --gname root",
+    "--owner=0 --group=0 --numeric-owner",
+    "tar --no-xattrs",
     '-C "$staging" -czf "$archive" bin VERSION SHA256SUMS',
-    'docker buildx build',
+    "docker buildx build",
     '--platform "linux/$architecture"',
     '--build-arg "AGENT_REMOTE_VERSION=$version"',
     '--output "type=docker,dest=$archive"',

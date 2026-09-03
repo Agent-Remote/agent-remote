@@ -635,7 +635,7 @@ def main() -> None:
         signing_sha256 = digest(args.community_signing)
         risk_sha256 = digest(args.risk_acceptance)
         draft = {
-            "schema_version": 8,
+            "schema_version": 9,
             "release_profile": "community-local-trust",
             "production_ready": True,
             "apple_notarized": False,

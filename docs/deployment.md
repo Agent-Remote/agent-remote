@@ -57,13 +57,20 @@ following deployment-owned values after that profile's release gates pass:
   Computer Use v2 capability set when the assigned Node advertises every required capability and
   otherwise falls back atomically to v1. Set it to `false` only as an emergency rollback for new
   generations; active generations never downgrade in place.
+- `DEVICE_SESSION_AUTHORIZATION_MODE=per_application_approval`: the compatibility default. Change
+  it to `session_full_trust` only after the schema 9 root composition, Server, Node, Device app,
+  and embedded proxy have all been upgraded and verified. The setting applies only to new claims;
+  stop and recreate an existing binding instead of changing its authorization in place.
 
 Production Server startup rejects an enabled capability when either retention period is zero or
-the general signed schema 8 evidence cannot be verified. The evidence is shipped inside the same
-root release/deployment bundle as `release-manifest.json` and is permanently valid for that exact
-signed component/artifact composition; it is not renewed by changing a clock or copying a JSON file.
+the general signed release evidence cannot be verified. Current releases ship schema 9 inside the same
+root release/deployment bundle as `release-manifest.json`; it is permanently valid for that exact
+signed component/artifact composition. Already issued schema 8 remains permanently verifiable for
+its own exact composition. Evidence is not renewed by changing a clock or copying a JSON file.
+The current release path remains the Community profile. Apple Developer ID packaging and its real
+signed/notarized E2E are deferred and are not a current release gate.
 Computer Use v2 acceptance metadata is optional
-quality evidence and does not authorize runtime capability negotiation. A schema 8
+quality evidence and does not authorize runtime capability negotiation. A schema 9
 `community-local-trust` manifest may validly
 declare `production_ready=true` while also declaring that Apple notarization, public distribution,
 and automatic trust are unavailable. The deployment administrator explicitly accepts those limits;

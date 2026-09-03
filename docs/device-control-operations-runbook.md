@@ -29,8 +29,8 @@
 | GUI 内容和输入 | 仅在当前调用的内存窗口中存在 | 禁止持久化；禁止为排障开启 body/header dump 或 core dump |
 | relay 票据和每代连接材料 | 由 Server TTL 和一次性兑换约束 | 不备份、不归档；到期后不得重放 |
 | 设备控制 session 元数据 | PostgreSQL 持久化 | 只允许设计文档第 9 节列出的零内容字段 |
-| 审批与动作审计元数据 | PostgreSQL 持久化 | 只允许摘要、动作类型、结果和关联 ID |
-| 发布门禁清单 | schema 8 与根版本制品绑定，永久有效 | 仅在版本、制品、签名键或部署授权被替换/撤销时重新发布；旧 schema 1-7 仍按原 30 天迁移规则处理 |
+| 授权与动作审计元数据 | PostgreSQL 持久化 | 只允许授权 mode/policy version、动作类型、结果和关联 ID；不得记录应用或剪贴板内容 |
+| 发布门禁清单 | 当前 schema 9 与根版本制品绑定，永久有效 | 仅在版本、制品、签名键或部署授权被替换/撤销时重新发布；已签发 schema 8 仍永久兼容，旧 schema 1-7 仍按原 30 天迁移规则处理 |
 | Actions 总装 artifact | 当前 workflow 保留 30 天 | 需要更长审计期时转存到受控、不可变且访问留痕的证据库 |
 | PostgreSQL 备份 | 由部署方管理 | 保留期不得长于已批准的数据策略；过期副本和恢复测试副本同样删除 |
 
@@ -41,7 +41,7 @@
 安全负责人共同批准。
 
 Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENTION_DAYS` 清理截止时间前的终态
-`device_sessions` 及其审批摘要，`DEVICE_SESSION_AUDIT_RETENTION_DAYS` 只清理
+`device_sessions` 及其历史兼容审批摘要，`DEVICE_SESSION_AUDIT_RETENTION_DAYS` 只清理
 `target_type=device_session` 的审计元数据。审计期不得短于 session 期；两者默认都是 `0`，表示不自动
 清理。生产环境启用设备控制时任一值为 `0` 都会拒绝启动，因此生产负责人必须先批准并配置实际天数。
 
@@ -66,7 +66,7 @@ Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENT
 2. 选择并验证一种发布配置：无 Apple 账号时按 `community-local-trust-release.md` 验证 Server、Node、
    App 和 proxy 的摘要、SBOM、来源证明、自签名身份、官方 runner CI 与风险接受记录；Developer ID
    配置则按 `device-control-release-evidence.md` 验证 Apple 签名/公证和六项原始外部门禁证据。
-3. 从同一个根版本部署包读取 schema 8 发布证据，确认其 `distribution_version` 与正在部署的
+3. 从同一个根版本部署包读取 schema 9 发布证据，确认其 `distribution_version` 与正在部署的
    `VERSION` 一致且不存在 `expires_at`，再把证据和对应 Ed25519 公钥作为只读部署输入设置到
    `DEVICE_CONTROL_RELEASE_EVIDENCE_PATH` 和 `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`。禁止跨版本复制证据。
 4. 设置数据负责人批准的 `DEVICE_SESSION_RETENTION_DAYS` 和
@@ -89,8 +89,8 @@ agent-remote device launch
 ```
 
 升级前结束设备控制 session，保存零内容 session ID 和停止结果，然后安装新版本。安装命令允许同版本
-重装和升级，拒绝降级。升级后重新验证签名、两个 XPC service、TCC 状态、Esc 停止和一次完整的批准/
-停止流程。Developer ID 配置还要验证 Gatekeeper 和出站策略实时证明；community 配置要验证固定自签名
+重装和升级，拒绝降级。升级后重新验证签名、两个 XPC service、TCC 状态、Esc 停止和一次完整的
+session 选择、自动激活、launch、无 observation clipboard 与停止流程。Developer ID 配置还要验证 Gatekeeper 和出站策略实时证明；community 配置要验证固定自签名
 证书、手动信任状态和 Broker 应用级目的地限制。任一适用检查失败时保持 capability 关闭并进入回滚。
 
 ### 3.3 Computer Use v2 自动协商
@@ -101,9 +101,15 @@ agent-remote device launch
 活动 generation 固定其 capability 集合，中途不升级也不降级。
 
 升级后创建一个新的无副作用 session，确认 context task 携带完整三项 capability，并验证 AX-first、
-状态绑定、stale 拒绝、adaptive settle、图片 fallback 和停止恢复。schema 8 中的专项报告仍可用于长期质量
+状态绑定、stale 拒绝、adaptive settle、图片 fallback 和停止恢复。schema 9 中的专项报告仍可用于长期质量
 审计，但缺失不影响已经正式支持的 v2。记录不得包含 AX 文本、URL、标题、截图、输入、坐标或剪贴板
 内容。
+
+`session_full_trust` 不能沿用上述三项基础 capability 的宽松回退。新模式至少同时要求
+`observation_mode_v2`、`ax_state_v2`、`adaptive_settle_v2`、`clipboard_payload_v2`、
+`session_full_trust_v1`、`application_launch_v1` 和 `global_clipboard_v1`。缺少任意一项、
+policy version 不匹配或组件版本不受发布清单支持时，candidate 必须不可控并显示升级错误；不得
+静默退回逐应用审批、隐藏 launch 或恢复 application-bound clipboard。
 
 ## 4. 正常停用、撤销与卸载
 
@@ -130,8 +136,9 @@ agent-remote device launch
 
 用户在 Device APP 选择另一个远端 Claude session 时，Server 会停止当前设备的旧控制绑定，并在目标
 session 已被其他设备使用时停止该设备上的旧绑定。旧 relay 必须先关闭，随后由 Node deactivate task
-清除 runtime context；新绑定必须重新进入 `pending_device` 和本机应用审批，不能复用旧 generation 或
-旧审批。
+清除 runtime context；新绑定必须重新进入 `pending_device`，并由这次本机 session 选择建立新的
+`session_full_trust` authorization。不能复用旧 DeviceSession 的 generation 或 authorization；同一
+DeviceSession 的重连/轮换只能复制完全相同的 policy version 和 scope。
 
 切换故障排查只记录 user/device/tool-session/device-session ID、generation、task ID、request ID、状态
 和时间。不得收集截图、输入、Claude 配置或 relay payload。若数据库已显示旧绑定为终态但旧 Mac 仍能
@@ -145,7 +152,7 @@ session 已被其他设备使用时停止该设备上的旧绑定。旧 relay �
 
 | 操作 | 设备控制授权 | 远端 `fclaude` session | 备注 |
 | --- | --- | --- | --- |
-| APP `Stop current action` | 保留，进入新的待审批代次 | 保持运行 | 只停止当前 turn |
+| APP `Stop current action` | 保留相同 session authorization，进入 paused | 保持运行 | 只停止当前 turn |
 | APP `End device control` | 终止 | 保持运行 | 清理 relay、Node bridge 和本机 GUI 状态 |
 | Admin Web `Stop` | 终止 | 保持运行 | 远端 APP 必须 fail closed 并恢复桌面 |
 | `fclaude stop` | 终止 | 终止或进入 interrupted | 由 Server 统一清理 DeviceSession |
@@ -153,7 +160,7 @@ session 已被其他设备使用时停止该设备上的旧绑定。旧 relay �
 
 Admin Web 和 APP 都只能调用同一个 Server revoke/stop service。旧的客户端指定
 `device_id + tool_session_id` 创建接口不是普通用户入口；上线后应返回弃用错误，
-避免 Web 绕过本机选择和审批。
+避免 Web 绕过本机 session 选择授权。
 
 ### 4.3 多 worker 部署
 
@@ -165,7 +172,7 @@ Redis 不可用或订阅持续重连时不得开启设备控制 capability。数
 
 ## 5. 事件响应
 
-以下任一事件进入本流程：设备或签名身份丢失、异常审批、未授权目的地连接、Claude 数据目录访问、
+以下任一事件进入本流程：设备或签名身份丢失、异常授权、未授权目的地连接、Claude 数据目录访问、
 策略证明失败、重放/乱序告警、按键未释放、TCC/隐藏应用残留、发布签名键或证明键疑似泄露。
 
 ### 5.1 遏制
@@ -218,7 +225,7 @@ agent-remote device diagnose
 3. 在同一次 Server 部署中原子更新清单和 `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`，再重启验证。
 4. 验证旧公钥不能接受新清单、新公钥不能接受旧清单，并销毁可恢复副本之外的旧私钥。
 
-疑似泄露时先关闭 capability、撤销受影响设备和当前部署清单，再执行轮换。schema 8 没有到期续签：
+疑似泄露时先关闭 capability、撤销受影响设备和当前部署清单，再执行轮换。schema 9 没有到期续签：
 只有旧键未泄露、旧版本制品仍受支持且组合未被撤销时，才允许同时回滚旧公钥和旧清单；不得只回滚
 其中一项。更换签名键或证据组合必须随新的根版本部署。
 
@@ -236,13 +243,14 @@ mach service 和策略 ID。改变其中任何一项都要求新的签名、公�
 ## 7. 回滚与演练
 
 应用不支持降级安装。回滚必须结束 session、关闭 capability、撤销受影响设备，重新安装仍受支持且
-具有匹配 schema 8 发布证据和签名公钥的版本；若该版本的密钥、策略或制品受事件影响，则不能回滚，只能前向修复。恢复
+具有匹配 schema 8 或 9 发布证据和签名公钥的版本；若该版本的密钥、策略或制品受事件影响，则不能回滚，只能前向修复。恢复
 后重新注册/轮换设备凭据并执行第 3 节验证。
 
 Computer Use v2 出现部分 capability、错误目标、敏感遥测、stale/坐标 fallback 激增、成功率回退、
 延迟超阈值时，先把 `DEVICE_CONTROL_V2_ENABLED` 设为 `false`，阻止
 新 generation 进入 v2；随后终止受影响的活动 device session，确认本机释放输入并恢复隐藏应用，再由
-用户重新审批建立 v1 generation。禁止原地降级活动 generation，也禁止自动重放执行状态未知的动作。
+用户重新选择 session 并建立受支持的新 generation。full-trust 模式不得回退为不完整 v1；禁止原地
+降级活动 generation，也禁止自动重放执行状态未知的动作。
 若问题涉及签名、密钥、隔离或出站策略，继续把 `DEVICE_CONTROL_ENABLED` 设为 `false` 并执行事件响应，
 不能只回退 v2 百分比。
 
@@ -250,6 +258,6 @@ Computer Use v2 出现部分 capability、错误目标、敏感遥测、stale/�
 锁屏、设备令牌轮换、两类 Ed25519 键轮换、升级失败、TCC 残留和隐藏应用恢复。演练报告必须绑定精确
 制品摘要并保持零内容；失败项进入发布阻塞清单，不能用本运行手册的存在替代实际证据。
 
-每次相关发布还应演练：`true -> false` 的新 generation 选择、活动 v2 session 终止、重新审批后的 v1
-工具面、Node 缺失单项 capability，以及回滚期间没有动作自动重放。该演练可纳入 schema 8 中的可选质量
+每次相关发布还应演练：`true -> false` 的新 generation 选择、活动 v2 session 终止、重新选择后的
+受支持工具面、Node 缺失任一 full-trust capability，以及回滚期间没有动作自动重放。该演练可纳入 schema 9 中的可选质量
 证据，但不是运行时依赖。

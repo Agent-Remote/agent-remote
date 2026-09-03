@@ -38,6 +38,7 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - `docs/session-port-forwarding-design.md`
 - `docs/local-device-control-security-design.md`
 - `docs/local-device-control-binding-design.md`
+- `docs/device-full-trust-refactor-plan.md`
 - `docs/local-device-control-release-gate-status.md`
 - `docs/device-control-operations-runbook.md`
 - `docs/deployment.md`
@@ -63,8 +64,9 @@ Release workflow 会发布部署归档、CLI/Node 二进制、GHCR 镜像和 Git
 设备控制的生产证据使用独立的受保护装配流程，详见
 `docs/device-control-release-evidence.md`。根仓库的 `release-manifest.json` 认证一组使用独立版本的
 精确生产组合，包括每个组件的制品签名 workflow 身份。根发布会验证清单固定的 tag、commit、制品和兼容门禁，把已签名的多架构 Community
-schema 8 签名证据与根版本清单一起内置到部署包，并按 digest 固定部署镜像；证据没有时间过期，仅对
-该精确签名组合有效；该流程不会自动启用 capability。
+schema 9 签名证据与根版本清单一起内置到部署包，并按 digest 固定部署镜像；证据没有时间过期，仅对
+该精确签名组合有效。已签发的 schema 8 证据对其自身精确组合仍永久可验证；该流程不会自动启用
+capability。
 
 ## 许可证
 

@@ -7,13 +7,14 @@
 本文基于 2026-07-30 可查的 Anthropic 官方 Computer Use 文档。官方未公开的应用分类明细、内部提示、分类器和实现细节不作推测。任何声称“与官方一致”的行为，仅指本文第 5 节列出的公开可观察行为；官方行为变化后必须通过单独的兼容性评审更新，不能静默改变产品权限。
 
 设备主动选择远端 Claude session、claim/rebind、live-only 绑定唯一性和 App/Web 停止语义见
-`local-device-control-binding-design.md`。本文件中的设备控制授权、generation、relay、应用审批和
-本机 Claude 隔离要求同样适用于主动 claim 流程。
+`local-device-control-binding-design.md`。选择 session 即为当前 DeviceSession 授予版本化的
+`session_full_trust` authorization；本文件中的 generation、relay、应用身份校验和本机 Claude
+隔离要求同样适用于主动 claim 流程。逐应用审批仅作为历史客户端兼容模式保留。
 
 绝对“0 漏洞”无法被设计、测试或形式化检查完全证明。本项目的可验证发布目标是：
 
 - 0 个已知 Critical 或 High 安全漏洞；
-- 0 条已知可绕过用户审批、跨租户边界、本地 Claude 隔离或设备会话绑定的路径；
+- 0 条已知可绕过本机 session 选择、跨租户边界、本地 Claude 隔离或设备会话绑定的路径；
 - 默认拒绝未知协议、越权动作和失去上下文的 GUI 状态；
 - 所有安全声明都有自动化测试、人工验证或明确记录的外部假设。
 
@@ -23,7 +24,8 @@
 2. 远端 Claude Code 是唯一参与任务推理的 Claude 进程。本机可以安装 Claude Code 或 Claude Desktop，但 agent-remote 不发现、不启动、不登录、不配置也不调用它们。
 3. 本机 agent-remote 组件不得向 Anthropic 服务发送请求，也不得持有 Anthropic API key、Claude OAuth token 或 Claude 登录态。
 4. 首版使用远端 Claude Code 的受管 MCP 工具直接完成截图与动作循环，不引入独立的 Anthropic Computer Use API agent loop。
-5. 本机应用审批、控制等级、警告、全局停止、单会话锁和窗口隐藏行为对齐 Anthropic 已公开的 Computer Use 行为，不自行增加应用类别判断。
+5. 用户在 Device APP 中选择远端 Claude session，即为该 DeviceSession 授予会话级全功能信任；
+   会话期间可 Full Control 所有合格用户 GUI 应用、读取全局纯文本剪贴板并启动通过本机校验的 `.app`。
 6. GUI 状态异常、目标应用变化、系统权限弹窗、动作上下文不一致或协议校验失败时立即停止，不自动尝试绕过。
 7. 系统面向多用户部署；普通用户、远端 Claude 输出和屏幕内容均不可信。
 8. 控制面管理员、Node root、用户本机操作系统和本机用户属于可信计算基。本文不防御这些主体主动读取内存、替换二进制或伪造运行状态。
@@ -41,7 +43,7 @@
 
 ### 3.1 目标
 
-1. 远端 Claude Code 可以在用户明确批准后查看和操作本机应用。
+1. 远端 Claude Code 可以在用户本机选择 session 后查看和 Full Control 任意合格用户 GUI 应用。
 2. 每个请求绑定准确的用户、设备、远端 session、设备 session、应用和授权代次。
 3. 多个用户、设备和 session 之间不能复用授权、密钥、截图或动作通道。
 4. 用户可以从 macOS 全局立即中止当前动作，并能明确看到何时正在被控制。
@@ -74,9 +76,9 @@ Remote Native Runtime
   -> local Agent Remote Device.app outbound connection
        -> network broker
        -> local IPC
-       -> GUI executor and approval UI
+       -> GUI executor and session status UI
        -> macOS Screen Recording / Accessibility
-       -> approved applications
+       -> eligible signed GUI applications
 ```
 
 控制面负责身份、授权状态、一次性连接材料、短期租约、撤销和审计。控制面中继只处理有大小、速率和生命周期边界的加密帧，不解析截图或输入内容。
@@ -90,7 +92,7 @@ Remote Native Runtime
 
 | 组件             | 权限                               | 禁止持有的能力                               |
 | -------------- | -------------------------------- | ------------------------------------- |
-| Approval UI    | 展示 session、应用、控制等级和警告；接收允许、拒绝和停止 | Claude 凭据、远端命令执行                      |
+| Session UI     | 展示 session、连接/暂停/故障状态；接收选择、抢占确认和停止 | Claude 凭据、远端命令执行                      |
 | Network broker | 设备认证、出站连接、协议帧、租约和端到端密钥           | Screen Recording、Accessibility、任意 URL |
 | GUI executor   | 截图、鼠标、键盘、窗口隐藏和恢复                 | Anthropic 凭据、设备长期凭据、任意网络目标            |
 
@@ -127,7 +129,8 @@ MCP server 名称使用 `agent-remote-device`，不得使用 Claude Code 保留�
 | `created_at` / `expires_at` | 生命周期边界                 |
 
 
-应用审批和额外权限属于设备本地状态。控制面只保存应用稳定标识的摘要、控制等级、审批结果、时间和审计关联 ID，不保存窗口标题、屏幕内容或输入内容。
+控制面显式保存 authorization mode、policy version 和授权时间，不保存应用名称、Bundle ID、
+窗口标题、剪贴板、屏幕内容或输入内容。具体应用身份仅在 Device 加密执行路径中逐次解析和校验。
 
 ### 4.4 实现语言与 macOS 技术栈
 
@@ -137,17 +140,18 @@ MCP server 名称使用 `agent-remote-device`，不得使用 Claude Code 保留�
 
 | 领域 | 技术 | 用途 |
 | --- | --- | --- |
-| 应用和审批 UI | SwiftUI | 状态窗口、应用审批、设置和停止入口 |
+| Session 状态 UI | SwiftUI | session 选择、抢占确认、状态、设置和停止入口 |
 | 原生窗口集成 | AppKit | 窗口管理、应用隐藏与恢复、macOS 生命周期 |
-| 屏幕和窗口捕获 | ScreenCaptureKit | 捕获获准应用，并排除状态窗口和未批准应用 |
+| 屏幕和窗口捕获 | ScreenCaptureKit | 捕获精确目标窗口，并排除 Device 进程和系统保护表面 |
 | 应用与窗口识别 | Accessibility API / `AXUIElement` | 校验应用、窗口、前台状态和控制上下文 |
 | 鼠标和键盘 | CoreGraphics `CGEvent` | 执行经过授权和坐标校验的输入动作 |
 | 本机通知 | UserNotifications | 控制开始、完成、失败和停止提示 |
-| 权限进程隔离 | XPC | 隔离 Approval UI、Network broker 和 GUI executor |
+| 权限进程隔离 | XPC | 隔离 Session UI、Network broker 和 GUI executor |
 | 设备密钥 | Keychain Services | 保存独立于 Claude 的设备密钥和引用 |
 | 网络 | Network.framework 或 URLSession | 连接固定的 agent-remote endpoint |
 
-界面遵循 macOS Human Interface Guidelines，使用系统组件和标准权限说明。功能界面以审批、状态和立即停止为中心，不提供浏览器式工作台、内嵌终端或通用自动化编辑器。
+界面遵循 macOS Human Interface Guidelines，使用系统组件和标准权限说明。功能界面以 session
+选择、连接状态和立即停止为中心，不提供浏览器式工作台、内嵌终端或通用自动化编辑器。
 
 远端 MCP proxy 使用 Rust stable 和 Tokio 实现，与现有 `agent-remote-cli` 的运行时和异步网络技术保持一致。它作为受管 Linux 二进制运行在远端 session 中。Swift 应用与 Rust proxy 不通过 FFI 共享可执行代码，只共享版本化协议 schema、固定枚举和跨语言测试向量。
 
@@ -201,7 +205,7 @@ agent-remote-device/
 
 `agent-remote-device` 使用一个仓库容纳 Swift 本机端和 Rust 远端 proxy，是因为二者共同拥有设备协议并必须作为兼容版本对发布。未来 Windows 实现可以在同一仓库增加独立平台目录，但首期构建、测试和 capability 只允许 `platform=macos`。
 
-## 5. Anthropic 公开行为兼容配置
+## 5. 会话级全信任配置
 
 
 
@@ -216,43 +220,37 @@ macOS 首次启用时，`Agent Remote Device.app` 请求：
 
 缺少任一权限时，控制动作失败并引导用户进入对应系统设置。Screen Recording 权限变更后如系统要求重启进程，应明确提示并停止当前设备 session。
 
-### 5.2 每 session 应用审批
+### 5.2 Session authorization
 
-首次请求某个应用时，本机必须展示：
+用户在 Device APP 中选择一个远端 Claude session 是唯一普通用户授权事件。新路径使用显式类型：
 
-- Claude 请求控制的应用；
-- 该应用的控制等级；
-- 额外权限，例如剪贴板；
-- 控制期间将隐藏的其他应用数量；
-- `Allow for this session` 和 `Deny`。
+```text
+SessionAuthorization
+  mode: session_full_trust
+  policy_version: 1
+  application_scope: all_user_gui_applications
+  control_level: full_control
+  clipboard_scope: global_plain_text
+  application_launch: allowed
+  excluded_bundle_identifiers: [dev.agentremote.device]
+  generation: <current generation>
+```
 
-授权只对当前设备 session 有效。可以一次审批多个应用。授权不得跨 session、设备、用户、重连代次或本机注销复用。
+未知 mode、scope 或 policy version 一律拒绝。授权绑定完整 DeviceSession binding 和 generation；
+同一 DeviceSession 的重连或 generation 轮换只能复制完全相同的授权，不能扩大范围或延长绝对 TTL。
+远端动作、MCP 参数、项目配置、Node 或管理员都不能提交或修改授权对象。新模式不得用空 approvals、
+通配 digest、Device identity 或其他哨兵值表达。
 
-### 5.3 应用控制等级
+### 5.3 应用范围与高风险动作
 
-严格采用 Anthropic 公开的三档行为：
+会话级授权允许 Full Control 当前或之后运行的所有合格用户 GUI 应用，包括 Terminal、Finder、
+System Settings 和密码管理器；这是明确的信任模型变化。每次观察或动作仍必须解析真实 PID、Bundle
+ID、代码签名 identifier、application digest、window ID 和 display fingerprint，并绑定当前 generation、
+sequence 与 model-visible state。Device APP、Broker、Executor、辅助进程、登录窗口、锁屏、Secure
+Input、TCC 授权窗口和其他系统保护表面始终拒绝。
 
-
-| 等级           | 能力                | 官方公开类别       |
-| ------------ | ----------------- | ------------ |
-| View only    | 只在截图中查看           | 浏览器、交易平台     |
-| Click only   | 点击和滚动，不允许输入或键盘快捷键 | Terminal、IDE |
-| Full control | 点击、输入、拖拽和键盘快捷键    | 其他应用         |
-
-
-官方文档没有公开完整 bundle identifier 和类别映射。因此首版只能对官方明确举例的应用建立版本化测试映射；任何希望声称“官方一致”但无法从官方资料确定类别的新应用，必须进入兼容性待确认状态，不能由开发者凭主观判断分类。产品界面应说明“等待确认应用类别”，由用户决定是否继续当前 session，但该决定不得被记录为官方分类。
-
-公开的额外警告保持一致：
-
-
-| 警告                         | 官方示例                                         |
-| -------------------------- | -------------------------------------------- |
-| Equivalent to shell access | Terminal、iTerm、VS Code、Warp 和其他 Terminal/IDE |
-| Can read or write any file | Finder                                       |
-| Can change system settings | System Settings                              |
-
-
-这些应用不是因为警告被自动禁止；用户仍按公开控制等级和 session 审批决定是否允许。
+购买、删除、发送、发布、授权、协议接受和凭据提交等高风险最终动作继续由远端 Claude/session
+策略要求独立观察与确认；Device 不新增逐动作弹窗，也不能把 full trust 解释为取消远端确认。
 
 ### 5.4 单 session 锁
 
@@ -262,7 +260,11 @@ macOS 首次启用时，`Agent Remote Device.app` 请求：
 
 ### 5.5 窗口可见性
 
-控制开始后不隐藏或切换其它可见应用，只向截图暴露批准应用。只读观察、截图、等待、缩放和获批的剪贴板读取可在后台完成；点击、键盘和 AX 交互才按需激活精确签名的目标进程。每个交互动作及其后续观察完成后，如果目标仍在前台则恢复动作前的用户应用；按键或鼠标保持状态会延迟到释放后恢复，若用户已自行切换前台则不覆盖。这样本机 `fclaude`/Claude terminal 可以继续用于观察和授权；`Agent Remote Device.app` 状态窗口仍承担本机停止作用并从截图中排除。
+控制开始后不隐藏或切换其它可见应用。无 application 参数的 `observe` 只选择当前前台的合格 GUI
+应用；有参数时只捕获解析并复核身份后的精确应用窗口。Device 状态窗口和排除进程始终不得出现在
+返回图像中。只读观察、截图、等待、缩放和全局剪贴板读取可在后台完成；点击、键盘和 AX 交互才
+按需激活精确签名的目标进程。每个交互动作及其后续观察完成后，如果目标仍在前台则恢复动作前的
+用户应用；若用户已自行切换前台则不覆盖。
 
 turn 结束后自动恢复隐藏应用。受管插件必须通过可信生命周期事件发出 turn stop；缺失该事件或连接异常时，本机按失败路径恢复应用并停止动作。
 
@@ -310,14 +312,19 @@ turn 结束后自动恢复隐藏应用。受管插件必须通过可信生命周
 - `hold_key`
 - `wait`
 - 在受支持模型和兼容配置下的 `zoom`
+- `launch_application`，只接受 Bundle ID 或无歧义的已安装应用名称
+- `read_clipboard`，在 active full-trust session 中读取全局纯文本剪贴板
 
 远端 MCP proxy 可以额外暴露 `input_text` 这类组合 helper 以减少模型往返和图片 Token。
-该 helper 只能按固定顺序展开为现有已批准动作，必须在同一 operation guard 内逐步执行；每一步
-仍独立校验完整 binding、单调 sequence、截图 generation、应用/窗口身份和控制等级。中间截图
+该 helper 只能按固定顺序展开为现有动作，必须在同一 operation guard 内逐步执行；每一步
+仍独立校验完整 binding、authorization、单调 sequence、截图 generation 和应用/窗口身份。中间截图
 不得返回模型，仅返回最后一次成功动作的截图；任一步失败即停止，并明确报告已完成的前缀，
 禁止把组合 helper 编码成绕过设备协议的新动作。
 
-动作是否可用必须同时满足工具版本、远端模型能力、应用控制等级和当前本地审批。不能因为模型请求了某个动作就自动提权。
+动作是否可用必须同时满足工具版本、完整 capability 集合和当前 session authorization。不能因为
+模型请求了某个动作就自动提权。`launch_application` 禁止路径、URL、参数、脚本、环境变量和 shell；
+`read_clipboard` 不要求 application、observation、state/window ID，但仍消费下一准确 sequence，并受
+完整 binding、lease、generation、纯文本 UTF-8 及 64 KiB 上限约束。
 
 每个调用由 MCP proxy 注入以下不可由 Claude 或项目修改的上下文：
 
@@ -342,21 +349,21 @@ Claude 只能提供动作类型及该动作公开参数，不能提供 endpoint�
 
 ```text
 pending_device
-  -> pending_user_approval
   -> active
   -> stopping
   -> stopped
 
-pending_* / active
-  -> denied
+pending_device / active
   -> expired
   -> failed
 ```
 
-只有本机 Approval UI 能完成应用审批。控制面管理员、Node、远端 Claude、MCP proxy 和项目配置都不能代替用户批准。
+`pending_device -> active` 只有在完整 binding、XPC/Executor、完整 capability、session 生命周期和
+generation-bound runtime context 都验证成功后才可提交。历史 `per_application_approval` 记录仍可
+经过 `pending_user_approval`/`denied`，但 full-trust session 调用旧 approve API 必须返回冲突。
 
 换绑会创建新的 `device_session_id`，即使新记录的初始 generation 仍为 `1`，也
-不能复用旧 binding 的 relay、审批摘要、runtime context 或 GUI executor 状态。
+不能复用旧 binding 的 relay、authorization、runtime context 或 GUI executor 状态。
 旧任务如果观察到当前 binding 已经变化，必须安全地返回 stale/no-op。
 
 ### 6.3 顺序、重放和重连
@@ -406,7 +413,7 @@ observe(auto)
 
 优化必须同时满足：
 
-- 不降低应用审批、控制等级、机器锁、全局停止、代次和重放保护；
+- 不降低 session authorization、具体应用身份校验、机器锁、全局停止、代次和重放保护；
 - 不因为省 Token 而复用旧坐标、旧元素或失去基准的 diff；
 - 不把浏览器 DOM、cookie、profile、调试端口或通用 URL API 暴露给远端；
 - 不记录 AX 文本、URL、窗口标题、截图、输入、坐标或剪贴板内容；
@@ -429,12 +436,12 @@ image_profile: none | compact | standard | region
 region
 ```
 
-`none` 只省略返回内容，不能省略执行前后的应用、窗口、显示器、审批和 generation 校验。本机应把
+`none` 只省略返回内容，不能省略执行前后的应用、窗口、显示器、authorization 和 generation 校验。本机应把
 窗口身份/几何校验与图片像素捕获、PNG/JPEG 编码拆开；无需图片时只更新受保护的状态上下文，不能
 先生成完整图片再在 proxy 丢弃。
 坐标动作仍必须要求 live window frame 与模型已见截图完全一致。键盘、无坐标滚动和 AX 元素动作
 不依赖旧像素几何，因此在全屏 Space 激活导致 frame 改变时，可以只保留精确签名进程、window ID、
-display fingerprint、审批和 generation 校验；该放宽不得用于任何坐标映射。
+display fingerprint、authorization 和 generation 校验；该放宽不得用于任何坐标映射。
 Space 动画期间，只有在精确签名进程已确认前台后，这类非坐标动作才可从全 Space 列表解析原
 window ID；坐标动作仍必须要求窗口已在当前 Space 上屏。
 
@@ -463,8 +470,8 @@ max_visible_rows_per_container: 20
 ```
 
 本机可以把请求的预算收紧，但不得接受超过编译时安全上限的值。密码/secure text field 的 value、
-不可见敏感内容、无界 WebArea 子树和重复包装节点必须省略或脱敏。AX URL 仅作为已批准浏览器窗口
-状态的一部分返回，不得变成绕过用户操作和应用审批的通用导航接口。
+不可见敏感内容、无界 WebArea 子树和重复包装节点必须省略或脱敏。AX URL 仅作为当前已验证浏览器
+窗口状态的一部分返回，不得变成绕过用户操作和远端高风险确认策略的通用导航接口。
 
 初次观察返回 full state；同一 application/window/display 上下文的后续观察默认返回 added、changed、
 removed diff。当变化比例、节点数量或编码大小超过阈值，或 proxy 不能证明模型仍持有
@@ -484,8 +491,8 @@ element_index
 ```
 
 GUI executor 在执行 `press`、`set_value`、`select_text`、`scroll` 或 secondary action 前，必须验证该
-句柄来自当前状态、AX 元素仍存在、目标应用和窗口未变化、元素实际公开对应 action，且本地审批的
-控制等级足够。任一条件不满足返回具体 stale/not-actionable 错误；禁止自动改用相邻元素、同名元素
+句柄来自当前状态、AX 元素仍存在、目标应用和窗口未变化、元素实际公开对应 action，且当前
+session authorization 仍有效。任一条件不满足返回具体 stale/not-actionable 错误；禁止自动改用相邻元素、同名元素
 或坐标点击。
 
 `set_value` 和文字选择属于 full-control 输入。secure text field、密码、认证凭据和受 Computer Use
@@ -536,10 +543,16 @@ skill 核心只保留通用状态规则；浏览器快路径、AX 使用和确�
 
 #### 6.5.7 能力协商、遥测与验收指标
 
-v2 通过完整 session binding 上的 capability 协商启用，例如 `ax_state_v2`、`observation_mode_v2` 和
-`adaptive_settle_v2`。Server 从 Node 心跳中只选择完整三项集合并写入 generation-bound context；Node
-严格拒绝部分集合和同 generation 降级，旧 Node 或缺少任一项时写入空集合并回退完整 v1。未知
-capability、协议版本不匹配或任一端不支持时不能部分解释 v2 frame。早期版本曾以 shadow mode
+v2 通过完整 session binding 上的 capability 协商启用。full-trust 模式要求
+`ax_state_v2`、`observation_mode_v2`、`adaptive_settle_v2`、`clipboard_payload_v2`、
+`session_full_trust_v1`、`application_launch_v1` 和 `global_clipboard_v1` 的完整集合。Server 从 Node
+心跳中只选择完整集合并写入 generation-bound context；Node 严格拒绝部分集合和同 generation 降级。
+full-trust 缺少任一项时 fail closed；仅历史 `per_application_approval` 路径可以协商完整 v1 fallback、
+精确三项 observation base 或该 base 加 `clipboard_payload_v2`，并过滤
+`session_full_trust_v1`、`application_launch_v1` 和 `global_clipboard_v1`。Server 按 binding 中持久化的
+authorization mode 协商，Node、proxy 和 Executor 再次拒绝 legacy/full-trust capability 混用；活动
+同 generation 续租不受后来部署开关变化而降级。未知 capability、协议版本不匹配或任一端不支持时
+不能部分解释 v2 frame。早期版本曾以 shadow mode
 验证有界 AX 状态；正式版本不再按设备灰度，而是由完整 capability 集合
 自动选择 v2。质量回归触发全局紧急开关，使后续新 generation 原子回退 v1。
 
@@ -585,7 +598,7 @@ baseline、组合 helper baseline 和 v2 AX 路径，不能只比较优化后的
 | MCP proxy | 暴露紧凑工具面、注入受管 context、维护模型已见 AX/image base、选择 observation policy | 信任模型提供的 session/state 标识或缓存 GUI 明文内容 |
 | Node/Runtime Helper | 探测并广告完整 capability、生成 owner-only managed context、固定遥测路径 | 部分启用 v2、在同 generation 静默降级或读取 AX 内容 |
 | Server | 只协商 Node 与产品策略的完整 capability 交集 | 看见设备内容、把未知 capability 当作已支持 |
-| Broker/DeviceServices | 校验租约、序号、应用/窗口/显示器和本地审批，转发严格 v1/v2 frame | 解析、记录或 diff AX 文本和图片 |
+| Broker/DeviceServices | 校验授权、租约、序号和应用/窗口/显示器，转发严格 v1/v2 frame | 解析、记录或 diff AX 文本和图片 |
 | GUI Executor | 捕获有界 AX/image、维护短期元素映射、执行动作、settle、生成新状态 | 任意联网、跨应用复用元素、把 AX URL 变成导航 API |
 
 MCP schema、server instructions、skill 和 benchmark 的调用状态机以
@@ -625,7 +638,7 @@ Token 优化分为三层，指标必须分别记录，不能用 bridge bytes 冒
   公开产品为其内置浏览器提供经审批的 Developer mode，本项目当前威胁模型仍选择更窄的 AX/UI 边界。
 
 官方 OpenAI Computer Use 文档公开确认的可采用原则仅包括：GUI 不足以由 CLI/结构化连接器完成时
-使用 Computer Use、优先专用 connector/MCP、任务保持小范围、应用权限独立审批、敏感动作额外确认、
+使用 Computer Use、优先专用 connector/MCP、任务保持小范围、敏感动作额外确认、
 网页内容视为不可信。官方公开文档没有给出内部 AX renderer、截图调度、Token 预算或私有调用算法，
 因此本文不声称复刻“Codex 原本逻辑”。第三方 `open-codex-computer-use` 只用于比较 bounded AX tree、
 element index 和常用应用操作体验，其实现不能越过本项目安全边界。
@@ -636,18 +649,19 @@ Computer Use v2 是正式默认能力。Server 在 `DEVICE_CONTROL_V2_ENABLED=tr
 三项 capability 集合启用 v2；部分、未知或畸形集合完整回退 v1。混合版本部署由这一能力协商自然兼容，
 不使用设备百分比分桶或临时验收窗口。活动 generation 固定其 capability 集合，不做中途协议切换。
 部分 capability、错误目标、敏感遥测、stale/fallback 激增、成功率回退或 p95 超阈值时，管理员把开关
-设为 `false`，终止受影响 session，并让重新审批的新 generation 使用 v1。回滚不删除审计证据，也不
+设为 `false`，终止受影响 session。full-trust generation 不能回退到能力残缺的 v1；只有显式历史
+`per_application_approval` 记录可继续使用 v1。回滚不删除审计证据，也不
 自动重放状态未知的动作。
 
 签名 release-evidence manifest 继续证明协调版本、供应链身份和通用生产门禁。Computer Use v2 专项
 证据是可选质量记录，不是运行时授权。该证据可以绑定精确 application/proxy/Node/Server 摘要，并证明：签名安装、
 Safari/Chrome/Firefox、AX 不完整 Electron fallback、golden prompt replay、零敏感内容遥测审计、错误
 目标数为零、成功率无回退、模型可见图片减少至少 70%、普通动作 p95 不高于 1 秒、settle p95 不高于
-5 秒、坐标 fallback 低于 20%，以及新 generation 回到 v1 的回滚演练。若选择在 schema 8 中记录，专项
+5 秒、坐标 fallback 低于 20%，以及新 generation 回到 v1 的回滚演练。若选择在 schema 9 中记录，专项
 对象的 `report_sha256` 还必须对应
 `security-tests.evidence.tar.gz` 内真实存在的普通报告文件，不能只提交布尔结论。该签名绑定现已由发布组装器和 Server 运行时
 验证器共同验证：Apple profile 组装器将已验证的 `security-tests` 记录摘要写入
-`computer_use_v2_evidence_sha256`；schema 8 缺少专项报告时为 `null`，存在时则要求受保护的
+`computer_use_v2_evidence_sha256`；schema 9 缺少专项报告时为 `null`，存在时则要求受保护的
 Community v2 记录、原始报告归档、清单选中四组件摘要和明确风险接受。Server 在启动和运行期验证通用
 发布清单，但不以该可选摘要决定 v2 capability。
 
@@ -685,7 +699,7 @@ Community v2 记录、原始报告归档、清单选中四组件摘要和明确�
 策略采用允许列表而不是仅阻止已知 Anthropic 域名，因为禁止列表无法证明没有遗漏的新域名。安装文档必须区分产品内检查和由管理员部署的系统级强制策略。
 
 产品内激活检查通过固定在签名 Network Broker 中的受管 mach service、策略 ID 和 Ed25519 公钥完成。
-Broker 在允许审批和建立 relay 前分别发送新的随机 challenge；受管服务必须返回绑定当前 Team ID、Broker
+Broker 在安装 session authorization 和建立 relay 前分别发送新的随机 challenge；受管服务必须返回绑定当前 Team ID、Broker
 bundle ID、唯一控制面主机、Network Extension 启用状态和允许/拒绝主动探测结果的短时签名证明。
 缺少服务、证明超过 30 秒、有效期超过 60 秒、字段或签名不匹配以及 5 秒内无响应均拒绝激活。该接口
 不能读取发布证据 JSON 代替当前机器状态，具体 Network Extension/MDM 规则仍由部署方实现并提供原始证据。
@@ -762,14 +776,14 @@ session 期，且不会清理通用身份审计。两个期限默认关闭，生
 
 以下情况立即停止当前动作、恢复隐藏应用并通知用户，不自动重试 GUI 操作：
 
-- 目标应用、窗口或控制等级不匹配；
-- 出现未批准应用或系统权限弹窗；
+- 目标应用、窗口、代码身份或 authorization 不匹配；
+- 出现 Device 自身、排除进程或系统保护表面；
 - 截图代次、显示布局或坐标映射变化；
 - 消息重复、乱序、过期或跨代；
 - 租约失效、设备被撤销或 session 状态不可确认；
 - 网络断开、MCP proxy 退出或本机 executor 异常；
 - 用户按 Esc、点击停止或 macOS 开始锁屏/切换用户；
-- 动作超出公开 Computer Use schema 或当前应用控制等级。
+- 动作超出公开 Device schema、launch 输入边界或当前 session authorization。
 
 传输层可在获得新连接材料后自动重连，但不重放未确认动作。恢复后必须先获取新截图，再由远端 Claude 重新决定下一步。
 
@@ -798,10 +812,12 @@ session 期，且不会清理通用身份审计。两个期限默认关闭，生
 ### 12.2 macOS 端到端验证
 
 - Accessibility 和 Screen Recording 首次授权、拒绝、撤销和进程重启；
-- 官方三档应用控制等级；
-- 每 session 审批和额外剪贴板权限；
+- session 选择后自动激活且不出现应用审批 UI；
+- 全信任授权随 DeviceSession 终止，并在 generation 轮换时不扩大；
+- Bundle ID/名称 launch、歧义拒绝以及路径、URL、参数和自身进程拒绝；
+- 无 observation 全局纯文本剪贴板和 64 KiB 上限；
 - 单 session 机器锁和崩溃释放；
-- 隐藏、排除和恢复未批准应用；
+- Device 进程与系统保护表面的捕获/控制排除；
 - Esc 全局停止及按键不传递；
 - Retina、多显示器、缩放、窗口移动和显示器热插拔；
 - 锁屏、快速用户切换、睡眠、唤醒和网络切换；
@@ -831,7 +847,7 @@ Apple Developer ID profile 的任何一项不满足均不得启用对应生产 c
 `community-local-trust-release.md` 定义；不得把自签名状态记录成 Developer ID 或 notarization 成功。
 
 生产控制面不得只依靠 capability 布尔开关声明上述条件已满足。启用时必须验证由部署方固定
-Ed25519 公钥签名、与当前根版本及精确 Server/组件/制品组合绑定的 schema 8 发布证据清单；该清单
+Ed25519 公钥签名、与当前根版本及精确 Server/组件/制品组合绑定的 schema 9 发布证据清单；该清单
 不包含 `expires_at`，对同一签名组合永久有效，只有版本或制品替换、签名密钥轮换、明确撤销或关闭
 设备控制时失效。清单至少固定 Server、Node、macOS 应用、MCP proxy、SBOM、来源证明及上述第 2
 至 8 项证据的 SHA-256 摘要。schema 1-7 仅在迁移期间接受并继续执行原 30 天规则。该签名门禁只
@@ -907,7 +923,8 @@ secure field、diff reset 或 fallback 测试。
 - 多显示器坐标和截图缩放的最终兼容协议；
 - 当前受管 Claude Code 版本的插件生命周期事件能否可靠标记 turn stop。
 
-任何未决事项不得通过放宽权限、启用通用 shell、取消本地审批或记录敏感 payload 规避。
+任何未决事项不得通过放宽 binding/identity 校验、启用通用 shell、伪造 authorization 或记录敏感
+payload 规避。
 
 ## 15. 官方依据
 

@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -21,7 +22,6 @@ from uuid import UUID
 USER_ID = UUID("10000000-0000-4000-8000-000000000001")
 DEVICE_ID = UUID("10000000-0000-4000-8000-000000000002")
 TOOL_SESSION_ID = UUID("10000000-0000-4000-8000-000000000003")
-DEVICE_SESSION_ID = UUID("10000000-0000-4000-8000-000000000004")
 NODE_ID = UUID("10000000-0000-4000-8000-000000000005")
 TOOL_ACCOUNT_ID = UUID("10000000-0000-4000-8000-000000000006")
 WORKSPACE_ID = UUID("10000000-0000-4000-8000-000000000007")
@@ -29,6 +29,15 @@ DEVICE_TOKEN_ID = UUID("10000000-0000-4000-8000-000000000008")
 DEVICE_TOKEN = "device_e2e_0123456789abcdefghijklmnopqrstuvwxyz"
 NODE_TOKEN = "node_e2e_0123456789abcdefghijklmnopqrstuvwxyz"
 SECRET_KEY = "local-device-control-system-e2e-secret"
+FULL_TRUST_CAPABILITIES = (
+    "adaptive_settle_v2",
+    "application_launch_v1",
+    "ax_state_v2",
+    "clipboard_payload_v2",
+    "global_clipboard_v1",
+    "observation_mode_v2",
+    "session_full_trust_v1",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,15 +62,22 @@ def write_private_json(path: Path, value: object) -> None:
     path.chmod(0o600)
 
 
-def timestamp(seconds: int) -> str:
-    return (datetime.now(UTC) + timedelta(seconds=seconds)).isoformat().replace("+00:00", "Z")
+def normalize_api_timestamp(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise RuntimeError(f"device-session response is missing {field}")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise RuntimeError(f"device-session response contains an invalid {field}") from error
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 async def seed_server(app: object) -> None:
     from agent_remote_server.db import Base
     from agent_remote_server.models import (
         AuthToken,
-        DeviceSession,
         Node,
         Session,
         ToolAccount,
@@ -103,6 +119,7 @@ async def seed_server(app: object) -> None:
                             "protocol_versions": [1],
                             "platforms": ["macos"],
                             "backends": ["native"],
+                            "capabilities": list(FULL_TRUST_CAPABILITIES),
                         }
                     },
                     node_token_hash=hash_token(SECRET_KEY, NODE_TOKEN),
@@ -179,21 +196,6 @@ async def seed_server(app: object) -> None:
             )
         )
         await session.flush()
-        session.add(
-            DeviceSession(
-                id=DEVICE_SESSION_ID,
-                user_id=USER_ID,
-                device_id=DEVICE_ID,
-                tool_session_id=TOOL_SESSION_ID,
-                tool_session_reference_id=TOOL_SESSION_ID,
-                node_id=NODE_ID,
-                platform="macos",
-                status="active",
-                generation=1,
-                lease_until=now + timedelta(minutes=2),
-                expires_at=now + timedelta(minutes=5),
-            )
-        )
         await session.commit()
 
 
@@ -211,6 +213,7 @@ def serve(args: argparse.Namespace) -> None:
         log_level="CRITICAL",
         database_url=f"sqlite+aiosqlite:///{args.state_root / 'server.sqlite3'}",
         device_control_enabled=True,
+        device_session_authorization_mode="session_full_trust",
         device_relay_pair_timeout_seconds=30,
     )
     app = create_app(settings)
@@ -230,6 +233,90 @@ def wait_for_server(url: str, process: subprocess.Popen[str]) -> None:
         except OSError:
             time.sleep(0.05)
     raise RuntimeError("server did not become ready")
+
+
+def post_json(url: str, token: str, body: dict[str, object]) -> dict[str, object]:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(body, separators=(",", ":")).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            payload = json.load(response)
+    except urllib.error.HTTPError as error:
+        error_code = "unknown"
+        try:
+            error_payload = json.load(error)
+            if isinstance(error_payload, dict):
+                error_data = error_payload.get("error")
+                if isinstance(error_data, dict) and isinstance(error_data.get("code"), str):
+                    error_code = error_data["code"]
+        except (OSError, ValueError):
+            pass
+        raise RuntimeError(f"device-session API failed with HTTP {error.code}: {error_code}") from error
+    if not isinstance(payload, dict):
+        raise RuntimeError("device-session API returned a non-object response")
+    return payload
+
+
+def claim_full_trust_session(server_url: str) -> dict[str, object]:
+    claimed_response = post_json(
+        server_url + "/api/v1/device-sessions/claim",
+        DEVICE_TOKEN,
+        {
+            "tool_session_id": str(TOOL_SESSION_ID),
+            "device_capabilities": ["session_full_trust_v1"],
+        },
+    )
+    claimed = claimed_response.get("data")
+    if not isinstance(claimed, dict):
+        raise RuntimeError("claim response is missing device-session data")
+    if (
+        claimed.get("status") != "pending_device"
+        or claimed.get("authorization_mode") != "session_full_trust"
+        or claimed.get("authorization_policy_version") != 1
+        or claimed.get("authorized_at") is None
+    ):
+        raise RuntimeError("claim response did not establish pending full-trust authorization")
+    device_session_id = claimed.get("id")
+    generation = claimed.get("generation")
+    expires_at = normalize_api_timestamp(claimed.get("expires_at"), "expiry")
+    try:
+        UUID(str(device_session_id))
+    except (TypeError, ValueError) as error:
+        raise RuntimeError("claim response contains an invalid device-session ID") from error
+    if not isinstance(generation, int) or isinstance(generation, bool) or generation < 1:
+        raise RuntimeError("claim response contains an invalid generation")
+    connected_response = post_json(
+        server_url + f"/api/v1/device-sessions/{device_session_id}/device-connected",
+        DEVICE_TOKEN,
+        {"generation": generation},
+    )
+    connected = connected_response.get("data")
+    if not isinstance(connected, dict):
+        raise RuntimeError("device-connected response is missing device-session data")
+    expected_fields = {
+        "id": device_session_id,
+        "status": "active",
+        "authorization_mode": "session_full_trust",
+        "authorization_policy_version": 1,
+        "generation": generation,
+    }
+    for field, expected in expected_fields.items():
+        if connected.get(field) != expected:
+            raise RuntimeError(f"device-connected response has an unexpected {field}")
+    connected_expiry = normalize_api_timestamp(connected.get("expires_at"), "expiry")
+    if connected_expiry != expires_at:
+        raise RuntimeError("device-connected response changed the session expiry")
+    lease_until = normalize_api_timestamp(connected.get("lease_until"), "active lease")
+    connected["expires_at"] = expires_at
+    connected["lease_until"] = lease_until
+    return connected
 
 
 def wait_for_path(path: Path, process: subprocess.Popen[str]) -> None:
@@ -289,66 +376,9 @@ def run(args: argparse.Namespace) -> None:
         rust_peer = args.device_repo / "target/debug/examples/system_e2e_proxy"
         port = free_port()
         server_url = f"http://127.0.0.1:{port}"
-        activation = {
-            "protocol_version": 1,
-            "user_id": str(USER_ID),
-            "device_id": str(DEVICE_ID),
-            "tool_session_id": str(TOOL_SESSION_ID),
-            "device_session_id": str(DEVICE_SESSION_ID),
-            "node_id": str(NODE_ID),
-            "platform": "macos",
-            "generation": 1,
-            "expires_at": timestamp(600),
-            "runtime_backend": "native",
-            "runtime_resource_id": "device-system-e2e",
-        }
         node_config = root / "node.json"
-        write_private_json(
-            node_config,
-            {
-                "server_url": server_url,
-                "node_token": NODE_TOKEN,
-                "node_id": str(NODE_ID),
-                "bridge_socket": str(bridge_socket),
-                "activation": activation,
-            },
-        )
         managed_context = root / "managed-context.json"
-        write_private_json(
-            managed_context,
-            {
-                "user_id": str(USER_ID),
-                "device_id": str(DEVICE_ID),
-                "tool_session_id": str(TOOL_SESSION_ID),
-                "device_session_id": str(DEVICE_SESSION_ID),
-                "node_id": str(NODE_ID),
-                "platform": "macos",
-                "generation": 1,
-                "next_sequence": 1,
-                "current_screenshot_generation": 0,
-                "current_state_generation": 0,
-                "capabilities": [
-                    "adaptive_settle_v2",
-                    "ax_state_v2",
-                    "observation_mode_v2",
-                ],
-                "lease_until": timestamp(120),
-            },
-        )
         swift_config = root / "swift.json"
-        write_private_json(
-            swift_config,
-            {
-                "server_url": server_url,
-                "device_token": DEVICE_TOKEN,
-                "user_id": str(USER_ID),
-                "device_id": str(DEVICE_ID),
-                "tool_session_id": str(TOOL_SESSION_ID),
-                "device_session_id": str(DEVICE_SESSION_ID),
-                "node_id": str(NODE_ID),
-                "generation": 1,
-            },
-        )
         server_process: subprocess.Popen[str] | None = None
         node_process: subprocess.Popen[str] | None = None
         swift_process: subprocess.Popen[str] | None = None
@@ -373,6 +403,66 @@ def run(args: argparse.Namespace) -> None:
                 text=True,
             )
             wait_for_server(server_url, server_process)
+            device_session = claim_full_trust_session(server_url)
+            device_session_id = str(device_session["id"])
+            generation = int(device_session["generation"])
+            activation = {
+                "protocol_version": 1,
+                "user_id": str(USER_ID),
+                "device_id": str(DEVICE_ID),
+                "tool_session_id": str(TOOL_SESSION_ID),
+                "device_session_id": device_session_id,
+                "node_id": str(NODE_ID),
+                "platform": "macos",
+                "generation": generation,
+                "authorization_mode": "session_full_trust",
+                "authorization_policy_version": 1,
+                "expires_at": device_session["expires_at"],
+                "runtime_backend": "native",
+                "runtime_resource_id": "device-system-e2e",
+            }
+            write_private_json(
+                node_config,
+                {
+                    "server_url": server_url,
+                    "node_token": NODE_TOKEN,
+                    "node_id": str(NODE_ID),
+                    "bridge_socket": str(bridge_socket),
+                    "activation": activation,
+                },
+            )
+            write_private_json(
+                managed_context,
+                {
+                    "user_id": str(USER_ID),
+                    "device_id": str(DEVICE_ID),
+                    "tool_session_id": str(TOOL_SESSION_ID),
+                    "device_session_id": device_session_id,
+                    "node_id": str(NODE_ID),
+                    "platform": "macos",
+                    "generation": generation,
+                    "next_sequence": 1,
+                    "current_screenshot_generation": 0,
+                    "current_state_generation": 0,
+                    "capabilities": list(FULL_TRUST_CAPABILITIES),
+                    "authorization_mode": "session_full_trust",
+                    "authorization_policy_version": 1,
+                    "lease_until": device_session["lease_until"],
+                },
+            )
+            write_private_json(
+                swift_config,
+                {
+                    "server_url": server_url,
+                    "device_token": DEVICE_TOKEN,
+                    "user_id": str(USER_ID),
+                    "device_id": str(DEVICE_ID),
+                    "tool_session_id": str(TOOL_SESSION_ID),
+                    "device_session_id": device_session_id,
+                    "node_id": str(NODE_ID),
+                    "generation": generation,
+                },
+            )
             node_environment = os.environ.copy()
             node_environment["AGENT_REMOTE_DEVICE_E2E_CONFIG"] = str(node_config)
             node_process = subprocess.Popen(

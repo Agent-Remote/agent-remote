@@ -42,15 +42,21 @@ or binary that is not root-owned.
 The production CLI intentionally rejects the ad-hoc application because it does not carry the
 protected Apple Team ID. For this test build, unzip and launch the app directly. Full control still
 fails closed unless the required local outbound-policy attestor and macOS permissions are present.
-The repository-level real `Server -> Node -> Rust -> Swift` E2E can be rerun with:
+The repository-level synthetic `Server -> Node -> Rust -> Swift` E2E uses the real component
+binaries and can be rerun with:
 
 ```sh
 scripts/run-local-device-control-e2e.sh
 ```
 
-The harness uses the complete Computer Use v2 capability set. It sends `observe(auto)` through the
-real nested-TLS relay and requires a state-generation advance, bounded AX full observation, and no
-screenshot-generation advance.
+The harness seeds only the user, device, node, and tool session, then uses the authenticated public
+API to claim the tool session with `session_full_trust_v1` and advance the returned binding from
+`pending_device` to `active` through `device-connected`. It passes the resulting dynamic session ID,
+expiry, and lease to every peer. Through the real nested-TLS relay it first reads global clipboard
+text without application state, launches `TextEdit` by its unique name and requires the first
+bounded AX observation, then sends a follow-up `observe(auto)`. It requires monotonic
+state-generation advances for GUI observations and no screenshot-generation advance across the
+three operations.
 
 Verify every packaged file before use:
 

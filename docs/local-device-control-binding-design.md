@@ -3,7 +3,8 @@
 本文将设备控制的绑定入口固定为 `Agent Remote Device.app` 主动选择远端
 `fclaude` session，并定义 Server、Node、macOS App、Admin Web 和 CLI 之间的
 契约。本文补充 `local-device-control-security-design.md`，不改变设备控制的
-端到端加密、应用审批和本机 Claude 隔离要求。
+端到端加密和本机 Claude 隔离要求。用户在本机选择一个远端 session 是
+`session_full_trust` 的授权事件；新路径不再执行逐应用审批。
 
 ## 1. 产品语义
 
@@ -18,7 +19,7 @@ DeviceSession -- temporary control binding --> UserDevice + Session
 
 `ToolAccount` 保存远端 Claude 登录态和运行时亲和关系；`Session` 保存远端
 Claude 的项目、workspace、Node 和生命周期；`DeviceSession` 保存本机 GUI
-控制授权、generation、lease、审批摘要和 Node 控制任务。Workspace 的
+控制授权、generation、lease、授权策略版本和 Node 控制任务。Workspace 的
 `device_id` 只表示本地目录同步来源，不授予 GUI 控制权。
 
 Server 是绑定状态的唯一事实来源。Device APP、Admin Web 和 Node 只能持有绑定
@@ -46,9 +47,11 @@ Device APP 启动
   -> 查询当前用户可控制的 Claude candidates
   -> 用户选择一个 session
   -> Server 原子 claim/rebind
-  -> Node 激活新的 device-control generation
-  -> Device APP 展示本机应用审批
-  -> active lease + nested TLS relay
+  -> Device APP 显示正在准备安全连接
+  -> Device 建立 XPC、relay 和 nested TLS
+  -> Device 安装 session_full_trust authorization
+  -> Server 激活 lease 并更新 Node runtime context
+  -> Device APP 显示等待 Claude 控制
 ```
 
 首次启动时，APP 不单独创建第二套用户登录态。安装器或 `agent-remote device`
@@ -64,20 +67,23 @@ DeviceSession 撤销流程；不能只把界面切回权限提示。
 控制结束有两个独立语义：
 
 - `Stop current action`：中止当前动作，增加 generation，保留设备和 Claude
-  session 的控制绑定，等待下一次本机审批。
+  session 的控制绑定，并在相同授权策略下等待下一 turn。
 - `End device control`：停止 `DeviceSession`，撤销 lease、machine lock、relay
   和 Node bridge，但不停止远端 Claude `Session`。
 
 APP 的换绑操作可以直接从 active 状态进入候选列表，但在 Server claim 成功后，
 本机必须先取消旧 relay、恢复隐藏应用和输入状态，再接受新 binding 的
-`pending_device`。新 binding 必须重新进行本机审批，不能沿用旧审批摘要。
+`pending_device`。新 binding 的全信任授权必须来自这次本机选择，不能沿用旧
+DeviceSession 的授权；同一 binding 内的受控重连和 generation 轮换只可复制完全
+相同的授权策略，且不能延长绝对 TTL。
 
 为避免 Server 已换绑而本机仍保留旧 relay，Broker 的 claim 操作顺序固定为：
 
 1. 记住当前完整 binding 并停止本机 Executor、relay、续租和 generation 轮换；
 2. 恢复隐藏应用并确认输入状态已经释放；
 3. 调用 Server claim；
-4. 校验返回 binding 属于当前 device，再进入新的本机审批。
+4. 校验返回 binding 属于当前 device，且授权模式、策略版本和完整 capability
+   集合符合预期，再进入自动激活。
 
 第 3 步失败时旧控制仍保持已结束状态，用户可以重新选择；APP 不自动恢复旧
 relay。这样失败语义是 fail closed，而不是在两个 session 之间回滚授权。
@@ -98,10 +104,10 @@ Server 从 token 取得 `user_id` 和当前 `device_id`，不得接受客户端�
 设备身份。返回只包含当前用户的 Claude session，且同时满足：
 
 - `status in (running, active, detached)`；
-- `device_control_protocol_version == 1`；
+- 支持协商的 Device 协议版本；
 - 分配 Node 仍为 `healthy` 或 `degraded`；
-- Node capability 明确支持 protocol 1、`platform=macos` 和 session 的
-  pinned runtime backend。
+- Node capability 明确支持 `platform=macos`、session 的 pinned runtime backend，
+  以及 Server 当前策略要求的完整 capability 集合。
 
 candidate 允许包含以下零内容字段：
 
@@ -125,7 +131,7 @@ candidate 允许包含以下零内容字段：
 
 `project_key` 只能是经过脱敏的稳定项目标签；优先使用 `Workspace.display_name`，
 不得把本地路径、远端路径或包含用户名的原始 project key 返回给 Device APP。
-接口不得返回窗口内容、Claude 凭据、relay 材料或应用审批内容。Candidate 列表
+接口不得返回窗口内容、Claude 凭据、relay 材料、应用或剪贴板内容。Candidate 列表
 是提示性状态；claim 时必须再次锁定并验证目标 session，不能信任列表中的 status。
 
 ## 4. Claim/Rebind API
@@ -135,21 +141,30 @@ POST /api/v1/device-sessions/claim
 Authorization: Bearer <device-token>
 Content-Type: application/json
 
-{"tool_session_id":"..."}
+{
+  "tool_session_id":"...",
+  "device_capabilities":["session_full_trust_v1"]
+}
 ```
+
+`device_capabilities` 只能由 Device APP 写入上述固定能力。legacy 授权策略允许旧 APP 省略该字段；
+`session_full_trust` 策略要求它精确等于该单项集合，否则返回
+`DEVICE_CONTROL_DEVICE_UPGRADE_REQUIRED`，且不得创建或复用 full-trust binding。
 
 Server 在一个数据库事务中完成以下步骤：
 
 1. 按全局固定顺序锁定目标 `Session`、当前 `UserDevice` 和相关 live
    `DeviceSession` 行。涉及两个已有 binding 的交换场景也必须遵守同一排序，
    不能按请求参数顺序加锁。
-2. 重新验证用户归属、Claude 类型、session 状态、协议版本、Node 状态和
+2. 重新验证用户归属、Claude 类型、session 状态、协议版本、Device APP 能力、Node 状态和
    capability。
 3. 如果目标 session 已被其他设备控制，将旧 DeviceSession 变为终态，原因
    为 `rebound`，清除 lease 和 lock，写入 deactivate task 和审计记录。
 4. 如果当前设备控制了另一个 session，同样停止旧控制绑定。首期一台设备只
    允许一个 live DeviceSession，以匹配本机 Broker 的单 relay 状态机。
-5. 创建新的 `pending_device` DeviceSession 和 activation task，最后提交事务。
+5. 按 Server 部署策略创建新的 `pending_device` DeviceSession。新策略写入
+   `authorization_mode=session_full_trust`、`authorization_policy_version=1` 和
+   `authorized_at`；客户端不能请求更高权限模式。最后创建 activation task 并提交事务。
 
 Claim 必须具备幂等性：目标已经绑定当前设备且仍处于 live 状态时，返回当前
 DeviceSession，不创建重复记录。两个并发 claim 不能产生双活；数据库唯一约束
@@ -175,6 +190,12 @@ device_id       unique where status is non-terminal
 
 现有 `device_sessions_device_status_idx` 保留用于列表查询。终态记录不再占用
 live binding 的唯一槽位，但仍受到 retention 和审计策略保护。
+
+`device_sessions` 还必须显式保存 `authorization_mode`、
+`authorization_policy_version` 和 `authorized_at`。历史记录迁移时回填为
+`per_application_approval`；新全信任记录不得通过空 approval 列表、通配 digest 或
+Device APP identity 表示。`device_session_approvals` 在首个兼容版本仅用于历史和旧
+客户端路径，不能成为新模式的授权事实源。
 
 为避免删除已停止的 Claude `Session` 时通过外键级联删除 binding 历史，
 `device_sessions` 同时保存不可变的 `tool_session_reference_id`。当前 live 关联使用
@@ -220,32 +241,32 @@ Server worker，要么使用 Redis pub/sub 或等价的跨进程撤销通知。�
 
 ## 7. App、Web 和 CLI 边界
 
-- Device APP 负责 candidate 展示、切换确认、本机权限、应用审批、停止当前动作
-  和结束本机控制。
+- Device APP 负责 candidate 展示、抢占/切换确认、本机权限、session 选择授权、
+  自动激活、停止当前动作和结束本机控制。
 - Device APP 只使用当前设备的 device token；candidate 和 claim API 都从 token
   推导 `user_id/device_id`，请求体不得接受目标设备 ID。
 - Admin Web 展示 Claude project/session、当前设备、generation、lease 和
   `rebound` 原因；结束控制调用同一个 stop service，不能实现第二套 rebind 逻辑。
-- Admin Web 不创建绑定，也不绕过本机应用审批；首期只提供状态、审计和结束控制。
+- Admin Web 不创建绑定，也不替代本机 session 选择；只提供状态、审计和结束控制。
 - CLI 保留 `fclaude` session 生命周期命令，并提供 `agent-remote device launch` 验证
   安装包和共享 device credential 后启动 APP。CLI 不调用 candidate/claim，不保存
-  Claude 登录态或 relay 秘密，也不替代 APP 的本机审批。
+  Claude 登录态或 relay 秘密，也不替代 APP 的本机 session 选择。
 
 旧的 `POST /api/v1/device-sessions`（客户端同时提交 `device_id` 和
 `tool_session_id`）不再是普通用户的绑定入口。迁移期间可以保留兼容路由，但必须
 默认返回明确的弃用错误，或仅允许管理员执行受审计的迁移操作。
 
 Device credential 的安装、轮换和撤销继续复用 CLI 已有设备注册能力。APP
-不得保存 user token、Claude token 或账户登录态；CLI 也不得替 APP 执行本机应用
-审批。
+不得保存 user token、Claude token 或账户登录态；CLI 也不得替 APP 执行本机
+session 选择授权。
 
 ## 8. 验收场景
 
 至少覆盖以下场景：
 
 1. APP 启动后没有权限时先引导权限，权限恢复后进入 candidate 列表。
-2. 选择未绑定的 running Claude session，完成审批后 relay active。
-3. 选择已绑定另一设备的 session，旧设备立即失去 relay，新设备重新审批。
+2. 选择未绑定的 running Claude session，不经过应用审批直接激活并显示等待控制。
+3. 选择已绑定另一设备的 session，确认抢占后旧设备立即失去 relay，新设备自动激活。
 4. 当前设备已有另一个控制 session，claim 后旧控制终止且不产生双活。
 5. 两台设备同时 claim 同一个 Claude session，请求按用户级锁串行执行；后提交的
    claim 可以撤销前一个，最终只能有一个 live binding。
@@ -256,7 +277,11 @@ Device credential 的安装、轮换和撤销继续复用 CLI 已有设备注册
 9. 远端 Claude session 停止或 Node 对账发现进程退出时，DeviceSession、relay、
    bridge 和 APP 本地隐藏状态均被清理，且不会留下 live binding。
 10. 多 worker Server 中，Web stop/rebind 能关闭由另一 worker 持有的 relay pair。
-11. APP 在 active、activating 和 pending approval 状态均可发起切换；旧 relay、
+11. APP 在 active、activating 和 paused 状态均可发起切换；旧 relay、
     Executor、隐藏应用和输入状态先清理，claim 失败也不会恢复旧控制。
 12. Accessibility 或 Screen Recording 在 active 期间被撤销时立即结束控制，
     Server、Node、relay 和本机状态最终一致。
+13. full-trust binding 不创建 approval row，调用旧 approve API 返回明确冲突；历史
+    `per_application_approval` binding 仍按兼容状态机处理。
+14. capability 或 policy version 不完整时 fail closed，不能以隐藏 launch、绑定应用
+    clipboard 或退回隐式审批的方式进入 active。

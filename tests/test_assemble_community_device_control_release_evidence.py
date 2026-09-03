@@ -269,7 +269,7 @@ def test_community_assembler_creates_an_explicit_production_profile(
     draft = json.loads(
         (output / "release-evidence-draft.json").read_text(encoding="utf-8")
     )
-    assert draft["schema_version"] == 8
+    assert draft["schema_version"] == 9
     assert draft["distribution_version"] == DISTRIBUTION_VERSION
     assert draft["components"]["agent-remote-node"]["version"] == "2.3.4"
     assert "expires_at" not in draft
@@ -321,7 +321,7 @@ def test_community_assembler_keeps_composition_binding_for_one_version_compositi
     draft = json.loads(
         (output / "release-evidence-draft.json").read_text(encoding="utf-8")
     )
-    assert draft["schema_version"] == 8
+    assert draft["schema_version"] == 9
     assert draft["distribution_version"] == VERSION
     assert draft["release_manifest_sha256"]
     assert "components" in draft
@@ -351,7 +351,7 @@ def test_community_assembler_creates_schema_v4_with_bound_v2_evidence(
     draft = json.loads(
         (output / "release-evidence-draft.json").read_text(encoding="utf-8")
     )
-    assert draft["schema_version"] == 8
+    assert draft["schema_version"] == 9
     assert (
         draft["computer_use_v2_evidence_sha256"]
         == hashlib.sha256(record.read_bytes()).hexdigest()

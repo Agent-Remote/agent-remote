@@ -28,22 +28,11 @@ _MAXIMUM_ARCHIVE_MEMBERS = 4_096
 _MAXIMUM_EXTERNAL_GATE_AGE = timedelta(days=30)
 _INVENTORY_LABELS = ("server", "node", "application", "proxy")
 _PUBLIC_ACTIONS = {
-    "double_click",
-    "hold_key",
-    "key",
-    "left_click",
-    "left_click_drag",
-    "left_mouse_down",
-    "left_mouse_up",
-    "middle_click",
-    "mouse_move",
-    "right_click",
-    "screenshot",
-    "scroll",
-    "triple_click",
-    "type",
-    "wait",
-    "zoom",
+    "act",
+    "input_text",
+    "launch_application",
+    "observe",
+    "read_clipboard",
 }
 _STOP_SCENARIOS = {
     "device_revocation",
@@ -55,11 +44,14 @@ _STOP_SCENARIOS = {
     "server_revocation",
 }
 _MACOS_SECURITY_SCENARIOS = {
-    "application_control_levels",
-    "clipboard_permission",
+    "application_launch_bundle_id",
+    "application_launch_name_ambiguity_rejected",
+    "application_launch_paths_urls_arguments_rejected",
     "device_revoke",
+    "device_processes_excluded",
     "display_hotplug",
     "drag_disconnect_release",
+    "dynamic_application_identity_verified",
     "downgrade_rejected",
     "escape_global_stop",
     "escape_not_delivered_to_target",
@@ -70,7 +62,9 @@ _MACOS_SECURITY_SCENARIOS = {
     "mouse_down_disconnect_release",
     "multi_display_negative_origin",
     "network_switch",
-    "per_session_application_approval",
+    "full_trust_expires_with_device_session",
+    "global_clipboard_content_not_logged",
+    "global_clipboard_without_observation",
     "process_restart_after_tcc_change",
     "retina_scaling",
     "same_version_reinstall",
@@ -84,10 +78,13 @@ _MACOS_SECURITY_SCENARIOS = {
     "tcc_screen_recording_revoked",
     "uninstall",
     "uninstall_permission_residue_absent",
-    "approval_preserves_foreground_application",
+    "foreground_restored_after_launch_and_action",
+    "mixed_version_fails_closed",
     "passive_observation_preserves_foreground_application",
     "interactive_action_restores_foreground_application",
-    "unapproved_windows_excluded_from_capture",
+    "protected_system_surfaces_rejected",
+    "remote_consequential_action_confirmation_preserved",
+    "session_selection_grants_full_trust",
     "upgrade_signed_app",
     "window_move_between_displays",
 }
@@ -122,6 +119,28 @@ _GATE_TOP_LEVEL_KEYS = {
     "release_version",
     "schema_version",
     "status",
+}
+_MIXED_VERSION_MATRIX = {
+    "capability_policy_mismatch": {
+        "current": {"application", "node", "proxy", "server"},
+        "expected_result": "authorization_mismatch_rejected",
+    },
+    "new_proxy_old_device": {
+        "current": {"node", "proxy", "server"},
+        "expected_result": "launch_clipboard_unsupported",
+    },
+    "new_server_old_device": {
+        "current": {"node", "proxy", "server"},
+        "expected_result": "device_upgrade_required",
+    },
+    "old_proxy_new_device": {
+        "current": {"application", "node", "server"},
+        "expected_result": "old_proxy_candidate_rejected",
+    },
+    "old_server_new_device": {
+        "current": {"application", "node", "proxy"},
+        "expected_result": "server_version_unsupported",
+    },
 }
 
 
@@ -678,7 +697,11 @@ def validate_stop_revocation(details: dict[str, Any]) -> None:
         raise ValueError("stop-revocation replayed an unconfirmed action")
 
 
-def validate_compatibility(details: dict[str, Any]) -> None:
+def validate_compatibility(
+    details: dict[str, Any],
+    artifacts: dict[str, str],
+    artifact_versions: dict[str, str],
+) -> None:
     """Validate current Claude Code and MCP compatibility results."""
 
     require_exact_keys(
@@ -688,8 +711,10 @@ def validate_compatibility(details: dict[str, Any]) -> None:
             "failed",
             "long_sequence_completed",
             "managed_mcp_configuration_verified",
+            "matrix_report_sha256",
             "mcp_image_results_verified",
             "mcp_protocol_version",
+            "mixed_version_matrix",
             "public_actions",
             "test_run_url",
             "turn_stop_observed",
@@ -699,6 +724,9 @@ def validate_compatibility(details: dict[str, Any]) -> None:
     require_text(details["claude_code_version"], "compatibility claude_code_version", maximum=100)
     require_text(details["mcp_protocol_version"], "compatibility mcp_protocol_version", maximum=100)
     require_https_url(details["test_run_url"], "compatibility test_run_url")
+    report_digest = details["matrix_report_sha256"]
+    if not isinstance(report_digest, str) or not _SHA256.fullmatch(report_digest):
+        raise ValueError("compatibility matrix report digest is invalid")
     actions = details["public_actions"]
     if (
         not isinstance(actions, list)
@@ -717,6 +745,72 @@ def validate_compatibility(details: dict[str, Any]) -> None:
     ):
         if details[field] is not True:
             raise ValueError(f"compatibility {field} must be true")
+    matrix = details["mixed_version_matrix"]
+    if not isinstance(matrix, dict) or set(matrix) != set(_MIXED_VERSION_MATRIX):
+        raise ValueError("compatibility mixed-version matrix is incomplete")
+    for scenario, contract in _MIXED_VERSION_MATRIX.items():
+        row = matrix[scenario]
+        if not isinstance(row, dict):
+            raise ValueError(f"compatibility {scenario} result must be an object")
+        require_exact_keys(
+            row,
+            {
+                "components",
+                "expected_result",
+                "full_trust_activated",
+                "passed",
+                "unknown_protocol_sent",
+            },
+            f"compatibility {scenario}",
+        )
+        if (
+            row["expected_result"] != contract["expected_result"]
+            or row["full_trust_activated"] is not False
+            or row["passed"] is not True
+            or row["unknown_protocol_sent"] is not False
+        ):
+            raise ValueError(f"compatibility {scenario} did not fail closed")
+        components = row["components"]
+        if not isinstance(components, dict) or set(components) != set(artifacts):
+            raise ValueError(f"compatibility {scenario} component set is invalid")
+        current = contract["current"]
+        for component, identity in components.items():
+            if not isinstance(identity, dict):
+                raise ValueError(f"compatibility {scenario} {component} identity is invalid")
+            require_exact_keys(
+                identity,
+                {"release_candidate", "sha256", "version"},
+                f"compatibility {scenario} {component}",
+            )
+            component_version = require_text(
+                identity["version"],
+                f"compatibility {scenario} {component} version",
+                maximum=100,
+            )
+            digest = identity["sha256"]
+            if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
+                raise ValueError(f"compatibility {scenario} {component} digest is invalid")
+            expected_current = component in current
+            if identity["release_candidate"] is not expected_current:
+                raise ValueError(
+                    f"compatibility {scenario} {component} release role is invalid"
+                )
+            if expected_current and digest != artifacts[component]:
+                raise ValueError(
+                    f"compatibility {scenario} {component} is not the release candidate"
+                )
+            if expected_current and component_version != artifact_versions[component]:
+                raise ValueError(
+                    f"compatibility {scenario} {component} version is not the release candidate"
+                )
+            if not expected_current and digest == artifacts[component]:
+                raise ValueError(
+                    f"compatibility {scenario} {component} is not an older artifact"
+                )
+            if not expected_current and component_version == artifact_versions[component]:
+                raise ValueError(
+                    f"compatibility {scenario} {component} version is not older"
+                )
 
 
 _GATE_VALIDATORS = {
@@ -725,7 +819,6 @@ _GATE_VALIDATORS = {
     "outbound-policy": validate_outbound_policy,
     "local-claude-isolation": validate_local_claude_isolation,
     "stop-revocation": validate_stop_revocation,
-    "compatibility": validate_compatibility,
 }
 
 
@@ -735,6 +828,7 @@ def validate_external_gate(
     gate: str,
     version: str,
     artifacts: dict[str, str],
+    artifact_versions: dict[str, str],
     issued_at: datetime,
 ) -> None:
     """Validate one gate-specific record and its exact artifact bindings."""
@@ -766,7 +860,10 @@ def validate_external_gate(
     details = value["details"]
     if not isinstance(details, dict):
         raise ValueError(f"{gate} details must be an object")
-    _GATE_VALIDATORS[gate](details)
+    if gate == "compatibility":
+        validate_compatibility(details, artifacts, artifact_versions)
+    else:
+        _GATE_VALIDATORS[gate](details)
 
 
 def validate_notarization(path: Path, version: str, application_digest: str) -> dict[str, Any]:
@@ -979,6 +1076,14 @@ def main() -> None:
             "application": sha256(artifact_paths["application"]),
             "proxy": sha256(artifact_paths["proxy"]),
         }
+        node_component = components["agent-remote-node"]
+        assert isinstance(node_component, dict)
+        artifact_versions = {
+            "server": version,
+            "node": str(node_component["version"]),
+            "application": device_version,
+            "proxy": device_version,
+        }
         external_gates = {
             "security-tests": safe_file(args.security_tests),
             "security-review": safe_file(args.security_review),
@@ -995,6 +1100,7 @@ def main() -> None:
                 gate,
                 args.distribution_version,
                 artifact_digests,
+                artifact_versions,
                 issued_at,
             )
             expected_report_digest = None
@@ -1006,6 +1112,9 @@ def main() -> None:
                 expected_report_digest = security_tests["details"]["computer_use_v2"][
                     "report_sha256"
                 ]
+            elif gate == "compatibility":
+                compatibility = load_json_object(path, gate)
+                expected_report_digest = compatibility["details"]["matrix_report_sha256"]
             validate_evidence_archive(
                 gate_evidence_paths[gate], gate, expected_report_digest
             )
@@ -1049,7 +1158,7 @@ def main() -> None:
             written.append(provenance_path)
 
             draft: dict[str, object] = {
-                "schema_version": 8,
+                "schema_version": 9,
                 "release_version": version,
                 "issued_at": args.issued_at,
                 "distribution_version": args.distribution_version,

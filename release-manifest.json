@@ -1,10 +1,10 @@
 {
   "components": {
     "agent-remote-admin-web": {
-      "commit": "f607afd229d5eefab476e9025cf15a36151f12b1",
+      "commit": "a203c35b2435c071b100d233e985b105e87f224e",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-admin-web",
-      "version": "0.2.8"
+      "version": "0.2.9"
     },
     "agent-remote-cli": {
       "commit": "0cc856ab82378de0c9412bf4b639a64114f7eeef",
@@ -13,22 +13,22 @@
       "version": "0.2.9"
     },
     "agent-remote-device": {
-      "commit": "60cfe213a49f7ef6e1457a561401552b5155cefb",
+      "commit": "674377cf9f8de91465a1dc11b1239e899e493526",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-device",
-      "version": "0.2.11"
-    },
-    "agent-remote-node": {
-      "commit": "38fa55ea86f55c12421fb0c9f431df6de053e823",
-      "release_workflow": "release.yml",
-      "repository": "Agent-Remote/agent-remote-node",
       "version": "0.2.12"
     },
+    "agent-remote-node": {
+      "commit": "246437ec87ca539067d2a3e5168c75539fd348aa",
+      "release_workflow": "release.yml",
+      "repository": "Agent-Remote/agent-remote-node",
+      "version": "0.2.13"
+    },
     "agent-remote-server": {
-      "commit": "a516bd7b9277f07e5651e6f282dbd742a9c0b9ef",
+      "commit": "282295dbc6b56997cd55d3667e530241de2d60bd",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-server",
-      "version": "0.2.10"
+      "version": "0.2.11"
     }
   },
   "distribution_version": "0.2.18",
