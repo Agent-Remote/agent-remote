@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.19 - 2026-09-03
+
+- feat: certify session full-trust composition (ab6edb9)
+
 ## v0.2.18 - 2026-09-02
 
 - chore(release): certify device and node updates (7bdf60d)
