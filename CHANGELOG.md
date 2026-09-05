@@ -2,6 +2,14 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.20 - 2026-09-05
+
+- chore: update release component pins (a662162)
+- fix(ci): stabilize port-forward descriptor handoff (25f7e56)
+- fix(ci): correct rust cache paths (975165b)
+- ci: optimize workflow execution (b54ba0d)
+- docs(device): install app directly from release zip (70fc69e)
+
 ## v0.2.19 - 2026-09-03
 
 - feat: certify session full-trust composition (ab6edb9)
