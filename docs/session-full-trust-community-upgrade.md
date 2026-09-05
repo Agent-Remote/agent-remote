@@ -519,9 +519,9 @@ cosign verify-blob \
   "$work/agent-remote-device-macos-$DEVICE_VERSION.zip"
 gh attestation verify "$work/agent-remote-device-macos-$DEVICE_VERSION.zip" \
   --repo Agent-Remote/agent-remote-device
-ditto -x -k "$work/agent-remote-device-macos-$DEVICE_VERSION.zip" "$work/app"
 osascript -e 'tell application "Agent Remote Device" to quit' 2>/dev/null || true
-agent-remote device install --source "$work/app/Agent Remote Device.app"
+agent-remote device install \
+  --source "$work/agent-remote-device-macos-$DEVICE_VERSION.zip"
 agent-remote device diagnose
 agent-remote device launch
 ```

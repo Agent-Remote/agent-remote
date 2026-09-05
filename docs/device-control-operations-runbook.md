@@ -82,7 +82,7 @@ Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENT
 只使用生产组合清单选中并已验证摘要的发布 app，不接受项目仓库或 API 返回的下载地址：
 
 ```sh
-agent-remote device install --source "/path/to/Agent Remote Device.app"
+agent-remote device install --source "/path/to/agent-remote-device-macos-VERSION.zip"
 agent-remote device diagnose
 agent-remote device status
 agent-remote device launch
