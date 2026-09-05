@@ -46,9 +46,14 @@ permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: community-device-control-release-evidence-${{ inputs.version }}
+  cancel-in-progress: false
+
 jobs:
   assemble:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment: production-device-release-evidence
     steps:
       - uses: actions/checkout@v7.0.0

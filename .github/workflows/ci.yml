@@ -5,9 +5,37 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      integration: ${{ steps.filter.outputs.integration }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: dorny/paths-filter@v4.0.3
+        id: filter
+        with:
+          filters: |
+            integration:
+              - '.github/workflows/ci.yml'
+              - 'release-manifest.json'
+              - 'scripts/run-local-device-control-e2e.sh'
+              - 'scripts/run-session-port-forwarding-e2e.sh'
+              - 'tests/local_device_control_e2e.py'
+              - 'tests/session_port_forwarding_e2e.py'
+
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7.0.0
       - name: Verify release workflow contract
@@ -61,6 +89,9 @@ jobs:
   session-port-forwarding-e2e:
     name: session-port-forwarding-e2e (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -71,19 +102,34 @@ jobs:
             e2e_args: --skip-concurrency-stress
     steps:
       - uses: actions/checkout@v7.0.0
+      - name: Resolve immutable component commits
+        id: components
+        run: |
+          {
+            echo "cli=$(jq -er '.components["agent-remote-cli"].commit' release-manifest.json)"
+            echo "node=$(jq -er '.components["agent-remote-node"].commit' release-manifest.json)"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-cli
+          ref: ${{ steps.components.outputs.cli }}
           path: .e2e/agent-remote-cli
+          persist-credentials: false
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-node
+          ref: ${{ steps.components.outputs.node }}
           path: .e2e/agent-remote-node
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.9.2
+        with:
+          key: session-port-forwarding-${{ matrix.os }}
+          workspaces: .e2e/agent-remote-cli -> .e2e/agent-remote-cli/target
       - uses: actions/setup-go@v6.5.0
         with:
           go-version-file: .e2e/agent-remote-node/go.mod
-          cache: false
+          cache-dependency-path: .e2e/agent-remote-node/go.sum
       - name: Run session port-forwarding E2E
         env:
           AGENT_REMOTE_CLI_REPO: ${{ github.workspace }}/.e2e/agent-remote-cli
@@ -93,31 +139,63 @@ jobs:
   local-device-control-e2e:
     name: local-device-control-e2e
     runs-on: macos-15
+    timeout-minutes: 20
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
     steps:
       - uses: actions/checkout@v7.0.0
+      - name: Resolve immutable component commits
+        id: components
+        run: |
+          {
+            echo "server=$(jq -er '.components["agent-remote-server"].commit' release-manifest.json)"
+            echo "node=$(jq -er '.components["agent-remote-node"].commit' release-manifest.json)"
+            echo "device=$(jq -er '.components["agent-remote-device"].commit' release-manifest.json)"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-server
+          ref: ${{ steps.components.outputs.server }}
           path: .e2e/agent-remote-server
+          persist-credentials: false
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-node
+          ref: ${{ steps.components.outputs.node }}
           path: .e2e/agent-remote-node
+          persist-credentials: false
       - uses: actions/checkout@v7.0.0
         with:
           repository: Agent-Remote/agent-remote-device
+          ref: ${{ steps.components.outputs.device }}
           path: .e2e/agent-remote-device
-      - uses: astral-sh/setup-uv@v8.3.1
+          persist-credentials: false
       - uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.13"
+      - uses: astral-sh/setup-uv@v8.3.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: .e2e/agent-remote-server/uv.lock
       - uses: actions/setup-go@v6.5.0
         with:
           go-version-file: .e2e/agent-remote-node/go.mod
-          cache: false
+          cache-dependency-path: .e2e/agent-remote-node/go.sum
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.9.2
+        with:
+          key: local-device-control
+          workspaces: .e2e/agent-remote-device -> .e2e/agent-remote-device/target
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            .e2e/agent-remote-device/.build
+            ~/Library/Caches/org.swift.swiftpm
+          key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.e2e/agent-remote-device/Package.resolved') }}-${{ hashFiles('.e2e/agent-remote-device/Package.swift', '.e2e/agent-remote-device/macos/**/*.swift') }}
+          restore-keys: |
+            swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.e2e/agent-remote-device/Package.resolved') }}-
       - name: Install server test environment
-        run: uv sync --project .e2e/agent-remote-server
+        run: uv sync --project .e2e/agent-remote-server --frozen
       - name: Run local device-control E2E
         env:
           AGENT_REMOTE_SERVER_REPO: ${{ github.workspace }}/.e2e/agent-remote-server

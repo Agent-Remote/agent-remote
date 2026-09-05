@@ -17,9 +17,14 @@ permissions:
   id-token: write
   attestations: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   resolve:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       version: ${{ steps.version.outputs.value }}
       server-version: ${{ steps.manifest.outputs.server-version }}
@@ -77,6 +82,7 @@ jobs:
   validate:
     needs: resolve
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: actions/checkout@v7.0.0
@@ -118,6 +124,10 @@ jobs:
             --repository "agent-remote-admin-web=${GITHUB_WORKSPACE}/.release/agent-remote-admin-web" \
             --repository "agent-remote-device=${GITHUB_WORKSPACE}/.release/agent-remote-device"
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.9.2
+        with:
+          key: tagged-session-port-forwarding
+          workspaces: .e2e/agent-remote-cli -> .e2e/agent-remote-cli/target
       - uses: actions/setup-go@v6.5.0
         with:
           go-version-file: .e2e/agent-remote-node/go.mod
@@ -139,6 +149,7 @@ jobs:
   release:
     needs: [resolve, validate, community-evidence]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: actions/download-artifact@v8.0.1

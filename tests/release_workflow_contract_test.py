@@ -19,6 +19,39 @@ community_v2_evidence = Path(
 ).read_text(encoding="utf-8")
 github_cli_installer = Path("scripts/install-github-cli.sh").read_text(encoding="utf-8")
 
+for name, workflow in (
+    ("CI", ci),
+    ("prepare release", prepare),
+    ("release", release),
+    ("device release evidence", evidence),
+    ("external gates", external_gates),
+    ("community release evidence", community_evidence),
+    ("community v2 evidence", community_v2_evidence),
+):
+    if "concurrency:" not in workflow:
+        raise SystemExit(f"{name} workflow must serialize or cancel duplicate work")
+    if "timeout-minutes:" not in workflow:
+        raise SystemExit(f"{name} workflow must bound job execution time")
+
+for fragment in (
+    "dorny/paths-filter@v4.0.3",
+    "release-manifest.json",
+    "ref: ${{ steps.components.outputs.cli }}",
+    "ref: ${{ steps.components.outputs.node }}",
+    "ref: ${{ steps.components.outputs.server }}",
+    "ref: ${{ steps.components.outputs.device }}",
+    "Swatinem/rust-cache@v2.9.2",
+    "actions/cache@v6.1.0",
+    "cache-dependency-path: .e2e/agent-remote-node/go.sum",
+    "uv sync --project .e2e/agent-remote-server --frozen",
+):
+    if fragment not in ci:
+        raise SystemExit(f"CI optimization contract is missing: {fragment}")
+if "cache: false" in ci:
+    raise SystemExit("CI must not disable cross-repository build caches")
+if "docker/setup-buildx-action@" in prepare:
+    raise SystemExit("prepare-release must not initialize unused Docker Buildx")
+
 github_cli_setup = "bash scripts/install-github-cli.sh"
 for name, workflow in (
     ("CI", ci),

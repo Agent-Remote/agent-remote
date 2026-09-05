@@ -18,6 +18,7 @@ concurrency:
 jobs:
   collect:
     runs-on: [self-hosted, macOS, ARM64, agent-remote-device-gates]
+    timeout-minutes: 30
     environment: production-device-release-gates
     steps:
       - uses: actions/checkout@v7.0.0
