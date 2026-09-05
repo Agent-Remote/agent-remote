@@ -312,6 +312,8 @@ class RuntimeHelperHandler(socketserver.BaseRequestHandler):
             response = b'{"version":1,"ok":true,"result":{"connected":true}}\n'
             rights = array.array("i", [upstream.fileno()])
             self.request.sendmsg([response], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, rights)])
+            if self.request.recv(1) != b"\x06":
+                raise RuntimeError("Runtime Helper descriptor transfer was not acknowledged")
         finally:
             upstream.close()
 
