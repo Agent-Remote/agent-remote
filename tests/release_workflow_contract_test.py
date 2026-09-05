@@ -44,11 +44,15 @@ for fragment in (
     "actions/cache@v6.1.0",
     "cache-dependency-path: .e2e/agent-remote-node/go.sum",
     "uv sync --project .e2e/agent-remote-server --frozen",
+    "workspaces: .e2e/agent-remote-cli -> target",
+    "workspaces: .e2e/agent-remote-device -> target",
 ):
     if fragment not in ci:
         raise SystemExit(f"CI optimization contract is missing: {fragment}")
 if "cache: false" in ci:
     raise SystemExit("CI must not disable cross-repository build caches")
+if "-> .e2e/" in ci or "-> .e2e/" in release:
+    raise SystemExit("Rust cache target paths must be relative to their workspace")
 if "docker/setup-buildx-action@" in prepare:
     raise SystemExit("prepare-release must not initialize unused Docker Buildx")
 

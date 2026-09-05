@@ -127,7 +127,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.2
         with:
           key: tagged-session-port-forwarding
-          workspaces: .e2e/agent-remote-cli -> .e2e/agent-remote-cli/target
+          workspaces: .e2e/agent-remote-cli -> target
       - uses: actions/setup-go@v6.5.0
         with:
           go-version-file: .e2e/agent-remote-node/go.mod

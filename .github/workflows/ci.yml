@@ -125,7 +125,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.2
         with:
           key: session-port-forwarding-${{ matrix.os }}
-          workspaces: .e2e/agent-remote-cli -> .e2e/agent-remote-cli/target
+          workspaces: .e2e/agent-remote-cli -> target
       - uses: actions/setup-go@v6.5.0
         with:
           go-version-file: .e2e/agent-remote-node/go.mod
@@ -185,7 +185,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.2
         with:
           key: local-device-control
-          workspaces: .e2e/agent-remote-device -> .e2e/agent-remote-device/target
+          workspaces: .e2e/agent-remote-device -> target
       - uses: actions/cache@v6.1.0
         with:
           path: |
