@@ -20,7 +20,7 @@
     },
     "agent-remote-ego-browser": {
       "apple_notarized": false,
-      "commit": "c0a5a740400d686344098ca6ee54e76f90be1974",
+      "commit": "ade046b40c48088eaacb2e150dc593a69cbedef3",
       "credential_profile": "community_file",
       "hardened_runtime": true,
       "learning_bundle_digest": "6662ad11797f86d721b2d9121049c35b02eff3e71821dc06dfcc190d250788a7",
@@ -41,7 +41,7 @@
       "skill_commit": "36053d07001a910cb806a15d42d00fdea1cdea3d",
       "skill_tree_sha256": "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c",
       "skill_version": "1.2.3",
-      "version": "0.1.5"
+      "version": "0.1.7"
     },
     "agent-remote-node": {
       "commit": "5b199a2a1373d3a437180cb2780a1cc7f2168aae",
