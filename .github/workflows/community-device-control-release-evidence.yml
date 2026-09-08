@@ -312,7 +312,8 @@ jobs:
           cargo build --locked --release --manifest-path "$source/Cargo.toml" \
             -p ego-browser-bridge-protocol --bin ego-browser-learning-bundle
           verifier="$source/target/release/ego-browser-learning-bundle"
-          verified=$("$verifier" verify --bundle "$browser/learning-bundle" | tr -d '[:space:]')
+          verified=$("$verifier" verify \
+            --bundle "$GITHUB_WORKSPACE/$browser/learning-bundle" | tr -d '[:space:]')
           test "$verified" = "sha256:${BROWSER_LEARNING_BUNDLE_DIGEST}"
       - name: Verify release checksums, signatures, provenance, and vulnerability reports
         env:

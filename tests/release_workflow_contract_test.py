@@ -299,6 +299,7 @@ required_community_evidence_fragments = (
     "--ego-browser-learning-bundle-verifier",
     "release-input/ego-browser-source/scripts/verify-learning-bundle.sh",
     "BROWSER_LEARNING_BUNDLE_DIGEST",
+    '"$GITHUB_WORKSPACE/$browser/learning-bundle"',
 )
 missing_community_evidence = [
     fragment
