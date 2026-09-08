@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.22 - 2026-09-08
+
+- fix(release): gate only reachable Go vulnerabilities (c53d164)
+
 ## v0.2.21 - 2026-09-08
 
 - Release metadata update.
