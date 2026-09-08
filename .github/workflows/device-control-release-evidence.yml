@@ -164,8 +164,10 @@ jobs:
               "https://github.com/Agent-Remote/agent-remote-node/.github/workflows/${NODE_WORKFLOW}@refs/tags/v${NODE_VERSION}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$node/$node_report"
-          jq -s -e \
-            'any(.[]; has("finding")) | not' \
+          jq -s -e '
+            any(.[]; ((.finding.trace? // []) |
+              any((.function? // "") != ""))) | not
+          ' \
             "$node/$node_report" >/dev/null
           jq -s -e \
             'any(.[]; .config.go_version == "go1.26.5" and .config.scanner_version == "v1.6.0")

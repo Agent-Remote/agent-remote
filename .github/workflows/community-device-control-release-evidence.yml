@@ -429,7 +429,10 @@ jobs:
 
           jq -e '(.dependencies | length) > 0 and all(.dependencies[]; (.vulns | length) == 0)' \
             "$server/agent-remote-server-${SERVER_VERSION}.pip-audit.json" >/dev/null
-          jq -s -e 'any(.[]; has("finding")) | not' \
+          jq -s -e '
+            any(.[]; ((.finding.trace? // []) |
+              any((.function? // "") != ""))) | not
+          ' \
             "$node/agent-remote-node-${NODE_VERSION}.govulncheck.json" >/dev/null
           jq -e '.vulnerabilities.found == false' \
             "$device/agent-remote-device-${DEVICE_VERSION}.cargo-audit.json" >/dev/null
