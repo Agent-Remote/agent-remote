@@ -49,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main
 
 The installer also ensures Native developer tooling (`git`, `gh`, and the OpenSSH client) is present. Sessions created before an upgrade that adds runtime mounts or developer credential injection must be stopped and recreated; an existing Bubblewrap process cannot acquire new mounts.
 
-For the SSH agent forwarding rollout, upgrade the node first, then the control plane and CLI. Trigger one attach so the versioned `sync_ssh_keys` task refreshes the gateway entry, wait for the node to consume it, and create a new Native session for validation.
+For the SSH agent forwarding rollout, upgrade the node first, then the control plane and CLI. Trigger one attach so the versioned `sync_ssh_keys` task refreshes the gateway entry, wait for the node to consume it, and create a new session on each enabled `native` or `docker_sandbox` backend for validation.
 
 Confirm:
 
@@ -74,3 +74,24 @@ Re-running `agent-remote login` against the same configured server reuses the ac
 rotates its credential instead of registering another device. To clean up duplicate records created
 by older releases, pause and delete each related sync session in the console, then delete its
 workspace, revoke the old device, and finally delete the device.
+
+## Local ego-browser Bridge
+
+Do not upgrade this path as an independent hot swap. First disable new browser
+claims, revoke or drain active bindings, and confirm the Node broker has no
+active requests or consumable permits. Upgrade the Server schema and relay,
+then Node's immutable wrapper/Skill directory, CLI/Admin, and finally the local
+macOS Bridge. Reconfirm full trust and use a new generation for the canary.
+
+For rollback, keep `EGO_BROWSER_BRIDGE_ENABLED=false`, wait through the bounded
+renewal grace and process cleanup, roll Server/Node back without a destructive
+schema downgrade, and run the verified local
+`rollback-macos.sh PREVIOUS_VERSION`. The local script validates the protected
+certificate pin and launch-agent files before changing `current`; it never
+restores an old ticket, permit, generation, or request.
+
+The exact procedure and certificate-rotation boundary are in
+[`ego-browser-bridge-deployment.md`](ego-browser-bridge-deployment.md). The
+Bridge component is currently `production_ready=true`; upgrades must still use
+the exact root bundle and repeat the artifact-bound canary before enabling the
+feature flag. These instructions never authorize an environment-only override.

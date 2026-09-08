@@ -33,6 +33,8 @@ jobs:
       admin-version: ${{ steps.manifest.outputs.admin-version }}
       admin-workflow: ${{ steps.manifest.outputs.admin-workflow }}
       device-version: ${{ steps.manifest.outputs.device-version }}
+      browser-version: ${{ steps.manifest.outputs.browser-version }}
+      browser-workflow: ${{ steps.manifest.outputs.browser-workflow }}
     steps:
       - uses: actions/checkout@v7.0.0
       - name: Resolve release version
@@ -56,15 +58,28 @@ jobs:
           DISTRIBUTION_VERSION: ${{ steps.version.outputs.value }}
         run: |
           set -euo pipefail
-          test "$(jq -er .schema_version release-manifest.json)" = "2"
+          test "$(jq -er .schema_version release-manifest.json)" = "3"
           test "$(jq -er .distribution_version release-manifest.json)" = \
             "$DISTRIBUTION_VERSION"
+          if ! jq -e '
+            .components["agent-remote-ego-browser"] as $browser |
+            $browser.release_published == true and
+            $browser.production_ready == true and
+            $browser.readiness_blockers == [] and
+            ($browser.signer_certificate_sha256 | test("^[0-9a-f]{64}$")) and
+            ($browser.learning_bundle_digest | test("^[0-9a-f]{64}$")) and
+            $browser.nested_signatures_verified == true
+          ' release-manifest.json >/dev/null; then
+            echo "ego-browser production release evidence is incomplete" >&2
+            exit 1
+          fi
           for entry in \
             server=agent-remote-server \
             node=agent-remote-node \
             cli=agent-remote-cli \
             admin=agent-remote-admin-web \
-            device=agent-remote-device; do
+            device=agent-remote-device \
+            browser=agent-remote-ego-browser; do
             output=${entry%%=*}
             component=${entry#*=}
             version=$(jq -er --arg name "$component" '.components[$name].version' release-manifest.json)
@@ -110,6 +125,11 @@ jobs:
           repository: Agent-Remote/agent-remote-device
           ref: v${{ needs.resolve.outputs.device-version }}
           path: .release/agent-remote-device
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-ego-browser
+          ref: v${{ needs.resolve.outputs.browser-version }}
+          path: .release/agent-remote-ego-browser
       - name: Verify certified immutable production composition
         run: |
           python3 scripts/check-device-control-release-readiness.py \
@@ -122,7 +142,8 @@ jobs:
             --repository "agent-remote-node=${GITHUB_WORKSPACE}/.e2e/agent-remote-node" \
             --repository "agent-remote-cli=${GITHUB_WORKSPACE}/.e2e/agent-remote-cli" \
             --repository "agent-remote-admin-web=${GITHUB_WORKSPACE}/.release/agent-remote-admin-web" \
-            --repository "agent-remote-device=${GITHUB_WORKSPACE}/.release/agent-remote-device"
+            --repository "agent-remote-device=${GITHUB_WORKSPACE}/.release/agent-remote-device" \
+            --repository "agent-remote-ego-browser=${GITHUB_WORKSPACE}/.release/agent-remote-ego-browser"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2.9.2
         with:
@@ -238,6 +259,50 @@ jobs:
           sed -i "s#^SERVER_IMAGE=.*#SERVER_IMAGE=${server_image}@${server_digest}#" \
             "dist/${package}/deploy/compose/.env.example"
           sed -i "s#^ADMIN_WEB_IMAGE=.*#ADMIN_WEB_IMAGE=${admin_image}@${admin_digest}#" \
+            "dist/${package}/deploy/compose/.env.example"
+          bridge_learning_key_id=$(jq -er \
+            '.components["agent-remote-ego-browser"].learning_bundle_signing_key_id' \
+            "$evidence_source")
+          bridge_profile=$(jq -er \
+            '.components["agent-remote-ego-browser"].profile' "$evidence_source")
+          bridge_certificate=$(jq -er \
+            '.components["agent-remote-ego-browser"].signer_certificate_sha256' "$evidence_source")
+          bridge_version=$(jq -er \
+            '.components["agent-remote-ego-browser"].version' "$evidence_source")
+          bridge_skill_version=$(jq -er \
+            '.components["agent-remote-ego-browser"].skill_version' "$evidence_source")
+          bridge_skill_tree=$(jq -er \
+            '.components["agent-remote-ego-browser"].skill_tree_sha256' "$evidence_source")
+          bridge_skill_commit=$(jq -er \
+            '.components["agent-remote-ego-browser"].skill_commit' "$evidence_source")
+          bridge_runtime_version=$(jq -er \
+            '.components["agent-remote-ego-browser"].local_ego_browser_runtime_version' "$evidence_source")
+          bridge_protocol=$(jq -er \
+            '.components["agent-remote-ego-browser"].protocol_version' "$evidence_source")
+          bridge_learning_digest=$(jq -er .ego_browser_learning_bundle_sha256 "$evidence_source")
+          bridge_manifest_digest=$(jq -er .ego_browser_release_manifest_sha256 "$evidence_source")
+          bridge_archive_digest=$(jq -er .ego_browser_release_archive_sha256 "$evidence_source")
+          bridge_signing_digest=$(jq -er .ego_browser_signing_evidence_sha256 "$evidence_source")
+          bridge_sigstore_digest=$(jq -er .ego_browser_sigstore_sha256 "$evidence_source")
+          bridge_provenance_digest=$(jq -er .ego_browser_provenance_sha256 "$evidence_source")
+          sed -i \
+            -e "s#^EGO_BROWSER_EXPECTED_RELEASE_PROFILE=.*#EGO_BROWSER_EXPECTED_RELEASE_PROFILE=${bridge_profile}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256=.*#EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256=${bridge_certificate}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_WRAPPER_VERSION=.*#EGO_BROWSER_EXPECTED_WRAPPER_VERSION=${bridge_version}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_SKILL_VERSION=.*#EGO_BROWSER_EXPECTED_SKILL_VERSION=${bridge_skill_version}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256=.*#EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256=${bridge_skill_tree}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_SKILL_COMMIT=.*#EGO_BROWSER_EXPECTED_SKILL_COMMIT=${bridge_skill_commit}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION=.*#EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION=${bridge_runtime_version}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_PROTOCOL_VERSION=.*#EGO_BROWSER_EXPECTED_PROTOCOL_VERSION=${bridge_protocol}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID=.*#EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID=${bridge_learning_key_id}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256=.*#EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256=${bridge_learning_digest}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION=.*#EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION=${version}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256=.*#EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256=${manifest_sha256}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256=${bridge_manifest_digest}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256=${bridge_archive_digest}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256=${bridge_signing_digest}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256=${bridge_sigstore_digest}#" \
+            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256=${bridge_provenance_digest}#" \
             "dist/${package}/deploy/compose/.env.example"
           jq \
             --arg server_image "${server_image}@${server_digest}" \

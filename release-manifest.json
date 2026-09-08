@@ -1,16 +1,16 @@
 {
   "components": {
     "agent-remote-admin-web": {
-      "commit": "3d2c26d9be30cc7e514295fb1a666e4a2861e472",
+      "commit": "d90641664c978f38776b67c1cc2db8b5fce85535",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-admin-web",
-      "version": "0.2.10"
+      "version": "0.2.11"
     },
     "agent-remote-cli": {
-      "commit": "79cf47798847777ac331d7fa087104ef7d9cf71b",
+      "commit": "ed8173ee42e4ba6f7f8eb1a1b696705deae4eb50",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-cli",
-      "version": "0.2.10"
+      "version": "0.2.11"
     },
     "agent-remote-device": {
       "commit": "96342329b9bffff8fe343f548ef372ec3bfa85a6",
@@ -18,19 +18,44 @@
       "repository": "Agent-Remote/agent-remote-device",
       "version": "0.2.13"
     },
+    "agent-remote-ego-browser": {
+      "apple_notarized": false,
+      "commit": "c0a5a740400d686344098ca6ee54e76f90be1974",
+      "credential_profile": "community_file",
+      "hardened_runtime": true,
+      "learning_bundle_digest": "6662ad11797f86d721b2d9121049c35b02eff3e71821dc06dfcc190d250788a7",
+      "learning_bundle_signing_key_id": "ego-browser-learning-2026-09",
+      "local_ego_browser_runtime_version": "0.4.7.4",
+      "nested_signatures_verified": true,
+      "outbound_policy": "application-enforced",
+      "production_ready": true,
+      "profile": "community-local-trust",
+      "protocol_version": "ego-browser-bridge-v1",
+      "public_distribution": false,
+      "readiness_blockers": [],
+      "release_published": true,
+      "release_workflow": "release.yml",
+      "repository": "Agent-Remote/agent-remote-ego-browser",
+      "signer_certificate_sha256": "1b1527d1c0ac6b3a1e95ccd7d4e6462ece9f5a42d2f4d309d09170588a4197e5",
+      "signing_type": "project-self-signed",
+      "skill_commit": "36053d07001a910cb806a15d42d00fdea1cdea3d",
+      "skill_tree_sha256": "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c",
+      "skill_version": "1.2.3",
+      "version": "0.1.5"
+    },
     "agent-remote-node": {
-      "commit": "1af312de8c04b7665ce60b694b5ecabce4683db0",
+      "commit": "5b199a2a1373d3a437180cb2780a1cc7f2168aae",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-node",
-      "version": "0.2.14"
+      "version": "0.2.15"
     },
     "agent-remote-server": {
-      "commit": "4bef2649650bb65c98d3ace131602ede1f0279f3",
+      "commit": "45e49a943d62e9dab117b037139a519bb9abaf44",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-server",
-      "version": "0.2.12"
+      "version": "0.2.13"
     }
   },
-  "distribution_version": "0.2.20",
-  "schema_version": 2
+  "distribution_version": "0.2.21",
+  "schema_version": 3
 }

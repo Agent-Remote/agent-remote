@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentremote.dev/schemas/release-manifest-v3.json",
+  "title": "Agent Remote release composition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "distribution_version", "components"],
+  "properties": {
+    "schema_version": { "const": 3 },
+    "distribution_version": { "$ref": "#/$defs/semver" },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent-remote-server",
+        "agent-remote-node",
+        "agent-remote-cli",
+        "agent-remote-admin-web",
+        "agent-remote-device",
+        "agent-remote-ego-browser"
+      ],
+      "properties": {
+        "agent-remote-server": { "$ref": "#/$defs/component" },
+        "agent-remote-node": { "$ref": "#/$defs/component" },
+        "agent-remote-cli": { "$ref": "#/$defs/component" },
+        "agent-remote-admin-web": { "$ref": "#/$defs/component" },
+        "agent-remote-device": { "$ref": "#/$defs/component" },
+        "agent-remote-ego-browser": { "$ref": "#/$defs/egoBrowserComponent" }
+      }
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$"
+    },
+    "gitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "release_workflow", "version", "commit"],
+      "properties": {
+        "repository": { "type": "string", "pattern": "^Agent-Remote/agent-remote-[A-Za-z0-9-]+$" },
+        "release_workflow": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.ya?ml$" },
+        "version": { "$ref": "#/$defs/semver" },
+        "commit": { "$ref": "#/$defs/gitSha" }
+      }
+    },
+    "egoBrowserComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "release_workflow",
+        "version",
+        "commit",
+        "release_published",
+        "profile",
+        "signing_type",
+        "signer_certificate_sha256",
+        "production_ready",
+        "readiness_blockers",
+        "apple_notarized",
+        "public_distribution",
+        "hardened_runtime",
+        "nested_signatures_verified",
+        "outbound_policy",
+        "credential_profile",
+        "learning_bundle_digest",
+        "learning_bundle_signing_key_id",
+        "skill_version",
+        "skill_commit",
+        "skill_tree_sha256",
+        "local_ego_browser_runtime_version",
+        "protocol_version"
+      ],
+      "properties": {
+        "repository": { "const": "Agent-Remote/agent-remote-ego-browser" },
+        "release_workflow": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.ya?ml$" },
+        "version": { "$ref": "#/$defs/semver" },
+        "commit": { "$ref": "#/$defs/gitSha" },
+        "release_published": { "type": "boolean" },
+        "profile": { "const": "community-local-trust" },
+        "signing_type": { "const": "project-self-signed" },
+        "signer_certificate_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "production_ready": { "type": "boolean" },
+        "readiness_blockers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "apple_notarized": { "const": false },
+        "public_distribution": { "const": false },
+        "hardened_runtime": { "const": true },
+        "nested_signatures_verified": { "type": "boolean" },
+        "outbound_policy": { "const": "application-enforced" },
+        "credential_profile": { "const": "community_file" },
+        "learning_bundle_digest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "learning_bundle_signing_key_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "skill_version": { "const": "1.2.3" },
+        "skill_commit": { "const": "36053d07001a910cb806a15d42d00fdea1cdea3d" },
+        "skill_tree_sha256": { "const": "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c" },
+        "local_ego_browser_runtime_version": { "const": "0.4.7.4" },
+        "protocol_version": { "const": "ego-browser-bridge-v1" }
+      }
+    }
+  }
+}

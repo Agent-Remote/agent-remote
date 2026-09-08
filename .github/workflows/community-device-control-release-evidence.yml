@@ -77,10 +77,16 @@ jobs:
           repository: Agent-Remote/agent-remote-server
           ref: v${{ steps.manifest.outputs.server-version }}
           path: release-input/server-source
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-ego-browser
+          ref: v${{ steps.manifest.outputs.browser-version }}
+          path: release-input/ego-browser-source
       - uses: astral-sh/setup-uv@v8.3.1
       - uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
       - uses: sigstore/cosign-installer@v4.0.0
       - name: Install pinned GitHub CLI
         run: bash scripts/install-github-cli.sh
@@ -90,7 +96,24 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-input/server release-input/node release-input/device \
-            release-input/cli release-input/admin
+            release-input/cli release-input/admin release-input/ego-browser
+          BROWSER_CERTIFICATE_SHA256=$(jq -er \
+            '.components["agent-remote-ego-browser"].signer_certificate_sha256' \
+            release-manifest.json)
+          BROWSER_LEARNING_BUNDLE_DIGEST=$(jq -er \
+            '.components["agent-remote-ego-browser"].learning_bundle_digest' \
+            release-manifest.json)
+          BROWSER_LEARNING_BUNDLE_KEY_ID=$(jq -er \
+            '.components["agent-remote-ego-browser"].learning_bundle_signing_key_id' \
+            release-manifest.json)
+          [[ "$BROWSER_CERTIFICATE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$BROWSER_LEARNING_BUNDLE_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$BROWSER_LEARNING_BUNDLE_KEY_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]
+          {
+            echo "BROWSER_CERTIFICATE_SHA256=$BROWSER_CERTIFICATE_SHA256"
+            echo "BROWSER_LEARNING_BUNDLE_DIGEST=$BROWSER_LEARNING_BUNDLE_DIGEST"
+            echo "BROWSER_LEARNING_BUNDLE_KEY_ID=$BROWSER_LEARNING_BUNDLE_KEY_ID"
+          } >> "$GITHUB_ENV"
           gh release download "v${SERVER_VERSION}" --repo Agent-Remote/agent-remote-server \
             --dir release-input/server
           targets=(linux-amd64-glibc linux-arm64-glibc linux-amd64-musl linux-arm64-musl)
@@ -121,6 +144,176 @@ jobs:
           gh release download "v${ADMIN_VERSION}" --repo Agent-Remote/agent-remote-admin-web \
             --dir release-input/admin \
             --pattern "agent-remote-admin-web-${ADMIN_VERSION}.npm-audit.json*"
+          browser=release-input/ego-browser
+          browser_patterns=(
+            --pattern "agent-remote-ego-browser-${BROWSER_VERSION}.release-manifest.json"
+            --pattern "agent-remote-ego-browser-${BROWSER_VERSION}.release-manifest.json.sha256"
+            --pattern "agent-remote-ego-browser-${BROWSER_VERSION}.release-manifest.json.sigstore.json"
+            --pattern "agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.tar.gz"
+            --pattern "agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.tar.gz.sha256"
+            --pattern "agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.tar.gz.sigstore.json"
+            --pattern "agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.community-signing.json"
+            --pattern "agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.community-signing.json.sha256"
+            --pattern "agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.community-signing.json.sigstore.json"
+            --pattern "agent-remote-ego-browser-${BROWSER_VERSION}.cargo-audit.json"
+            --pattern "agent-remote-ego-browser-${BROWSER_VERSION}.cargo-audit.json.sha256"
+            --pattern "agent-remote-ego-browser-${BROWSER_VERSION}.cargo-audit.json.sigstore.json"
+          )
+          for label in linux-amd64-glibc linux-arm64-glibc linux-amd64-musl linux-arm64-musl; do
+            archive="agent-remote-ego-browser-wrapper-${label}-${BROWSER_VERSION}.tar.gz"
+            sbom="agent-remote-ego-browser-wrapper-${label}-${BROWSER_VERSION}.spdx.json"
+            browser_patterns+=(
+              --pattern "$archive"
+              --pattern "$archive.sha256"
+              --pattern "$archive.sigstore.json"
+              --pattern "$sbom"
+              --pattern "$sbom.sigstore.json"
+            )
+          done
+          browser_patterns+=(
+            --pattern "agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.spdx.json"
+            --pattern "agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.spdx.json.sigstore.json"
+          )
+          gh release download "v${BROWSER_VERSION}" \
+            --repo Agent-Remote/agent-remote-ego-browser --dir "$browser" \
+            "${browser_patterns[@]}"
+      - name: Verify exact ego-browser Bridge release and learning bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          browser=release-input/ego-browser
+          source=release-input/ego-browser-source
+          manifest="$browser/agent-remote-ego-browser-${BROWSER_VERSION}.release-manifest.json"
+          archive="$browser/agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.tar.gz"
+          signing="$browser/agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.community-signing.json"
+          browser_release=$(gh release view "v${BROWSER_VERSION}" \
+            --repo Agent-Remote/agent-remote-ego-browser \
+            --json tagName,isDraft,isPrerelease,publishedAt)
+          jq -e --arg tag "v${BROWSER_VERSION}" \
+            '.tagName == $tag and .isDraft == false and .isPrerelease == false and
+             (.publishedAt | type == "string" and length > 0)' \
+            <<<"$browser_release" >/dev/null
+          (cd "$browser" && sha256sum --check "$(basename "$manifest").sha256")
+          (cd "$browser" && sha256sum --check "$(basename "$archive").sha256")
+          (cd "$browser" && sha256sum --check "$(basename "$signing").sha256")
+          while IFS= read -r -d '' checksum; do
+            (cd "$browser" && sha256sum --check "$(basename "$checksum")")
+          done < <(find "$browser" -maxdepth 1 -type f -name '*.sha256' -print0 | sort -z)
+          test "$(git -C "$source" rev-parse HEAD)" = "$BROWSER_COMMIT"
+          test "$(git -C "$source" rev-parse --verify "refs/tags/v${BROWSER_VERSION}^{commit}")" = "$BROWSER_COMMIT"
+          python3 "$source/scripts/release_manifest.py" verify \
+            --manifest "$manifest" --artifact-dir "$browser" \
+            --expected-version "$BROWSER_VERSION" \
+            --expected-certificate-sha256 "$BROWSER_CERTIFICATE_SHA256" >/dev/null
+          jq -e \
+            --arg digest "$BROWSER_LEARNING_BUNDLE_DIGEST" \
+            --arg key "$BROWSER_LEARNING_BUNDLE_KEY_ID" \
+            '.production_ready == true and .readiness_blockers == [] and
+             .nested_signatures_verified == true and
+             .learning_bundle_digest == $digest and
+             .learning_bundle_signing_key_id == $key' \
+            "$manifest" >/dev/null
+          jq -e \
+            --arg version "$BROWSER_VERSION" \
+            --arg cert "$BROWSER_CERTIFICATE_SHA256" \
+            '.schema_version == 1 and .version == $version and
+             .production_ready == true and .readiness_blockers == [] and
+             .signer_certificate_sha256 == $cert and
+             .nested_signatures_verified == true and
+             .learning_bundle_digest == env.BROWSER_LEARNING_BUNDLE_DIGEST and
+             .learning_bundle_signing_key_id == env.BROWSER_LEARNING_BUNDLE_KEY_ID' \
+            "$signing" >/dev/null
+          verify_blob() {
+            local path=$1 workflow=$2
+            cosign verify-blob --bundle "$path.sigstore.json" \
+              --certificate-identity \
+                "https://github.com/Agent-Remote/agent-remote-ego-browser/.github/workflows/${workflow}@refs/tags/v${BROWSER_VERSION}" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" "$path"
+          }
+          verify_blob "$archive" "$BROWSER_WORKFLOW"
+          verify_blob "$manifest" "$BROWSER_WORKFLOW"
+          verify_blob "$signing" "$BROWSER_WORKFLOW"
+          verify_blob "$browser/agent-remote-ego-browser-${BROWSER_VERSION}.cargo-audit.json" "$BROWSER_WORKFLOW"
+          jq -r '.artifacts[] | [.name, .sbom] | @tsv' "$manifest" |
+            while IFS=$'\t' read -r artifact sbom; do
+              verify_blob "$browser/$artifact" "$BROWSER_WORKFLOW"
+              jq -e '.spdxVersion | startswith("SPDX-")' "$browser/$sbom" >/dev/null
+              verify_blob "$browser/$sbom" "$BROWSER_WORKFLOW"
+            done
+          gh attestation verify "$archive" \
+            --repo Agent-Remote/agent-remote-ego-browser \
+            --source-ref "refs/tags/v${BROWSER_VERSION}" \
+            --signer-workflow "Agent-Remote/agent-remote-ego-browser/.github/workflows/${BROWSER_WORKFLOW}" \
+            --format json > "$browser/provenance.json"
+          gh attestation verify "$manifest" \
+            --repo Agent-Remote/agent-remote-ego-browser \
+            --source-ref "refs/tags/v${BROWSER_VERSION}" \
+            --signer-workflow "Agent-Remote/agent-remote-ego-browser/.github/workflows/${BROWSER_WORKFLOW}" \
+            --format json > "$browser/manifest-provenance.json"
+          if [ -e "$browser/learning-bundle" ] || [ -L "$browser/learning-bundle" ]; then
+            rm -rf -- "$browser/learning-bundle"
+          fi
+          learning_archive="$RUNNER_TEMP/ego-browser-learning-bundle.tar.gz"
+          python3 - "$archive" "$learning_archive" <<'PY'
+          import copy
+          import posixpath
+          import sys
+          import tarfile
+
+          source_path, output_path = sys.argv[1:]
+          maximum_members = 4096
+          maximum_bytes = 256 * 1024 * 1024
+          selected = []
+          names = set()
+          expanded = 0
+          with tarfile.open(source_path, mode="r:gz") as source:
+              for original in source.getmembers():
+                  name = original.name.rstrip("/")
+                  if name != "learning-bundle" and not name.startswith("learning-bundle/"):
+                      continue
+                  if (
+                      not name
+                      or "\x00" in name
+                      or "\\" in name
+                      or name.startswith("/")
+                      or posixpath.normpath(name) != name
+                      or name in names
+                  ):
+                      raise SystemExit("unsafe learning-bundle member")
+                  names.add(name)
+                  if not (original.isdir() or original.isfile()):
+                      raise SystemExit("learning-bundle contains a link or special file")
+                  if original.size < 0 or original.size > 64 * 1024 * 1024:
+                      raise SystemExit("learning-bundle member is oversized")
+                  expanded += original.size
+                  if len(selected) >= maximum_members or expanded > maximum_bytes:
+                      raise SystemExit("learning-bundle exceeds extraction limits")
+                  member = copy.copy(original)
+                  member.name = name
+                  selected.append((member, original))
+              required = {"learning-bundle", "learning-bundle/manifest.json", "learning-bundle/learnings"}
+              if not required.issubset(names):
+                  raise SystemExit("learning-bundle tree is incomplete")
+              with tarfile.open(output_path, mode="w:gz") as output:
+                  for member, original in selected:
+                      if member.isfile():
+                          payload = source.extractfile(original)
+                          if payload is None:
+                              raise SystemExit("learning-bundle member cannot be read")
+                          with payload:
+                              output.addfile(member, payload)
+                      else:
+                          output.addfile(member)
+          PY
+          python3 "$source/scripts/extract-learning-bundle.py" \
+            --archive "$learning_archive" \
+            --output "$GITHUB_WORKSPACE/$browser/learning-bundle"
+          cargo build --locked --release --manifest-path "$source/Cargo.toml" \
+            -p ego-browser-bridge-protocol --bin ego-browser-learning-bundle
+          verifier="$source/target/release/ego-browser-learning-bundle"
+          verified=$("$verifier" verify --bundle "$browser/learning-bundle" | tr -d '[:space:]')
+          test "$verified" = "sha256:${BROWSER_LEARNING_BUNDLE_DIGEST}"
       - name: Verify release checksums, signatures, provenance, and vulnerability reports
         env:
           GH_TOKEN: ${{ github.token }}
@@ -257,6 +450,7 @@ jobs:
           repositories = [
               "agent-remote", "agent-remote-server", "agent-remote-node",
               "agent-remote-cli", "agent-remote-admin-web", "agent-remote-device",
+              "agent-remote-ego-browser",
           ]
           result = {}
           with open("release-manifest.json", encoding="utf-8") as source:
@@ -411,6 +605,19 @@ jobs:
             --provenance server=release-input/server-provenance.json \
             --provenance application=release-input/application-provenance.json \
             --community-signing "release-input/device/agent-remote-device-macos-${DEVICE_VERSION}.community-signing.json" \
+            --ego-browser-repository "$GITHUB_WORKSPACE/release-input/ego-browser-source" \
+            --ego-browser-release-manifest "release-input/ego-browser/agent-remote-ego-browser-${BROWSER_VERSION}.release-manifest.json" \
+            --ego-browser-release-archive "release-input/ego-browser/agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.tar.gz" \
+            --ego-browser-release-manifest-checksum "release-input/ego-browser/agent-remote-ego-browser-${BROWSER_VERSION}.release-manifest.json.sha256" \
+            --ego-browser-release-archive-checksum "release-input/ego-browser/agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.tar.gz.sha256" \
+            --ego-browser-signing-evidence "release-input/ego-browser/agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.community-signing.json" \
+            --ego-browser-signing-evidence-checksum "release-input/ego-browser/agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.community-signing.json.sha256" \
+            --ego-browser-learning-bundle "$GITHUB_WORKSPACE/release-input/ego-browser/learning-bundle" \
+            --ego-browser-archive-sigstore "release-input/ego-browser/agent-remote-ego-browser-macos-universal-${BROWSER_VERSION}.tar.gz.sigstore.json" \
+            --ego-browser-manifest-sigstore "release-input/ego-browser/agent-remote-ego-browser-${BROWSER_VERSION}.release-manifest.json.sigstore.json" \
+            --ego-browser-provenance "release-input/ego-browser/provenance.json" \
+            --ego-browser-learning-bundle-digest "$BROWSER_LEARNING_BUNDLE_DIGEST" \
+            --ego-browser-learning-bundle-verifier "$GITHUB_WORKSPACE/release-input/ego-browser-source/scripts/verify-learning-bundle.sh" \
             --automation-evidence "$community/automation.json" \
             --risk-acceptance "$community/risk-acceptance.json" \
             --ci-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \

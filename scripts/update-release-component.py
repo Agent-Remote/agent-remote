@@ -12,6 +12,7 @@ from pathlib import Path
 
 from release_manifest import (
     COMPONENTS,
+    EGO_BROWSER_COMPONENT,
     GIT_SHA,
     RELEASE_WORKFLOW,
     SEMVER,
@@ -74,6 +75,12 @@ def main() -> None:
         and RELEASE_WORKFLOW.fullmatch(args.release_workflow) is None
     ):
         parser.error("component release workflow filename is invalid")
+    if args.component == EGO_BROWSER_COMPONENT:
+        parser.error(
+            "ego-browser Bridge pins must be promoted with "
+            "scripts/promote-ego-browser-release.py; this updater cannot verify "
+            "the stable GitHub release and signed production evidence"
+        )
 
     manifest = load_release_manifest(args.manifest)
     components = manifest["components"]

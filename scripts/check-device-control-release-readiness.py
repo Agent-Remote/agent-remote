@@ -20,6 +20,7 @@ REPOSITORIES = (
     "agent-remote-cli",
     "agent-remote-admin-web",
     "agent-remote-device",
+    "agent-remote-ego-browser",
 )
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
 EXPECTED_ORIGINS = {
@@ -172,17 +173,29 @@ def declared_versions(name: str, path: Path) -> dict[str, str]:
             ),
             "Cargo.lock": lock_version(path / "Cargo.lock", "agent-remote-device-proxy"),
         }
+    if name == "agent-remote-ego-browser":
+        return {
+            "VERSION": (path / "VERSION").read_text(encoding="utf-8").strip(),
+            "Cargo.toml": toml_version(path / "Cargo.toml", "workspace", "package", "version"),
+            "Cargo.lock": lock_version(path / "Cargo.lock", "ego-browser-bridge-protocol"),
+        }
     raise ValueError(f"unsupported repository: {name}")
 
 
-def load_manifest(path: Path) -> tuple[str, dict[str, dict[str, str]]]:
+def load_manifest(
+    path: Path,
+) -> tuple[str, dict[str, dict[str, str]], tuple[str, ...]]:
     value = load_release_manifest(path)
     distribution_version = value["distribution_version"]
     raw_components = value["components"]
     assert isinstance(distribution_version, str)
     assert isinstance(raw_components, dict)
+    schema_version = value["schema_version"]
+    component_names = COMPONENTS if schema_version == 3 else tuple(
+        name for name in COMPONENTS if name != "agent-remote-ego-browser"
+    )
     components: dict[str, dict[str, str]] = {}
-    for name in COMPONENTS:
+    for name in component_names:
         component = raw_components[name]
         assert isinstance(component, dict)
         repository = component["repository"]
@@ -199,7 +212,7 @@ def load_manifest(path: Path) -> tuple[str, dict[str, dict[str, str]]]:
             "commit": commit,
             "release_workflow": release_workflow,
         }
-    return distribution_version, components
+    return distribution_version, components, component_names
 
 
 def inspect_repository(
@@ -280,19 +293,33 @@ def main() -> int:
     args = parse_args()
     try:
         paths = repository_paths(parse_overrides(args.repository))
-        distribution_version, components = load_manifest(args.manifest)
+        distribution_version, components, component_names = load_manifest(args.manifest)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(error, file=sys.stderr)
         return 2
 
+    manifest_value = load_release_manifest(args.manifest)
     inventory: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": manifest_value["schema_version"],
         "distribution_version": distribution_version,
         "manifest": str(args.manifest.resolve()),
     }
     repositories: dict[str, object] = {}
     errors: list[str] = []
-    for name in REPOSITORIES:
+    manifest_components = manifest_value["components"]
+    assert isinstance(manifest_components, dict)
+    if "agent-remote-ego-browser" in component_names:
+        browser_component = manifest_components["agent-remote-ego-browser"]
+        assert isinstance(browser_component, dict)
+        if browser_component["production_ready"] is not True:
+            blockers = browser_component["readiness_blockers"]
+            assert isinstance(blockers, list)
+            errors.append(
+                "agent-remote-ego-browser: production_ready=false: "
+                + ", ".join(str(blocker) for blocker in blockers)
+            )
+    repository_names = ("agent-remote", *component_names)
+    for name in repository_names:
         if name == "agent-remote":
             version = distribution_version
             expected_commit = None

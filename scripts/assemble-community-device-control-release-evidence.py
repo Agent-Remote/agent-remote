@@ -5,17 +5,26 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 import os
 import re
 import stat
+import subprocess
+import sys
 import tarfile
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
-from release_manifest import load_release_manifest, release_manifest_sha256
+# Importing the Bridge validator must not dirty its checked-out source tree.
+sys.dont_write_bytecode = True
+
+from release_manifest import (  # noqa: E402  # imported after bytecode policy
+    load_release_manifest,
+    release_manifest_sha256,
+)
 
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -25,6 +34,15 @@ TARGETS = (
     "linux-arm64-glibc",
     "linux-amd64-musl",
     "linux-arm64-musl",
+)
+EGO_BROWSER_COMPONENT = "agent-remote-ego-browser"
+EGO_BROWSER_DIGEST_FIELDS = (
+    "ego_browser_release_manifest_sha256",
+    "ego_browser_release_archive_sha256",
+    "ego_browser_signing_evidence_sha256",
+    "ego_browser_learning_bundle_sha256",
+    "ego_browser_sigstore_sha256",
+    "ego_browser_provenance_sha256",
 )
 LABEL = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 MAXIMUM_INPUT_BYTES = 256 * 1024 * 1024
@@ -85,6 +103,97 @@ def digest(path: Path) -> str:
         while chunk := source.read(1024 * 1024):
             value.update(chunk)
     return value.hexdigest()
+
+
+def validate_checksum_file(checksum_path: Path, target: Path, label: str) -> None:
+    """Validate one sha256sum-compatible file against its exact target."""
+
+    try:
+        with open_safe(checksum_path) as source:
+            raw = source.read()
+    except OSError as exc:
+        raise ValueError(f"{label} checksum is unavailable") from exc
+    try:
+        text = raw.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{label} checksum is not ASCII") from exc
+    lines = text.splitlines()
+    if len(lines) != 1:
+        raise ValueError(f"{label} checksum must contain exactly one record")
+    match = re.fullmatch(r"([0-9a-f]{64})  ([A-Za-z0-9._+-]{1,255})\n?", lines[0])
+    if (
+        match is None
+        or match.group(2) != target.name
+        or match.group(1) != digest(target)
+    ):
+        raise ValueError(f"{label} checksum does not match the target")
+
+
+def validate_archive_members(
+    archive_path: Path, *, require_learning_bundle: bool
+) -> None:
+    """Reject unsafe tar members and require the packaged learning bundle."""
+
+    required = {"learning-bundle/manifest.json", "learning-bundle/learnings"}
+    seen: set[str] = set()
+    try:
+        with tarfile.open(archive_path, mode="r:gz") as archive:
+            members = archive.getmembers()
+            if len(members) > MAXIMUM_ARCHIVE_MEMBERS:
+                raise ValueError("ego-browser Bridge archive has too many members")
+            expanded = 0
+            for member in members:
+                name = member.name
+                parsed = PurePosixPath(name)
+                trimmed = name[:-1] if name.endswith("/") else name
+                if (
+                    not name
+                    or "\\" in name
+                    or parsed.is_absolute()
+                    or ".." in parsed.parts
+                    or any(part in ("", ".") for part in parsed.parts)
+                    or "/".join(parsed.parts) != trimmed
+                    or trimmed in seen
+                    or member.issym()
+                    or member.islnk()
+                    or not (member.isfile() or member.isdir())
+                    or member.size < 0
+                ):
+                    raise ValueError(
+                        "ego-browser Bridge archive contains an unsafe member"
+                    )
+                seen.add(trimmed)
+                expanded += member.size
+                if expanded > MAXIMUM_ARCHIVE_EXPANDED_BYTES:
+                    raise ValueError("ego-browser Bridge archive is too large")
+    except (OSError, tarfile.TarError) as exc:
+        raise ValueError("ego-browser Bridge release archive is invalid") from exc
+    if require_learning_bundle and not required.issubset(seen):
+        raise ValueError(
+            "ego-browser Bridge archive does not contain its learning bundle"
+        )
+
+
+def validate_read_only_tree(root: Path, label: str) -> None:
+    """Require a bounded directory containing only owner-readable regular files."""
+
+    if not root.is_absolute() or not root.is_dir() or root.is_symlink():
+        raise ValueError(f"{label} must be an absolute non-symlink directory")
+    members = 0
+    for path in (root, *root.rglob("*")):
+        members += 1
+        if members > MAXIMUM_ARCHIVE_MEMBERS or path.is_symlink():
+            raise ValueError(f"{label} contains an unsafe or excessive entry")
+        info = path.stat()
+        mode = info.st_mode
+        if stat.S_ISREG(mode):
+            if mode & 0o222 or info.st_nlink != 1:
+                raise ValueError(f"{label} is writable")
+        elif stat.S_ISDIR(mode):
+            if mode & 0o222:
+                raise ValueError(f"{label} is writable")
+        else:
+            raise ValueError(f"{label} contains a non-regular entry")
 
 
 def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -416,7 +525,194 @@ def validate_community_signing(
             raise ValueError(f"community signing {field} is invalid")
 
 
-def validate_automation(path: Path, version: str) -> None:
+def load_bridge_manifest(path: Path, repository: Path) -> dict[str, object]:
+    """Load and strictly validate the Bridge aggregate release manifest."""
+
+    validator = repository / "scripts" / "release_manifest.py"
+    if not validator.is_file() or validator.is_symlink():
+        raise ValueError("ego-browser release-manifest validator is missing")
+    spec = importlib.util.spec_from_file_location(
+        "ego_browser_release_manifest", validator
+    )
+    if spec is None or spec.loader is None:
+        raise ValueError("ego-browser release-manifest validator is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    value = module.load_manifest(path)
+    if not isinstance(value, dict):
+        raise ValueError("ego-browser release manifest is not an object")
+    return value
+
+
+def validate_ego_browser_release(
+    *,
+    root_component: dict[str, object],
+    repository: Path,
+    release_manifest: Path,
+    release_archive: Path,
+    release_manifest_checksum: Path,
+    release_archive_checksum: Path,
+    signing_evidence: Path,
+    signing_evidence_checksum: Path,
+    learning_bundle: Path,
+    archive_sigstore: Path,
+    manifest_sigstore: Path,
+    provenance: Path,
+    expected_learning_digest: str | None,
+    learning_bundle_verifier: str | None,
+) -> dict[str, str]:
+    """Validate every Bridge release input and return the bound evidence digests."""
+
+    version = root_component.get("version")
+    if not repository.is_dir() or repository.is_symlink():
+        raise ValueError("ego-browser Bridge repository is missing")
+    if version is not None and release_manifest.name != (
+        f"{EGO_BROWSER_COMPONENT}-{version}.release-manifest.json"
+    ):
+        raise ValueError("ego-browser release manifest filename is invalid")
+    if version is not None and release_archive.name != (
+        f"{EGO_BROWSER_COMPONENT}-macos-universal-{version}.tar.gz"
+    ):
+        raise ValueError("ego-browser release archive filename is invalid")
+    validate_checksum_file(
+        release_manifest_checksum, release_manifest, "ego-browser release manifest"
+    )
+    validate_checksum_file(
+        release_archive_checksum, release_archive, "ego-browser release archive"
+    )
+    validate_checksum_file(
+        signing_evidence_checksum, signing_evidence, "ego-browser signing evidence"
+    )
+    validate_archive_members(release_archive, require_learning_bundle=True)
+    bridge = load_bridge_manifest(release_manifest, repository)
+    bridge_validator = repository / "scripts" / "release_manifest.py"
+    spec = importlib.util.spec_from_file_location(
+        "ego_browser_release_manifest_verify", bridge_validator
+    )
+    if spec is None or spec.loader is None:
+        raise ValueError("ego-browser release-manifest verifier is unavailable")
+    verifier_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verifier_module)
+    verifier_module.verify_files(bridge, release_archive.parent)
+    certificate = root_component.get("signer_certificate_sha256")
+    key_id = root_component.get("learning_bundle_signing_key_id")
+    learning_digest = root_component.get("learning_bundle_digest")
+    if (
+        bridge.get("component") != EGO_BROWSER_COMPONENT
+        or bridge.get("version") != version
+        or bridge.get("production_ready") is not True
+        or bridge.get("readiness_blockers") != []
+        or bridge.get("nested_signatures_verified") is not True
+        or bridge.get("signer_certificate_sha256") != certificate
+        or bridge.get("learning_bundle_digest") != learning_digest
+        or bridge.get("learning_bundle_signing_key_id") != key_id
+    ):
+        raise ValueError("ego-browser Bridge manifest is not production ready")
+    if (
+        not isinstance(certificate, str)
+        or SHA256.fullmatch(certificate) is None
+        or not isinstance(key_id, str)
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", key_id)
+        or not isinstance(learning_digest, str)
+        or SHA256.fullmatch(learning_digest) is None
+    ):
+        raise ValueError("ego-browser Bridge trust fields are invalid")
+    if (
+        expected_learning_digest is not None
+        and expected_learning_digest != learning_digest
+    ):
+        raise ValueError(
+            "ego-browser learning bundle digest does not match the root pin"
+        )
+
+    artifact_name = f"{EGO_BROWSER_COMPONENT}-macos-universal-{version}.tar.gz"
+    artifacts = bridge.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("ego-browser Bridge artifact inventory is invalid")
+    artifact = next(
+        (
+            item
+            for item in artifacts
+            if isinstance(item, dict) and item.get("name") == artifact_name
+        ),
+        None,
+    )
+    if not isinstance(artifact, dict) or artifact.get("sha256") != digest(
+        release_archive
+    ):
+        raise ValueError("ego-browser Bridge release archive digest does not match")
+    for path in (archive_sigstore, manifest_sigstore, provenance):
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(
+                f"ego-browser Bridge evidence file is missing: {path.name}"
+            )
+
+    signing = load_object(signing_evidence)
+    expected_signing = {
+        "schema_version": 1,
+        "version": version,
+        "profile": "community-local-trust",
+        "production_ready": True,
+        "readiness_blockers": [],
+        "apple_notarized": False,
+        "public_distribution": False,
+        "signing_type": "project-self-signed",
+        "signer_certificate_sha256": certificate,
+        "bridge_signature_verified": True,
+        "device_client_signature_verified": True,
+        "nested_signatures_verified": True,
+        "hardened_runtime": True,
+        "outbound_policy": "application-enforced",
+        "credential_profile": "community_file",
+        "learning_bundle_digest": learning_digest,
+        "learning_bundle_signing_key_id": key_id,
+    }
+    if signing != expected_signing:
+        raise ValueError("ego-browser Bridge signing evidence is inconsistent")
+
+    validate_read_only_tree(learning_bundle, "ego-browser learning bundle")
+    learning_manifest = learning_bundle / "manifest.json"
+    if not learning_manifest.is_file() or learning_manifest.is_symlink():
+        raise ValueError("ego-browser learning bundle manifest is missing")
+    learning_record = load_object(learning_manifest)
+    if learning_record.get("signing_key_id") != key_id:
+        raise ValueError("ego-browser learning bundle key ID is inconsistent")
+    if not learning_bundle_verifier:
+        raise ValueError("ego-browser learning bundle verifier is required")
+    try:
+        result = subprocess.run(
+            [
+                learning_bundle_verifier,
+                "--bundle",
+                str(learning_bundle),
+                "--key-id",
+                str(key_id),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError(
+            "ego-browser learning bundle signature verification failed"
+        ) from exc
+    verified = result.stdout.strip().removeprefix("sha256:")
+    if SHA256.fullmatch(verified) is None or verified != learning_digest:
+        raise ValueError("ego-browser learning bundle digest verification failed")
+
+    return {
+        "ego_browser_release_manifest_sha256": digest(release_manifest),
+        "ego_browser_release_archive_sha256": digest(release_archive),
+        "ego_browser_signing_evidence_sha256": digest(signing_evidence),
+        "ego_browser_learning_bundle_sha256": learning_digest,
+        "ego_browser_sigstore_sha256": digest(archive_sigstore),
+        "ego_browser_provenance_sha256": digest(provenance),
+    }
+
+
+def validate_automation(
+    path: Path, version: str, *, require_bridge: bool = False
+) -> None:
     """Validate the official-runner automation summary."""
 
     value = load_object(path)
@@ -452,6 +748,8 @@ def validate_automation(path: Path, version: str) -> None:
         "agent-remote-admin-web",
         "agent-remote-device",
     }
+    if require_bridge:
+        repositories.add("agent-remote-ego-browser")
     if not isinstance(ci_runs, dict) or set(ci_runs) != repositories:
         raise ValueError("community CI run inventory is invalid")
     for repository, run in ci_runs.items():
@@ -510,6 +808,31 @@ def main() -> None:
     parser.add_argument("--community-signing", type=Path, required=True)
     parser.add_argument("--automation-evidence", type=Path, required=True)
     parser.add_argument("--risk-acceptance", type=Path, required=True)
+    parser.add_argument("--ego-browser-repository", type=Path)
+    parser.add_argument("--ego-browser-release-manifest", type=Path)
+    parser.add_argument("--ego-browser-release-archive", type=Path)
+    parser.add_argument(
+        "--ego-browser-release-manifest-checksum",
+        "--ego-browser-manifest-checksum",
+        type=Path,
+    )
+    parser.add_argument(
+        "--ego-browser-release-archive-checksum",
+        "--ego-browser-archive-checksum",
+        type=Path,
+    )
+    parser.add_argument("--ego-browser-signing-evidence", type=Path)
+    parser.add_argument(
+        "--ego-browser-signing-evidence-checksum",
+        "--ego-browser-signing-checksum",
+        type=Path,
+    )
+    parser.add_argument("--ego-browser-learning-bundle", type=Path)
+    parser.add_argument("--ego-browser-archive-sigstore", type=Path)
+    parser.add_argument("--ego-browser-manifest-sigstore", type=Path)
+    parser.add_argument("--ego-browser-provenance", type=Path)
+    parser.add_argument("--ego-browser-learning-bundle-digest")
+    parser.add_argument("--ego-browser-learning-bundle-verifier")
     parser.add_argument("--computer-use-v2-evidence", type=Path)
     parser.add_argument("--computer-use-v2-evidence-archive", type=Path)
     parser.add_argument("--computer-use-v2-target", choices=TARGETS)
@@ -534,6 +857,62 @@ def main() -> None:
         assert isinstance(device_component, dict)
         if server_component["version"] != args.release_version:
             raise ValueError("server version does not match the release manifest")
+        bridge_inputs = (
+            args.ego_browser_repository,
+            args.ego_browser_release_manifest,
+            args.ego_browser_release_archive,
+            args.ego_browser_release_manifest_checksum,
+            args.ego_browser_release_archive_checksum,
+            args.ego_browser_signing_evidence,
+            args.ego_browser_signing_evidence_checksum,
+            args.ego_browser_learning_bundle,
+            args.ego_browser_archive_sigstore,
+            args.ego_browser_manifest_sigstore,
+            args.ego_browser_provenance,
+        )
+        bridge_enabled = any(value is not None for value in bridge_inputs)
+        if bridge_enabled and not all(value is not None for value in bridge_inputs):
+            raise ValueError("ego-browser Bridge inputs must be provided together")
+        if manifest["schema_version"] == 3 and not bridge_enabled:
+            raise ValueError(
+                "root schema 3 community evidence requires the Bridge inputs"
+            )
+        bridge_digests: dict[str, str] = {}
+        if bridge_enabled:
+            assert args.ego_browser_repository is not None
+            assert args.ego_browser_release_manifest is not None
+            assert args.ego_browser_release_archive is not None
+            assert args.ego_browser_release_manifest_checksum is not None
+            assert args.ego_browser_release_archive_checksum is not None
+            assert args.ego_browser_signing_evidence is not None
+            assert args.ego_browser_signing_evidence_checksum is not None
+            assert args.ego_browser_learning_bundle is not None
+            assert args.ego_browser_archive_sigstore is not None
+            assert args.ego_browser_manifest_sigstore is not None
+            assert args.ego_browser_provenance is not None
+            if manifest["schema_version"] != 3:
+                raise ValueError("ego-browser Bridge evidence requires root schema 3")
+            bridge_component = components.get(EGO_BROWSER_COMPONENT)
+            if not isinstance(bridge_component, dict):
+                raise ValueError(
+                    "root release manifest is missing the Bridge component"
+                )
+            bridge_digests = validate_ego_browser_release(
+                root_component=bridge_component,
+                repository=args.ego_browser_repository,
+                release_manifest=args.ego_browser_release_manifest,
+                release_archive=args.ego_browser_release_archive,
+                release_manifest_checksum=args.ego_browser_release_manifest_checksum,
+                release_archive_checksum=args.ego_browser_release_archive_checksum,
+                signing_evidence=args.ego_browser_signing_evidence,
+                signing_evidence_checksum=args.ego_browser_signing_evidence_checksum,
+                learning_bundle=args.ego_browser_learning_bundle,
+                archive_sigstore=args.ego_browser_archive_sigstore,
+                manifest_sigstore=args.ego_browser_manifest_sigstore,
+                provenance=args.ego_browser_provenance,
+                expected_learning_digest=args.ego_browser_learning_bundle_digest,
+                learning_bundle_verifier=args.ego_browser_learning_bundle_verifier,
+            )
         issued_at = validate_timestamp(args.issued_at, "issued_at")
         issued_at_value = parse_timestamp(issued_at, "issued_at")
         v2_inputs = (
@@ -579,7 +958,11 @@ def main() -> None:
             str(device_component["version"]),
             application_sha256,
         )
-        validate_automation(args.automation_evidence, args.distribution_version)
+        validate_automation(
+            args.automation_evidence,
+            args.distribution_version,
+            require_bridge=bridge_enabled,
+        )
         validate_risk_acceptance(
             args.risk_acceptance, args.distribution_version, v2_enabled
         )
@@ -665,6 +1048,8 @@ def main() -> None:
             "risk_acceptance_sha256": risk_sha256,
             "ci_run_url": args.ci_run_url,
         }
+        if bridge_digests:
+            draft.update(bridge_digests)
         write_new(
             args.output_directory / "release-evidence-draft.json", canonical(draft)
         )

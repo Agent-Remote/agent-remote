@@ -92,7 +92,7 @@ Device 的 `production-community-release` 环境必须已有以下配置：
 
 - secrets: `COMMUNITY_SIGNING_P12_BASE64`、`COMMUNITY_SIGNING_P12_PASSWORD`、
   `COMMUNITY_SIGNING_IDENTITY`
-- variable: `COMMUNITY_SIGNER_CERTIFICATE_SHA1`
+- variable: `COMMUNITY_SIGNER_CERTIFICATE_SHA256`
 
 只检查名称，不打印 secret 内容：
 
@@ -107,9 +107,9 @@ gh variable list --repo Agent-Remote/agent-remote-device \
 指纹（变量值会保存在 shell 中，不在命令输出中展开）：
 
 ```sh
-DEVICE_SIGNER=$(gh variable get COMMUNITY_SIGNER_CERTIFICATE_SHA1 \
+DEVICE_SIGNER=$(gh variable get COMMUNITY_SIGNER_CERTIFICATE_SHA256 \
   --repo Agent-Remote/agent-remote-device --env production-community-release)
-CLI_SIGNER=$(gh variable get COMMUNITY_SIGNER_CERTIFICATE_SHA1 \
+CLI_SIGNER=$(gh variable get COMMUNITY_SIGNER_CERTIFICATE_SHA256 \
   --repo Agent-Remote/agent-remote-cli --env production-community-release)
 test "$DEVICE_SIGNER" = "$CLI_SIGNER"
 case "$DEVICE_SIGNER" in

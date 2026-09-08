@@ -12,6 +12,7 @@ REPOSITORIES = (
     "agent-remote-cli",
     "agent-remote-admin-web",
     "agent-remote-device",
+    "agent-remote-ego-browser",
 )
 COMPONENTS = tuple(name for name in REPOSITORIES if name != "agent-remote")
 
@@ -80,6 +81,13 @@ def initialize_repository(path: Path, name: str, version: str) -> None:
             path / "Cargo.lock",
             f'[[package]]\nname = "agent-remote-device-proxy"\nversion = "{version}"\n',
         )
+    elif name == "agent-remote-ego-browser":
+        write(path / "VERSION", f"{version}\n")
+        write(path / "Cargo.toml", f'[workspace.package]\nversion = "{version}"\n')
+        write(
+            path / "Cargo.lock",
+            f'[[package]]\nname = "ego-browser-bridge-protocol"\nversion = "{version}"\n',
+        )
     subprocess.run(["git", "-C", str(path), "add", "."], check=True)
     subprocess.run(
         ["git", "-C", str(path), "commit", "-qm", "release fixture"], check=True
@@ -104,6 +112,7 @@ def initialize_workspace(workspace: Path) -> Path:
         "agent-remote-cli": "3.4.5",
         "agent-remote-admin-web": "4.5.6",
         "agent-remote-device": "5.6.7",
+        "agent-remote-ego-browser": "0.1.0",
     }
     for name in REPOSITORIES:
         initialize_repository(workspace / name, name, versions[name])
@@ -112,10 +121,14 @@ def initialize_workspace(workspace: Path) -> Path:
         manifest,
         json.dumps(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "distribution_version": versions["agent-remote"],
                 "components": {
-                    name: {
+                    name: browser_component(
+                        versions[name], commit(workspace / name)
+                    )
+                    if name == "agent-remote-ego-browser"
+                    else {
                         "repository": f"Agent-Remote/{name}",
                         "release_workflow": "release.yml",
                         "version": versions[name],
@@ -131,6 +144,34 @@ def initialize_workspace(workspace: Path) -> Path:
     subprocess.run(["git", "-C", str(root), "commit", "--amend", "-qm", "release fixture"], check=True)
     subprocess.run(["git", "-C", str(root), "tag", "-f", "v9.0.0"], check=True)
     return manifest
+
+
+def browser_component(version: str, component_commit: str) -> dict[str, object]:
+    return {
+        "repository": "Agent-Remote/agent-remote-ego-browser",
+        "release_workflow": "release.yml",
+        "version": version,
+        "commit": component_commit,
+        "release_published": True,
+        "profile": "community-local-trust",
+        "signing_type": "project-self-signed",
+        "signer_certificate_sha256": "a" * 64,
+        "production_ready": True,
+        "readiness_blockers": [],
+        "apple_notarized": False,
+        "public_distribution": False,
+        "hardened_runtime": True,
+        "nested_signatures_verified": True,
+        "outbound_policy": "application-enforced",
+        "credential_profile": "community_file",
+        "learning_bundle_digest": "b" * 64,
+        "learning_bundle_signing_key_id": "ego-browser-learning-2026-09",
+        "skill_version": "1.2.3",
+        "skill_commit": "36053d07001a910cb806a15d42d00fdea1cdea3d",
+        "skill_tree_sha256": "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c",
+        "local_ego_browser_runtime_version": "0.4.7.4",
+        "protocol_version": "ego-browser-bridge-v1",
+    }
 
 
 def run_check(workspace: Path, manifest: Path) -> subprocess.CompletedProcess[str]:

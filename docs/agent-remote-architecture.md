@@ -140,6 +140,12 @@
    - 部署在各个 VPS 节点。
    - 负责 Native Runtime、Docker Sandbox、tmux session、节点心跳、资源上报和节点本地账户环境管理。
 
+5. `agent-remote-ego-browser`
+   - Rust 独立扩展。
+   - 提供 macOS Bridge、独立 Device Client、Linux wrapper、共享协议和安装器。
+   - 把明确选择的远端 `fclaude` session 绑定到用户已有的本地 ego lite。
+   - 不复用通用 GUI 设备控制的设备实体、凭据、generation、relay route 或可执行组件。
+
 ## 5. 核心运行链路草案
 
 ### 5.1 首次使用
@@ -2547,3 +2553,63 @@ MVP 明确不做：
 - 已补充风险清单和非目标清单，明确 MVP 不解决强多租户、Web 终端、Windows、Kubernetes、高可用、自动迁移、自研同步、SSO、计费、KMS/Vault、完整监控等问题。
 - 各端必须内置或托管安装外部运行依赖，不要求用户手动安装；CLI 托管 WireGuard/Mutagen，节点端托管 tmux/Mutagen/WireGuard helper 等；系统级 Docker/OpenSSH/TUN 能力由安装器检测和引导。
 - 安全模型按自部署可信管理员 + 基础安全加固设计，不按商业 SaaS 强多租户模型设计。
+
+## 13. 本地 ego-browser Bridge 修订
+
+本地 ego-browser Bridge 与第 5.6 节的远端临时浏览器是两种不同能力。远端临时浏览器在
+VPS 启动无痕 Chromium；本地 Bridge 不启动远端浏览器，而是把官方 `ego-browser` Skill
+的完整 heredoc 通过受信 Node broker、控制面 opaque relay 和端到端加密发送到 macOS，
+再调用用户已有 ego lite 的真实 `ego-browser` runtime。
+
+该授权模式固定为 `ego_browser_script_full_trust`。它授予 Bridge 所属 macOS UID 下的任意
+Node.js 执行、全部 ego lite 标签页与 Task Space、浏览器登录数据、用户可读文件、网络和
+子进程能力，且没有 App Sandbox。专用 Task Space、helper allowlist 与并发锁只约束官方
+正常工作流，不构成安全隔离。停止只能从外部终止受监管进程组，不能撤销已完成副作用，也
+不能保证清理主动脱离监管的同 UID 进程。
+
+生产路径只允许本地主动连接 canonical HTTPS/WSS origin，不监听公网或局域网端口。Server
+验证独立 EgoBrowserBinding、一次性 ticket、lease、generation、sequence 与 outer
+envelope，但只转发 inner ciphertext；脚本、页面正文、截图、Cookie、输入与本地路径不得
+进入数据库、审计正文或普通日志。Device mutation 使用绑定准确 payload 与 operation 的
+短期单次 Ed25519 proof challenge。
+
+远端 wrapper 同时支持 Native Runtime 与 Docker Sandbox。runtime helper 从 root-owned state
+解析 Native 专用非 root Linux UID，或 Docker Sandbox 固定的非 root runtime UID/GID；Node
+broker 以 mode `0700` 目录、`0600` socket、numeric ACL、session nonce 和真实
+`SO_PEERCRED` 的精确 UID 共同授权。Docker 启动还会校验 root-owned trusted spec，并挂载固定
+版本的 wrapper、Skill 和 broker 目录。UID 0、过期 spec、错误 mount 或身份不匹配都会被拒绝。
+Node 的 rootful Linux 集成门禁对两种 backend identity model 使用同一 ACL/peer proof，证明
+ACL 阻止未授权 UID，以及在刻意放宽文件访问后 `SO_PEERCRED` 仍拒绝错误 UID。
+
+生产 Server 使用 Redis 原子消费 ticket/challenge，以 5 秒 TTL 共享每个
+binding/generation/role presence，并用 endpoint-specific Pub/Sub 传递 opaque frame 与 close；
+两端可以连接不同 worker。任何重复 role、missing subscriber/presence、Redis 错误或 malformed
+state 都 fail closed。PostgreSQL 生命周期事务先写 generation 和 durable revocation outbox，
+worker 只在跨 worker close 发布成功后标记 delivered。
+
+Device Client 每 2 秒向 Bridge 发送同 UID heartbeat；Bridge 要求初始 heartbeat，5 秒无有效
+heartbeat 即先 revoke supervisor/终止受监管执行，再清除本地 handoff，最后用最多 10 秒尝试
+generation-bound Server stop，失败不会重新开放 admission。Server、Node、Bridge 和 Device
+Client 分别输出 content-free、有限 label 的 metric event；SQL/Redis 巡检、告警、containment
+与 recovery 顺序由各组件 operations runbook 和根部署文档定义。
+
+Server 在 claim 时从所选 tool session 派生唯一合法的 Task Space label
+`agent-remote:<tool_session_id>`，拒绝客户端不匹配值；Device Client 校验 claim/resume 响应后
+才写入 owner-only handoff。Node broker 从已认证 session context 独立派生同一值，Bridge 则
+拒绝 default label 或 Task Space scope 不匹配的加密请求。
+
+binding 激活后，Bridge 通过 execution supervisor 启动独立只读 ownership monitor。它只调用
+ego lite 原生 `listTaskSpaces()` 并读取 `ownership`，先观察到 `agent` 才 armed，随后变为
+`agentDelegatedToUser` 或 `user` 才判定接管；它从不调用或包装 create、claim、takeover helper。
+接管或 monitor unavailable 时，Bridge 先 revoke 本地 admission、等待受监管执行终止，再分别
+用 `task_space_takeover` 或 `task_space_monitor_unavailable` 请求 generation-bound pause；Server
+调用失败也不恢复 admission。恢复需要 Device Client 再次明确确认并推进 generation，不自动
+claim/takeover，也不重放被中断请求。Bridge 死亡会关闭 supervisor control pipe 并终止 monitor
+runtime。
+
+组件边界、安装顺序、回滚与 16 项验收证据分别以
+`docs/remote-ego-browser-bridge-plan.md`、`docs/ego-browser-bridge-security.md`、
+`docs/ego-browser-bridge-deployment.md` 和 `docs/ego-browser-bridge-acceptance.md` 为准。
+当前根 release manifest 已记录 Bridge `0.1.5` 的 `production_ready=true`、证书 pin、
+learning digest 和稳定 commit/tag。生产 capability 仍必须等 root `0.2.21` 的绑定 evidence、
+部署包和最终 canary 获批后才可开启；运行时环境变量不能替代这些证据。

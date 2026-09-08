@@ -99,6 +99,84 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main
 
 The default backend is `native`. Add `--runtime-backends native,docker_sandbox` only after installing a Docker CLI that provides `docker sandbox`. Re-running the same command upgrades managed binaries and Claude while reusing the existing node token.
 
+## Local ego-browser Bridge
+
+This is distinct from the temporary VPS browser. A verified Node release
+installs the immutable Linux `ego-browser` wrapper and official Skill `1.2.3`;
+the user separately installs the independent macOS Bridge and Device Client to
+control their existing ego lite profile through an outbound encrypted relay.
+Eligible Linux Claude sessions may use either the `native` or
+`docker_sandbox` backend. Native uses its dedicated runtime UID. Docker Sandbox
+uses the configured fixed non-root UID/GID and receives only verified,
+release-pinned wrapper, Skill, broker, and Task Space context mounted from the
+root-owned trusted spec. Either backend fails closed when its capability,
+identity, ACL, mount, or nonce contract does not match.
+
+Follow [`ego-browser-bridge-deployment.md`](ego-browser-bridge-deployment.md)
+for the exact Server, Node, CLI/Admin, macOS installation, registration, canary,
+upgrade, and rollback order. The full local-execution boundary is documented in
+[`ego-browser-bridge-security.md`](ego-browser-bridge-security.md), and the 16
+release gates are tracked in
+[`ego-browser-bridge-acceptance.md`](ego-browser-bridge-acceptance.md).
+
+The current root manifest records the published Bridge `0.1.5` release,
+certificate pin, learning-bundle digest, and `production_ready=true` with no
+Bridge blockers. Keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the root
+`0.2.21` tag-bound schema 9 evidence, exact deployment bundle, and final
+artifact-bound canary are complete. A successful Node wrapper installation or
+development-mode test is not authorization to enable the capability.
+
+After a promoted root manifest and signed schema 9 evidence exist, set the
+Bridge policy pins from that exact release bundle before enabling the flag:
+`EGO_BROWSER_REQUIRE_DEVICE_POP=true`,
+`EGO_BROWSER_EXPECTED_RELEASE_PROFILE=community-local-trust`,
+`EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256`,
+`EGO_BROWSER_EXPECTED_WRAPPER_VERSION`,
+`EGO_BROWSER_EXPECTED_SKILL_VERSION`,
+`EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256`,
+`EGO_BROWSER_EXPECTED_SKILL_COMMIT`,
+`EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION`,
+`EGO_BROWSER_EXPECTED_PROTOCOL_VERSION`, and
+`EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID`. Also populate
+`EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256`,
+`EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION`,
+`EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256`,
+`EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256`,
+`EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256`,
+`EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256`,
+`EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256`, and
+`EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256` from that exact signed schema 9
+evidence and root manifest. The Server compares these values with the signed
+Bridge identity and artifact records and rejects missing or mismatched pins or
+evidence; environment variables cannot clear the root blockers.
+
+Before a release review, run both infrastructure proofs from their owning
+repositories:
+
+```sh
+(cd ../agent-remote-node && tests/linux_ego_browser_uid_acl_test.sh)
+
+(cd ../agent-remote-ego-browser && \
+  AGENT_REMOTE_INTEGRATION_REDIS_URL=redis://127.0.0.1:6379/14 \
+  bash integration-tests/real-relay-e2e.sh)
+```
+
+The first uses real Linux ACLs and `SO_PEERCRED`; the second uses the actual TLS
+Server route, Redis distributed pairing, Node broker, wrapper, Device Client
+heartbeat, and outbound Bridge, with a fake executable only at the final local
+runtime boundary. Neither replaces the real ego lite canary.
+
+Production operations must inspect the durable revocation outbox and binding
+lease health in PostgreSQL, use only bounded Redis `SCAN` key inventories, and
+alert on relay-role imbalance, stale outbox rows, transport failures, peer loss,
+renewal/lease failure, and every `unknown_result`. Containment disables new
+claims and revokes live generations through the lifecycle service before
+stopping endpoints. Recovery requires healthy PostgreSQL/Redis, an empty
+outbox, zero stale role presence, compatible artifacts, and a fresh explicit
+native-session claim; no old ticket, nonce, permit, handoff, generation, or
+unknown request is restored. Exact metric taxonomies and commands are in the
+Server, Node, and Bridge operations runbooks.
+
 ## CLI
 
 Install the packaged CLI for macOS or Linux:
@@ -148,12 +226,16 @@ Tag-triggered release workflows only build and publish artifacts; they do not mo
 - `agent-remote-server` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-server`.
 - `agent-remote-admin-web` publishes a GHCR image named `ghcr.io/<owner>/agent-remote-admin-web`.
 - `agent-remote-node` publishes Linux release archives.
+- `agent-remote-ego-browser` publishes four Linux wrapper archives and one
+  project-self-signed universal macOS Bridge/Device Client archive with strict
+  manifest, Sigstore, SBOM, and provenance evidence. While readiness is false,
+  it is a prerelease only.
 - `agent-remote-cli` publishes Windows x64/ARM64, macOS, and Linux release archives with managed Mutagen and the WireGuard helper. Windows packages integrate with the official WireGuard for Windows tunnel service and the built-in OpenSSH Client.
 
 Release a component from its own repository whenever it is ready:
 
 ```sh
-gh workflow run prepare-release.yml --ref main -f version=0.2.20
+gh workflow run prepare-release.yml --ref main -f version=0.2.21
 ```
 
 The root repository has a separate distribution version. `release-manifest.json` pins the exact
@@ -169,6 +251,10 @@ python3 scripts/check-device-control-release-readiness.py \
   --manifest release-manifest.json --require-clean --require-tag --require-origin
 ```
 
+The generic pin updater intentionally refuses `agent-remote-ego-browser`. Its stable GitHub release,
+certificate pin, learning-bundle signature, and schema-9 evidence must be verified together by
+`scripts/promote-ego-browser-release.py`; a commit SHA alone is not release evidence.
+
 Commit the manifest update and let CI validate the exact composition. When that composition is
 ready for production, run the root `prepare-release` with a new root distribution version. The
 root workflow downloads each component from its independently pinned tag, verifies the manifest
@@ -179,9 +265,9 @@ For a local manual component release, run that repository's prepare script, then
 own version:
 
 ```sh
-scripts/prepare-release.sh 0.2.20
+scripts/prepare-release.sh 0.2.21
 git add .
-git commit -m "chore: release v0.2.20"
-git tag v0.2.20
-git push origin main v0.2.20
+git commit -m "chore: release v0.2.21"
+git tag v0.2.21
+git push origin main v0.2.21
 ```

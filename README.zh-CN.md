@@ -16,6 +16,8 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - `agent-remote-node`：部署在 VPS 主机上的 Go 节点运行时。
 - `agent-remote-cli`：Rust 本地 CLI，以及 `agent-remote`、`fclaude` 等工具启动器。
 - `agent-remote-device`：Swift macOS 设备应用和 Rust 受管 MCP proxy。
+- `agent-remote-ego-browser`：独立 macOS Bridge、Device Client、Linux wrapper、
+  协议与发布工具；用于显式授权远端对用户现有 ego lite 执行本机全信任控制。
 
 ## 运行模型
 
@@ -29,6 +31,8 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - 远端临时浏览器会话使用节点侧浏览器容器和 VPS 网络身份。
 - `Agent Remote Device.app` 使用 device credential 列出并 claim 当前 running 的远端
   Claude session；换绑会撤销旧设备控制，但不会停止远端 Claude。
+- 独立 ego-browser Bridge 允许一个明确选择的远端 `fclaude` session 通过出站加密 relay，
+  在本机 ego lite 上执行全信任 Node.js heredoc；Task Space 不是 sandbox。
 
 ## 文档
 
@@ -42,6 +46,10 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - `docs/local-device-control-release-gate-status.md`
 - `docs/device-control-operations-runbook.md`
 - `docs/deployment.md`
+- `docs/ego-browser-bridge-security.md`
+- `docs/ego-browser-bridge-deployment.md`
+- `docs/ego-browser-bridge-acceptance.md`
+- `docs/ego-browser-bridge-release-promotion.md`
 
 ## 跨仓库测试
 
@@ -67,6 +75,12 @@ Release workflow 会发布部署归档、CLI/Node 二进制、GHCR 镜像和 Git
 schema 9 签名证据与根版本清单一起内置到部署包，并按 digest 固定部署镜像；证据没有时间过期，仅对
 该精确签名组合有效。已签发的 schema 8 证据对其自身精确组合仍永久可验证；该流程不会自动启用
 capability。
+
+schema-v3 composition 还记录已经晋级的 ego-browser Bridge `0.1.5` release 与其安全证据。
+Bridge component 当前为 `release_published=true`、`production_ready=true`，blocker 为空；
+准确 commit、证书 pin、learning-bundle digest 和嵌套证据都是根发布的不可变输入。根 `0.2.21`
+workflow 仍必须生成绑定 tag 的 schema 9 evidence，运维也必须完成最终 artifact-bound canary，
+之后才能启用 capability；发布流程不会自动启用它。
 
 ## 许可证
 

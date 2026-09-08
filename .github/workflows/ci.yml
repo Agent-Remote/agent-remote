@@ -28,6 +28,8 @@ jobs:
             integration:
               - '.github/workflows/ci.yml'
               - 'release-manifest.json'
+              - 'release-manifest.schema.json'
+              - 'scripts/release_manifest.py'
               - 'scripts/run-local-device-control-e2e.sh'
               - 'scripts/run-session-port-forwarding-e2e.sh'
               - 'tests/local_device_control_e2e.py'
@@ -84,6 +86,10 @@ jobs:
         run: python3 tests/test_device_control_release_readiness.py
       - name: Test component composition updater
         run: python3 tests/test_update_release_component.py
+      - name: Test ego-browser release manifest contract
+        run: python3 tests/test_ego_browser_release_manifest.py
+      - name: Test ego-browser release input boundaries
+        run: python3 tests/test_ego_browser_release_boundaries.py
       - name: Validate compose bundle
         run: docker compose --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml config --quiet
   session-port-forwarding-e2e:

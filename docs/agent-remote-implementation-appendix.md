@@ -42,6 +42,14 @@ agent-remote forward <remote_port> --session <session_id>
 agent-remote forward <remote_port> --session <session_id> --local-port auto --open
 agent-remote forward list
 agent-remote forward stop <forward_id>
+
+agent-remote ego-browser status
+agent-remote ego-browser list
+agent-remote ego-browser claim <tool_session_id>
+agent-remote ego-browser pause <binding_id> --generation <generation>
+agent-remote ego-browser resume <binding_id> --generation <generation>
+agent-remote ego-browser stop <binding_id> --generation <generation>
+agent-remote ego-browser revoke <binding_id> --generation <generation>
 ```
 
 ### 1.2 `fclaude`
@@ -73,6 +81,10 @@ fclaude -- <claude_args...>
 - 同一 workspace 的多个 Claude session 挂载同一个远端项目目录。
 - 同一 Claude 账户的多个 session 挂载同一个远端账户配置目录。
 - `forward` 为指定 session 创建受控的 runtime loopback 端口隧道，不启用 OpenSSH 标准 TCP forwarding；完整规范见 `docs/session-port-forwarding-design.md`。
+- `ego-browser` 子命令只操作独立 EgoBrowserBinding API；claim 与 resume 必须显示本机同
+  UID、无 sandbox、完整 heredoc 与整个 ego lite 控制警告，并要求显式确认。
+- CLI 只保存 binding/session/generation 与展示所需状态，不保存 relay ticket、脚本或
+  Device Client private key，也不负责启动本地 Bridge。
 
 ## 2. 数据库字段草案
 
@@ -401,3 +413,41 @@ agent.example.com {
 - 节点端滚动升级。
 - CLI 版本兼容。
 - 协议版本检查。
+
+### 3.14 本地 ego-browser Bridge
+
+- Server 必须先迁移独立的 `ego_browser_devices`、`ego_browser_bindings`、request ledger、
+  revocation outbox 与 challenge 状态，再部署 Redis-backed relay worker。
+- 生产 relay 使用 Redis 原子单次 ticket/challenge、5 秒 role presence TTL、endpoint-specific
+  Pub/Sub frame/close channel 和 PostgreSQL durable revocation outbox；不能回退到进程内配对。
+- Node release 必须携带准确版本 wrapper、官方 Skill source manifest 和经过 canonical tree
+  digest 校验的 Skill tree，并安装到不可变 version directory。
+- 远端 browser bridge 同时支持 Native Runtime 与 Docker Sandbox。Node 从 root-owned
+  runtime state 解析 Native 专用 UID 或 Docker 固定非 root UID/GID，以最小 numeric ACL、
+  进程内 nonce 和 `SO_PEERCRED` 授权 broker；Docker 还必须校验 trusted spec 与固定版本的
+  wrapper、Skill 和 broker mount。UID 0、过期 spec、错误 mount 或身份不匹配都会被拒绝。
+- macOS 安装只使用新仓库的 Bridge 与独立 Device Client，校验 manifest、Sigstore、
+  Hardened Runtime、嵌套签名、证书 pin、quarantine 和 owner-only credential。
+- 用户必须明确选择一个 candidate tool session 并确认 `ego_browser_script_full_trust`；禁止
+  临时 binding、自动选择最近 session 或授权后补 claim。
+- 升级、恢复和回滚必须创建新 generation，不继承 ticket/permit，不重放结果未知脚本。
+- Device Client heartbeat 固定每 2 秒发送，Bridge 在 5 秒超时后按“终止执行 -> 清除 handoff
+  -> 最多 10 秒 Server stop”顺序 fail closed；stop 未确认不能恢复本地执行。
+- Server 从 tool session 派生 canonical `agent-remote:<tool_session_id>`，拒绝 claim mismatch；
+  Device Client 校验 claim/resume 响应并写入 owner-only handoff，Node broker 独立派生同一值，
+  Bridge 拒绝不匹配的 request label 或 Task Space scope。
+- Bridge 使用单独受监管 runtime，仅通过 ego lite 原生 `listTaskSpaces()` 的 `ownership` 监测接管；先
+  观察到 `agent` 才 armed，随后 `agentDelegatedToUser`/`user` 才触发。不得调用或包装
+  `claimTaskSpace`、`takeOverTaskSpace` 或 `useOrCreateTaskSpace`，也不得从 helper error 推断
+  接管；Bridge 死亡必须通过 control-pipe EOF 终止 monitor。
+- Task Space 接管或 monitor unavailable 时，先 revoke 本地 admission 并终止受监管执行，
+  再按准确 generation 分别以 `task_space_takeover` 或 `task_space_monitor_unavailable` pause；
+  只有用户再次确认的 resume 才推进 generation，失败不得恢复 admission 或重放原请求。
+- Server、Node、Bridge 与 Device Client 的 content-free metric event 只允许有限 label；运维
+  必须检查 outbox age、binding/lease health、Redis presence、role gauge 和 `unknown_result`，
+  并按先禁新 claim、再 lifecycle revoke、最后 fresh generation 恢复的顺序处置。
+- 完整部署与回滚顺序见 `docs/ego-browser-bridge-deployment.md`，安全边界见
+  `docs/ego-browser-bridge-security.md`，验收状态见
+  `docs/ego-browser-bridge-acceptance.md`。
+- Bridge `0.1.5` promotion 已使 component `production_ready=true` 且 blocker 为空；仍不得
+  通过环境变量或跳过 root tag-bound evidence、artifact-bound canary 的方式开启生产 capability。

@@ -41,7 +41,7 @@ Device 仓库使用 `production-community-release`，包含：
 - secret `COMMUNITY_SIGNING_P12_BASE64`
 - secret `COMMUNITY_SIGNING_P12_PASSWORD`
 - secret `COMMUNITY_SIGNING_IDENTITY`
-- variable `COMMUNITY_SIGNER_CERTIFICATE_SHA1`
+- variable `COMMUNITY_SIGNER_CERTIFICATE_SHA256`
 
 Root 仓库继续使用 `production-device-release-evidence` 保存发布清单 Ed25519 私钥。community profile 不再
 依赖自托管 runner 或 `production-device-release-gates` 本地目录；运行期权限仍由目标 Mac 用户显式授予。

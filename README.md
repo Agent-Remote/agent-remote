@@ -16,6 +16,9 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `agent-remote-node`: Go node runtime deployed on VPS hosts.
 - `agent-remote-cli`: Rust local CLI and tool launchers such as `agent-remote` and `fclaude`.
 - `agent-remote-device`: Swift macOS device application and Rust managed MCP proxy.
+- `agent-remote-ego-browser`: independent macOS Bridge, Device Client, Linux
+  wrapper, protocol, and release tooling for explicit full-trust control of a
+  user's existing ego lite runtime.
 
 ## Runtime Model
 
@@ -29,6 +32,9 @@ The project is designed for individuals and small teams that want Claude Code fi
 - Remote temporary browser sessions use node-side browser containers and VPS network identity.
 - `Agent Remote Device.app` uses its device credential to list and claim a currently running remote
   Claude session; rebind revokes old device control without stopping remote Claude.
+- The independent ego-browser Bridge lets one explicitly selected remote
+  `fclaude` session run full-trust Node.js heredocs against local ego lite over
+  an outbound encrypted relay. It is not a Task Space sandbox.
 
 ## Documentation
 
@@ -42,6 +48,10 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `docs/local-device-control-release-gate-status.md`
 - `docs/device-control-operations-runbook.md`
 - `docs/deployment.md`
+- `docs/ego-browser-bridge-security.md`
+- `docs/ego-browser-bridge-deployment.md`
+- `docs/ego-browser-bridge-acceptance.md`
+- `docs/ego-browser-bridge-release-promotion.md`
 
 Computer Use v2 的完整优化方案以
 `docs/local-device-control-security-design.md` 第 6.5 节为架构与安全事实源；协议状态机、benchmark
@@ -78,6 +88,15 @@ signed schema 9 multi-architecture evidence in the same deployment bundle as the
 and pins deployed images by digest. The evidence has no time expiry and is valid only for that exact
 signed composition; already issued schema 8 evidence remains permanently verifiable for its own
 exact composition. The release never enables the capability automatically.
+
+The schema-v3 composition also records the promoted ego-browser Bridge `0.1.5`
+release and its security evidence. Its Bridge component declares
+`release_published=true`, `production_ready=true`, and an empty blocker list;
+the exact commit, certificate pin, learning-bundle digest, and nested evidence
+are immutable inputs to the root release. The root `0.2.21` workflow must still
+produce tag-bound schema 9 evidence and operators must complete the final
+artifact-bound canary before enabling the capability. The release never enables
+it automatically.
 
 ## License
 

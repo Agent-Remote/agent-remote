@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.21 - 2026-09-08
+
+- Release metadata update.
+
 ## v0.2.20 - 2026-09-05
 
 - chore: update release component pins (a662162)

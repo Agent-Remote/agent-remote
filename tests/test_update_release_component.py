@@ -78,6 +78,9 @@ def test_exports_independent_component_versions_for_github_actions() -> None:
         device_workflow = source["components"]["agent-remote-device"][
             "release_workflow"
         ]
+        ego_browser_version = source["components"]["agent-remote-ego-browser"][
+            "version"
+        ]
 
         subprocess.run(
             [
@@ -100,9 +103,42 @@ def test_exports_independent_component_versions_for_github_actions() -> None:
         assert f"server-version={server_version}" in exported
         assert f"device-commit={device_commit}" in exported
         assert f"device-workflow={device_workflow}" in exported
+        assert f"ego-browser-version={ego_browser_version}" in exported
+
+
+def test_rejects_browser_pin_without_verified_promotion() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        manifest = root / "release-manifest.json"
+        environment = root / ".env.device-test"
+        manifest.write_bytes(SOURCE_MANIFEST.read_bytes())
+        environment.write_bytes(SOURCE_ENVIRONMENT.read_bytes())
+        before = manifest.read_bytes()
+
+        result = subprocess.run(
+            [
+                "python3",
+                str(SCRIPT),
+                "agent-remote-ego-browser",
+                "0.1.0",
+                "b" * 40,
+                "--manifest",
+                str(manifest),
+                "--test-environment",
+                str(environment),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 2
+        assert "promote-ego-browser-release.py" in result.stderr
+        assert manifest.read_bytes() == before
 
 
 if __name__ == "__main__":
     test_updates_only_selected_component_and_derived_test_version()
     test_rejects_unversioned_or_ambiguous_component_identity()
     test_exports_independent_component_versions_for_github_actions()
+    test_rejects_browser_pin_without_verified_promotion()

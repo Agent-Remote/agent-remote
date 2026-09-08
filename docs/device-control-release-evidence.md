@@ -54,6 +54,10 @@ The production flow is:
 5. The root release embeds the Community manifest. Apple Developer ID packaging, notarization,
    signed E2E, and release publication are deferred.
 
+The generic component-pin command above does not update `agent-remote-ego-browser`. Use the
+two-phase Bridge promotion runbook for that component so a stable GitHub release and its signed
+schema-9 evidence are checked before the root manifest changes.
+
 Every new composition emits schema 9, including all-equal versions. Schema 9 always includes
 `distribution_version`, `release_manifest_sha256`, and the complete `components` identity map, and
 keeps `release_version` bound to the exact Server version checked at runtime. It also binds the

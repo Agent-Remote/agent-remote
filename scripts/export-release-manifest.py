@@ -14,7 +14,9 @@ OUTPUT_NAMES = {
     "agent-remote-cli": "cli",
     "agent-remote-admin-web": "admin",
     "agent-remote-device": "device",
+    "agent-remote-ego-browser": "browser",
 }
+LEGACY_OUTPUT_NAMES = {"agent-remote-ego-browser": "ego-browser"}
 
 
 def append_lines(path: Path, lines: list[str]) -> None:
@@ -43,6 +45,11 @@ def main() -> None:
     environment = [f"DISTRIBUTION_VERSION={distribution_version}"]
     outputs = [f"distribution-version={distribution_version}"]
     for component_name, output_name in OUTPUT_NAMES.items():
+        # Schema 1/2 manifests predate the independent Bridge component.  The
+        # strict parser has already checked the schema-specific inventory, so
+        # skip only that intentionally absent legacy entry.
+        if component_name not in components:
+            continue
         component = components[component_name]
         assert isinstance(component, dict)
         version = component["version"]
@@ -62,6 +69,15 @@ def main() -> None:
                 f"{output_name}-workflow={workflow}",
             )
         )
+        legacy_name = LEGACY_OUTPUT_NAMES.get(component_name)
+        if legacy_name is not None:
+            outputs.extend(
+                (
+                    f"{legacy_name}-version={version}",
+                    f"{legacy_name}-commit={commit}",
+                    f"{legacy_name}-workflow={workflow}",
+                )
+            )
     manifest_digest = release_manifest_sha256(args.manifest)
     environment.append(f"RELEASE_MANIFEST_SHA256={manifest_digest}")
     outputs.append(f"release-manifest-sha256={manifest_digest}")

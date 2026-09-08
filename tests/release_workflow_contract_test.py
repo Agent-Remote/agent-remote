@@ -102,6 +102,9 @@ required_release_fragments = (
     "--manifest release-manifest.json",
     "needs.resolve.outputs.server-version",
     "needs.resolve.outputs.device-version",
+    "needs.resolve.outputs.browser-version",
+    "Agent-Remote/agent-remote-ego-browser",
+    "ego-browser production release evidence is incomplete",
     "--require-clean",
     "--require-tag",
     "--require-origin",
@@ -118,6 +121,22 @@ required_release_fragments = (
     "DEVICE_CONTROL_RELEASE_EVIDENCE_FILE=./device-control-release-evidence.json",
     '(cd ".release/device-control-release-evidence"',
     "production-release-manifest.json",
+    "EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256",
+    "EGO_BROWSER_EXPECTED_RELEASE_PROFILE",
+    "EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256",
+    "EGO_BROWSER_EXPECTED_WRAPPER_VERSION",
+    "EGO_BROWSER_EXPECTED_SKILL_VERSION",
+    "EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256",
+    "EGO_BROWSER_EXPECTED_SKILL_COMMIT",
+    "EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION",
+    "EGO_BROWSER_EXPECTED_PROTOCOL_VERSION",
+    "EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION",
+    "EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256",
+    "EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256",
+    "EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256",
+    "EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256",
+    "EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256",
+    "EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256",
     "SERVER_IMAGE=${server_image}@${server_digest}",
     "admin-workflow: ${{ steps.manifest.outputs.admin-workflow }}",
     "${ADMIN_WORKFLOW}@refs/tags/v${ADMIN_VERSION}",
@@ -270,6 +289,16 @@ required_community_evidence_fragments = (
     "--computer-use-v2-evidence-archive",
     "--computer-use-v2-target",
     "community_computer_use_v2_without_apple_notarization",
+    'gh release view "v${BROWSER_VERSION}"',
+    '.isPrerelease == false',
+    'refs/tags/v${BROWSER_VERSION}',
+    "extract-learning-bundle.py",
+    "while IFS= read -r -d '' checksum",
+    "jq -r '.artifacts[] | [.name, .sbom] | @tsv'",
+    "--ego-browser-release-manifest",
+    "--ego-browser-learning-bundle-verifier",
+    "release-input/ego-browser-source/scripts/verify-learning-bundle.sh",
+    "BROWSER_LEARNING_BUNDLE_DIGEST",
 )
 missing_community_evidence = [
     fragment
@@ -281,6 +310,9 @@ if missing_community_evidence:
         "community release evidence workflow is missing: "
         + ", ".join(missing_community_evidence)
     )
+
+if "test_ego_browser_release_boundaries.py" not in ci:
+    raise SystemExit("CI must run the ego-browser release boundary tests")
 
 required_community_v2_fragments = (
     'test "$GITHUB_REF" = "refs/tags/v${VERSION}"',
@@ -326,7 +358,7 @@ for fragment in (
 
 release_version = Path("VERSION").read_text(encoding="utf-8").strip()
 release_manifest = json.loads(Path("release-manifest.json").read_text(encoding="utf-8"))
-if release_manifest["schema_version"] != 2:
+if release_manifest["schema_version"] != 3:
     raise SystemExit("release manifest must bind signing workflow identities")
 for name, component in release_manifest["components"].items():
     if not component.get("release_workflow", "").endswith((".yml", ".yaml")):
