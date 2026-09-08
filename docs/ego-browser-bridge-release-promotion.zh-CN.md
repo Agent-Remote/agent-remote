@@ -1,6 +1,6 @@
 # ego-browser Bridge 发布晋级
 
-根 composition 在 Bridge 有真实已发布 release、受保护 Site Learning 签名 key 和完整证据前曾必须保持阻塞。原四项 blocker 是证据要求，不是可以切换的配置开关。Bridge `0.1.5` 现在已经清除四项 blocker；剩余工作是把这次晋级绑定到 root `0.2.21` release，并完成最终 canary：
+根 composition 在 Bridge 有真实已发布 release、受保护 Site Learning 签名 key 和完整证据前曾必须保持阻塞。原四项 blocker 是证据要求，不是可以切换的配置开关。Bridge `0.1.7` 现在已经清除四项 blocker；剩余工作是把这次晋级绑定到 root `0.2.21` release，并完成最终 canary：
 
 | 当前 blocker | 清除它所需的真实证据 | 记录位置 |
 | --- | --- | --- |

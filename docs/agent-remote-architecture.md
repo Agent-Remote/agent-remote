@@ -2610,6 +2610,6 @@ runtime。
 组件边界、安装顺序、回滚与 16 项验收证据分别以
 `docs/remote-ego-browser-bridge-plan.md`、`docs/ego-browser-bridge-security.md`、
 `docs/ego-browser-bridge-deployment.md` 和 `docs/ego-browser-bridge-acceptance.md` 为准。
-当前根 release manifest 已记录 Bridge `0.1.5` 的 `production_ready=true`、证书 pin、
+当前根 release manifest 已记录 Bridge `0.1.7` 的 `production_ready=true`、证书 pin、
 learning digest 和稳定 commit/tag。生产 capability 仍必须等 root `0.2.21` 的绑定 evidence、
 部署包和最终 canary 获批后才可开启；运行时环境变量不能替代这些证据。
