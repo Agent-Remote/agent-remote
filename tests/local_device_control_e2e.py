@@ -203,7 +203,7 @@ def serve(args: argparse.Namespace) -> None:
     import uvicorn
 
     from agent_remote_server.config import Settings
-    from agent_remote_server.device_relay_store import InMemoryDeviceRelayStore
+    from agent_remote_server.device_control.relay_store import InMemoryDeviceRelayStore
     from agent_remote_server.main import create_app
 
     if args.port is None or args.state_root is None:
