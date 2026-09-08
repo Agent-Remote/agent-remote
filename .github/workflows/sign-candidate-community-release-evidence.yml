@@ -1,0 +1,213 @@
+name: sign-candidate-community-release-evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_manifest_b64:
+        description: Canonical root candidate manifest encoded as base64
+        required: true
+        type: string
+      candidate_manifest_sha256:
+        description: SHA-256 of the exact candidate manifest bytes
+        required: true
+        type: string
+      evidence_draft_b64:
+        description: Unsigned schema 9 evidence draft encoded as base64
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: sign-candidate-community-release-evidence-${{ inputs.candidate_manifest_sha256 }}
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    if: startsWith(github.ref, 'refs/heads/release-prep/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-device-release-evidence
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - name: Validate candidate and evidence draft
+        id: validate
+        env:
+          CANDIDATE_B64: ${{ inputs.candidate_manifest_b64 }}
+          CANDIDATE_SHA256: ${{ inputs.candidate_manifest_sha256 }}
+          DRAFT_B64: ${{ inputs.evidence_draft_b64 }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF" in
+            refs/heads/release-prep/*) ;;
+            *) echo "candidate signing is restricted to release-prep branches" >&2; exit 1 ;;
+          esac
+          work="$RUNNER_TEMP/candidate-signing"
+          mkdir -m 700 "$work"
+          candidate="$work/root-candidate.json"
+          draft="$work/release-evidence-draft.json"
+          printf '%s' "$CANDIDATE_B64" | base64 --decode > "$candidate"
+          printf '%s' "$DRAFT_B64" | base64 --decode > "$draft"
+          chmod 0600 "$candidate" "$draft"
+          python3 - "$candidate" "$draft" "$CANDIDATE_SHA256" <<'PY'
+          import hashlib
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          candidate_path = Path(sys.argv[1])
+          draft_path = Path(sys.argv[2])
+          expected_hash = sys.argv[3]
+          sha256 = re.compile(r"^[0-9a-f]{64}$")
+          git_sha = re.compile(r"^[0-9a-f]{40}$")
+          semver = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
+
+          def reject_duplicates(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise SystemExit(f"duplicate JSON field: {key}")
+                  result[key] = value
+              return result
+
+          def load(path):
+              raw = path.read_bytes()
+              if not raw or len(raw) > 65536:
+                  raise SystemExit(f"invalid JSON input size: {path.name}")
+              try:
+                  value = json.loads(raw, object_pairs_hook=reject_duplicates)
+              except json.JSONDecodeError as exc:
+                  raise SystemExit(f"invalid JSON input: {path.name}") from exc
+              if not isinstance(value, dict):
+                  raise SystemExit(f"JSON input is not an object: {path.name}")
+              return raw, value
+
+          candidate_raw, candidate = load(candidate_path)
+          canonical = (json.dumps(candidate, ensure_ascii=True, sort_keys=True, indent=2) + "\n").encode()
+          if candidate_raw != canonical:
+              raise SystemExit("candidate manifest is not canonical")
+          if not sha256.fullmatch(expected_hash or ""):
+              raise SystemExit("candidate manifest SHA-256 input is invalid")
+          actual_hash = hashlib.sha256(candidate_raw).hexdigest()
+          if actual_hash != expected_hash:
+              raise SystemExit("candidate manifest SHA-256 does not match bytes")
+          if candidate.get("schema_version") != 3 or not semver.fullmatch(str(candidate.get("distribution_version", ""))):
+              raise SystemExit("candidate manifest header is invalid")
+          components = candidate.get("components")
+          required_components = {
+              "agent-remote-server",
+              "agent-remote-node",
+              "agent-remote-cli",
+              "agent-remote-admin-web",
+              "agent-remote-device",
+              "agent-remote-ego-browser",
+          }
+          if not isinstance(components, dict) or set(components) != required_components:
+              raise SystemExit("candidate component inventory is invalid")
+          for name, component in components.items():
+              if not isinstance(component, dict):
+                  raise SystemExit(f"invalid component: {name}")
+              if component.get("repository") != f"Agent-Remote/{name}":
+                  raise SystemExit(f"component repository is invalid: {name}")
+              if not semver.fullmatch(str(component.get("version", ""))) or not git_sha.fullmatch(str(component.get("commit", ""))):
+                  raise SystemExit(f"component identity is invalid: {name}")
+          bridge = components["agent-remote-ego-browser"]
+          if (
+              bridge.get("release_published") is not True
+              or bridge.get("production_ready") is not True
+              or bridge.get("readiness_blockers") != []
+              or bridge.get("nested_signatures_verified") is not True
+              or not sha256.fullmatch(str(bridge.get("signer_certificate_sha256", "")))
+              or not sha256.fullmatch(str(bridge.get("learning_bundle_digest", "")))
+          ):
+              raise SystemExit("candidate Bridge readiness is incomplete")
+
+          draft_raw, draft = load(draft_path)
+          if "signature" in draft:
+              raise SystemExit("evidence draft must not contain a signature")
+          if (
+              draft.get("schema_version") != 9
+              or draft.get("release_profile") != "community-local-trust"
+              or draft.get("production_ready") is not True
+              or draft.get("apple_notarized") is not False
+              or draft.get("public_distribution") is not False
+              or draft.get("manual_trust_required") is not True
+              or draft.get("distribution_version") != candidate["distribution_version"]
+              or draft.get("release_manifest_sha256") != actual_hash
+              or draft.get("components") != components
+          ):
+              raise SystemExit("evidence draft is not bound to the candidate")
+          for field in (
+              "ego_browser_release_manifest_sha256",
+              "ego_browser_release_archive_sha256",
+              "ego_browser_signing_evidence_sha256",
+              "ego_browser_learning_bundle_sha256",
+              "ego_browser_sigstore_sha256",
+              "ego_browser_provenance_sha256",
+          ):
+              if not sha256.fullmatch(str(draft.get(field, ""))):
+                  raise SystemExit(f"evidence draft digest is invalid: {field}")
+
+          print(f"server-version={components['agent-remote-server']['version']}")
+          print(f"distribution-version={candidate['distribution_version']}")
+          print(f"candidate-sha256={actual_hash}")
+          (candidate_path.parent / "candidate-sha256").write_text(actual_hash + "\n", encoding="ascii")
+          (candidate_path.parent / "distribution-version").write_text(str(candidate["distribution_version"]) + "\n", encoding="ascii")
+          (candidate_path.parent / "server-version").write_text(str(components["agent-remote-server"]["version"]) + "\n", encoding="ascii")
+          PY
+          server_version=$(cat "$work/server-version")
+          distribution_version=$(cat "$work/distribution-version")
+          candidate_sha256=$(cat "$work/candidate-sha256")
+          {
+            echo "server-version=$server_version"
+            echo "distribution-version=$distribution_version"
+            echo "candidate-sha256=$candidate_sha256"
+            echo "work=$work"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-server
+          ref: v${{ steps.validate.outputs.server-version }}
+          path: release-input/server-source
+
+      - uses: astral-sh/setup-uv@v8.3.1
+
+      - name: Sign candidate-bound evidence
+        env:
+          PRIVATE_KEY_PEM: ${{ secrets.DEVICE_CONTROL_RELEASE_PRIVATE_KEY_PEM }}
+          WORK: ${{ steps.validate.outputs.work }}
+          DISTRIBUTION_VERSION: ${{ steps.validate.outputs.distribution-version }}
+        run: |
+          set -euo pipefail
+          test -n "$PRIVATE_KEY_PEM"
+          key="$RUNNER_TEMP/device-control-release-key.pem"
+          derived="$RUNNER_TEMP/device-control-release-public-key.txt"
+          output_dir="$RUNNER_TEMP/signed-evidence"
+          trap 'rm -f "$key" "$derived"' EXIT
+          printf '%s\n' "$PRIVATE_KEY_PEM" > "$key"
+          chmod 0600 "$key"
+          mkdir -m 700 "$output_dir"
+          uv sync --project release-input/server-source --frozen
+          uv run --project release-input/server-source python \
+            release-input/server-source/scripts/create_device_control_release_evidence.py \
+            --draft "$WORK/release-evidence-draft.json" \
+            --private-key "$key" \
+            --output "$output_dir/device-control-release-evidence-${DISTRIBUTION_VERSION}.json" \
+            --public-key-output "$derived"
+          expected=$(tr -d '[:space:]' < deploy/compose/community-release-public-key.txt)
+          actual=$(tr -d '[:space:]' < "$derived")
+          test -n "$expected" && test "$actual" = "$expected"
+          (cd "$output_dir" && sha256sum "device-control-release-evidence-${DISTRIBUTION_VERSION}.json" > SHA256SUMS)
+          (cd "$output_dir" && sha256sum --check SHA256SUMS)
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: candidate-community-release-evidence-${{ steps.validate.outputs.distribution-version }}-${{ steps.validate.outputs.candidate-sha256 }}
+          path: ${{ runner.temp }}/signed-evidence
+          if-no-files-found: error
+          retention-days: 30
