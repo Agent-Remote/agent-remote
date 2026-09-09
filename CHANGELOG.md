@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.23 - 2026-09-09
+
+- chore(release): promote ego-browser bridge v0.1.7 (#1) (12096c8)
+
 ## v0.2.22 - 2026-09-08
 
 - fix(release): gate only reachable Go vulnerabilities (c53d164)
