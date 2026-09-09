@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.25 - 2026-09-09
+
+- fix(release): sync certified component pins (748f0a9)
+
 ## v0.2.24 - 2026-09-09
 
 - docs: avoid patch-bound release status wording (a57426d)
