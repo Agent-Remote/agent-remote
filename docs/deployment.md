@@ -119,9 +119,9 @@ upgrade, and rollback order. The full local-execution boundary is documented in
 release gates are tracked in
 [`ego-browser-bridge-acceptance.md`](ego-browser-bridge-acceptance.md).
 
-The current root manifest records the published Bridge `0.1.8` release,
+The current root manifest records the published Bridge `0.1.9` release,
 certificate pin, learning-bundle digest, and `production_ready=true` with no
-Bridge blockers. The stable root `0.2.25` release contains the tag-bound schema
+Bridge blockers. The stable root `0.2.26` release contains the tag-bound schema
 9 evidence. Keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the exact deployment
 bundle is installed and the final artifact-bound canary is complete. A
 successful Node wrapper installation or development-mode test is not
@@ -236,7 +236,7 @@ Tag-triggered release workflows only build and publish artifacts; they do not mo
 Release a component from its own repository whenever it is ready:
 
 ```sh
-gh workflow run prepare-release.yml --ref main -f version=0.2.25
+gh workflow run prepare-release.yml --ref main -f version=0.2.26
 ```
 
 The root repository has a separate distribution version. `release-manifest.json` pins the exact
@@ -266,9 +266,9 @@ For a local manual component release, run that repository's prepare script, then
 own version:
 
 ```sh
-scripts/prepare-release.sh 0.2.25
+scripts/prepare-release.sh 0.2.26
 git add .
-git commit -m "chore: release v0.2.25"
-git tag v0.2.25
-git push origin main v0.2.25
+git commit -m "chore: release v0.2.26"
+git tag v0.2.26
+git push origin main v0.2.26
 ```

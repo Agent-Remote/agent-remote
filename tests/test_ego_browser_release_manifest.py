@@ -26,8 +26,8 @@ def test_browser_component_records_promoted_release_evidence() -> None:
     assert isinstance(components, dict)
     browser = components["agent-remote-ego-browser"]
     assert isinstance(browser, dict)
-    assert browser["version"] == "0.1.8"
-    assert browser["commit"] == "cd716ca2b65a2a7c65c827b8b10e3613a6f7a284"
+    assert browser["version"] == "0.1.9"
+    assert browser["commit"] == "4fab3f197c9e758fb653d0e6e1fd7fd28fe78661"
     assert browser["release_published"] is True
     assert browser["production_ready"] is True
     assert (
@@ -101,7 +101,7 @@ def test_documentation_records_implementation_and_all_acceptance_rows() -> None:
         encoding="utf-8"
     )
     assert "方案状态：待实施" not in plan
-    assert "Bridge `0.1.8` promotion" in plan
+    assert "Bridge `0.1.9` promotion" in plan
     assert "production_ready=true" in plan
     assert "capability 默认保持关闭" in plan
     rows = [int(value) for value in re.findall(r"^\| (\d+) \|", acceptance, re.MULTILINE)]

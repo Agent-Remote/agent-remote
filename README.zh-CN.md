@@ -76,7 +76,7 @@ schema 9 签名证据与根版本清单一起内置到部署包，并按 digest 
 该精确签名组合有效。已签发的 schema 8 证据对其自身精确组合仍永久可验证；该流程不会自动启用
 capability。
 
-schema-v3 composition 还记录已经晋级的 ego-browser Bridge `0.1.8` release 与其安全证据。
+schema-v3 composition 还记录已经晋级的 ego-browser Bridge `0.1.9` release 与其安全证据。
 Bridge component 当前为 `release_published=true`、`production_ready=true`，blocker 为空；
 准确 commit、证书 pin、learning-bundle digest 和嵌套证据都是根发布的不可变输入。当前已认证的
 stable 根 release 已将这些输入绑定到 tag-bound schema 9 evidence；运维仍必须安装准确的 certified
