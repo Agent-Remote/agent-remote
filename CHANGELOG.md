@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.27 - 2026-09-09
+
+- fix(release): sync node and bridge composition (cd92a5a)
+
 ## v0.2.26 - 2026-09-09
 
 - fix(release): sync certified bridge composition (77c8805)
