@@ -5,9 +5,9 @@ Status date: 2026-09-09.
 Overall status: **Bridge promotion complete (`production_ready=true`)**. The
 published Bridge `0.1.7` has an exact commit/tag, certificate pin, retained
 Site Learning bundle, and signed nested evidence; its blocker list is empty.
-Root `0.2.21` tag-bound evidence and the final artifact-bound logged-in canary
-remain before production enablement. A pending canary cannot be waived by
-changing configuration.
+The stable root `0.2.23` release contains the tag-bound evidence; the final
+artifact-bound logged-in canary remains before production enablement. A pending
+canary cannot be waived by changing configuration.
 
 | # | Acceptance requirement | Evidence | Status |
 | --- | --- | --- | --- |
@@ -139,5 +139,6 @@ Before enabling production, capture and bind to the final root release manifest:
    repositories and root schema-v3 production evidence with no blockers.
 
 The certificate and retained learning-bundle evidence listed in the original
-blocker table are already recorded by the Bridge `0.1.7` promotion. The root
-release workflow must bind those records to `v0.2.21` before deployment.
+blocker table are already recorded by the Bridge `0.1.7` promotion. The stable
+root `v0.2.23` release binds those records to its tag-bound evidence; deployment
+still requires the exact bundle and the final canary.

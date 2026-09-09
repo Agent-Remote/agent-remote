@@ -48,10 +48,11 @@ release as the production Bridge control plane.
    item and signed release gate is complete.
 
 The component record is now the published Bridge `0.1.7` promotion with
-`production_ready=true` and no blockers. Step 8 still cannot authorize
-production enablement until the root `0.2.21` tag-bound schema 9 evidence,
-deployment bundle, and final logged-in canary are complete; the feature flag
-remains disabled by default.
+`production_ready=true` and no blockers. The stable root `0.2.23` release
+contains the tag-bound schema 9 evidence. Step 8 still cannot authorize
+production enablement until its exact deployment bundle is installed and the
+final logged-in canary is complete; the feature flag remains disabled by
+default.
 
 The exact path from the four blocked fields to a root release is in
 [`ego-browser-bridge-release-promotion.md`](ego-browser-bridge-release-promotion.md).

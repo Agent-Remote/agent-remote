@@ -106,5 +106,6 @@ still verifies those facts, binds schema 9 evidence to the exact root tag, and
 refuses a mismatched composition.
 
 Production deployments must keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the
-root `0.2.21` bundle and its artifact-bound logged-in canary are approved.
+exact stable root `0.2.23` bundle is installed and its artifact-bound logged-in
+canary is approved.
 Development mode remains limited to synthetic, non-sensitive data.

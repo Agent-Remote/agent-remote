@@ -121,10 +121,11 @@ release gates are tracked in
 
 The current root manifest records the published Bridge `0.1.7` release,
 certificate pin, learning-bundle digest, and `production_ready=true` with no
-Bridge blockers. Keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the root
-`0.2.21` tag-bound schema 9 evidence, exact deployment bundle, and final
-artifact-bound canary are complete. A successful Node wrapper installation or
-development-mode test is not authorization to enable the capability.
+Bridge blockers. The stable root `0.2.23` release contains the tag-bound schema
+9 evidence. Keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the exact deployment
+bundle is installed and the final artifact-bound canary is complete. A
+successful Node wrapper installation or development-mode test is not
+authorization to enable the capability.
 
 After a promoted root manifest and signed schema 9 evidence exist, set the
 Bridge policy pins from that exact release bundle before enabling the flag:

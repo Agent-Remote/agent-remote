@@ -78,9 +78,9 @@ capability。
 
 schema-v3 composition 还记录已经晋级的 ego-browser Bridge `0.1.7` release 与其安全证据。
 Bridge component 当前为 `release_published=true`、`production_ready=true`，blocker 为空；
-准确 commit、证书 pin、learning-bundle digest 和嵌套证据都是根发布的不可变输入。根 `0.2.21`
-workflow 仍必须生成绑定 tag 的 schema 9 evidence，运维也必须完成最终 artifact-bound canary，
-之后才能启用 capability；发布流程不会自动启用它。
+准确 commit、证书 pin、learning-bundle digest 和嵌套证据都是根发布的不可变输入。stable 根
+`0.2.23` release 已将这些输入绑定到 tag-bound schema 9 evidence；运维仍必须安装准确的 certified
+bundle 并完成最终 artifact-bound canary，之后才能启用 capability。发布流程不会自动启用它。
 
 ## 许可证
 

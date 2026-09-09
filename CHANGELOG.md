@@ -6,13 +6,16 @@ All notable changes to this repository are recorded here.
 
 - chore(release): promote ego-browser bridge v0.1.7 (#1) (12096c8)
 
-## v0.2.22 - 2026-09-08
+## v0.2.22 - 2026-09-09
 
 - fix(release): gate only reachable Go vulnerabilities (c53d164)
 
-## v0.2.21 - 2026-09-08
+## v0.2.21 - 2026-09-09
 
-- Release metadata update.
+- fix(ci): pass absolute learning bundle path (74a63bc)
+- test: update server relay store import (200cc52)
+- feat: promote ego-browser bridge and prepare v0.2.21 (e754472)
+- ci: sign candidate community release evidence (61ab701)
 
 ## v0.2.20 - 2026-09-05
 
@@ -83,11 +86,11 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.7 - 2026-08-13
 
-- Release metadata update.
+- chore: release v0.2.7 (7623f8e)
 
 ## v0.2.6 - 2026-08-10
 
-- Release metadata update.
+- chore: release v0.2.6 (e1571f2)
 
 ## v0.2.5 - 2026-08-09
 
@@ -103,7 +106,7 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.2 - 2026-08-07
 
-- Release metadata update.
+- chore: release v0.2.2 (d3be10e)
 
 ## v0.2.1 - 2026-08-05
 
@@ -111,11 +114,11 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.0 - 2026-08-04
 
-- Release metadata update.
+- chore: release v0.2.0 (f144178)
 
 ## v0.1.9 - 2026-08-04
 
-- Release metadata update.
+- chore: release v0.1.9 (d03d655)
 
 ## v0.1.8 - 2026-08-03
 
@@ -133,25 +136,13 @@ All notable changes to this repository are recorded here.
 
 ## v0.1.5 - 2026-07-31
 
-- Release metadata update.
+- fix(ci): strip extra fields from community evidence CI runs (a396b7c)
 
 ## v0.1.4 - 2026-07-31
 
 - fix: accept protected release automation evidence (b88ffa5)
 - fix: commit all prepared release files (be71834)
 - feat: add community local-trust release evidence (0b84ce4)
-- build: package multi-architecture test images (4eac630)
-- docs: record verified release gate runs (dcae759)
-- test: harden release and tunnel readiness (9c1baf2)
-- test: stabilize macOS tunnel readiness (40ce1f2)
-- ci: run device E2E with Swift 6 (6db29cd)
-- feat: coordinate secure device control releases (68e24e3)
-- ci: disable noisy cross-repo Go cache (692c2cb)
-- ci: separate platform tunnel stress coverage (e033734)
-- test: stabilize concurrent tunnel e2e (a82b94b)
-- ci: run tunnel e2e on macos (c704035)
-- test: verify 100 concurrent tunnel streams (dc959e1)
-- ci: fix cross-repo Go caching (dd9ffb5)
 
 ## v0.1.0 - 2026-07-31
 
@@ -168,7 +159,7 @@ All notable changes to this repository are recorded here.
 - test: verify 100 concurrent tunnel streams (dc959e1)
 - ci: fix cross-repo Go caching (dd9ffb5)
 
-## v0.0.6 - 2026-07-29
+## v0.0.6 - 2026-07-30
 
 - feat: document and verify session port forwarding (ae17178)
 
@@ -199,6 +190,12 @@ All notable changes to this repository are recorded here.
 
 ## v0.0.2 - 2026-07-07
 
-- ci: allow manual release dispatch (edfe50c)
 - chore: release v0.0.2 (2608c93)
 - ci: add release preparation workflow (d01d4ba)
+
+## v0.0.1 - 2026-07-07
+
+- docs: define the Agent Remote architecture (25605ca)
+- docs: add the remote browser session design (5843477)
+- docs: document the workspace and account synchronization model (2baf04c)
+- docs: add deployment and packaging workflows (09262b0)
