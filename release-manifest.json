@@ -1,26 +1,26 @@
 {
   "components": {
     "agent-remote-admin-web": {
-      "commit": "d90641664c978f38776b67c1cc2db8b5fce85535",
+      "commit": "1fa492f32bb4d8f4433eb378102313df8f8c6d52",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-admin-web",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     "agent-remote-cli": {
-      "commit": "ed8173ee42e4ba6f7f8eb1a1b696705deae4eb50",
+      "commit": "fa2485656e7351d9fb663b2353a625b954f15204",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-cli",
-      "version": "0.2.11"
+      "version": "0.2.12"
     },
     "agent-remote-device": {
-      "commit": "96342329b9bffff8fe343f548ef372ec3bfa85a6",
+      "commit": "fd70071494c592f9356936ac0bdef448680b0ec0",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-device",
-      "version": "0.2.13"
+      "version": "0.2.14"
     },
     "agent-remote-ego-browser": {
       "apple_notarized": false,
-      "commit": "ade046b40c48088eaacb2e150dc593a69cbedef3",
+      "commit": "cd716ca2b65a2a7c65c827b8b10e3613a6f7a284",
       "credential_profile": "community_file",
       "hardened_runtime": true,
       "learning_bundle_digest": "6662ad11797f86d721b2d9121049c35b02eff3e71821dc06dfcc190d250788a7",
@@ -41,19 +41,19 @@
       "skill_commit": "36053d07001a910cb806a15d42d00fdea1cdea3d",
       "skill_tree_sha256": "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c",
       "skill_version": "1.2.3",
-      "version": "0.1.7"
+      "version": "0.1.8"
     },
     "agent-remote-node": {
-      "commit": "5b199a2a1373d3a437180cb2780a1cc7f2168aae",
+      "commit": "76c45feebe0cce809ded6aca5747bb5a8e8d382d",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-node",
-      "version": "0.2.15"
+      "version": "0.2.16"
     },
     "agent-remote-server": {
-      "commit": "45e49a943d62e9dab117b037139a519bb9abaf44",
+      "commit": "c4548faab65e8b16f43b775a92361ab103d09153",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-server",
-      "version": "0.2.13"
+      "version": "0.2.14"
     }
   },
   "distribution_version": "0.2.24",

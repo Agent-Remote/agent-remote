@@ -449,5 +449,5 @@ agent.example.com {
 - 完整部署与回滚顺序见 `docs/ego-browser-bridge-deployment.md`，安全边界见
   `docs/ego-browser-bridge-security.md`，验收状态见
   `docs/ego-browser-bridge-acceptance.md`。
-- Bridge `0.1.7` promotion 已使 component `production_ready=true` 且 blocker 为空；仍不得
+- Bridge `0.1.8` promotion 已使 component `production_ready=true` 且 blocker 为空；仍不得
   通过环境变量或跳过 root tag-bound evidence、artifact-bound canary 的方式开启生产 capability。

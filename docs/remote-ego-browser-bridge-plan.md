@@ -7,7 +7,7 @@
 由本地真实的 ego lite `ego-browser` 执行。
 
 - 产品决策状态：已确认。
-- 方案状态：功能实现、自动化契约、Bridge `0.1.7` promotion、root `0.2.23` 的 tag-bound
+- 方案状态：功能实现、自动化契约、Bridge `0.1.8` promotion、root `0.2.25` 的 tag-bound
   schema 9 evidence 与 development real ego lite canary 已完成；artifact-bound logged-in
   canary 和显式生产开关仍待完成。Bridge component 当前为 `production_ready=true`，但
   capability 默认保持关闭。

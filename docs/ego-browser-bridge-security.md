@@ -99,13 +99,13 @@ trusted channel and may add host egress controls.
 
 ## Production status
 
-The root schema-v3 composition records the published Bridge `0.1.7` commit,
+The root schema-v3 composition records the published Bridge `0.1.8` commit,
 certificate pin, learning-bundle digest, and nested-signature evidence with
 `production_ready=true` and an empty blocker list. The root release workflow
 still verifies those facts, binds schema 9 evidence to the exact root tag, and
 refuses a mismatched composition.
 
 Production deployments must keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the
-exact stable root `0.2.23` bundle is installed and its artifact-bound logged-in
+exact stable root `0.2.25` bundle is installed and its artifact-bound logged-in
 canary is approved.
 Development mode remains limited to synthetic, non-sensitive data.

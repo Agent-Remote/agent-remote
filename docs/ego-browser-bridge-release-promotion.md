@@ -2,8 +2,8 @@
 
 The root composition was initially blocked until the Bridge had a real,
 published release and a protected Site Learning signing key. The original four
-blockers are evidence requirements, not configuration switches. Bridge `0.1.7`
-now clears all four, and the stable root `0.2.23` release binds that promotion
+blockers are evidence requirements, not configuration switches. Bridge `0.1.8`
+now clears all four, and the stable root `0.2.25` release binds that promotion
 to tag-bound schema 9 evidence. The remaining work is installing the exact
 certified bundle and completing the final canary.
 
@@ -21,7 +21,7 @@ clear any blocker.
 
 Before starting this promotion, publish an `agent-remote-server` release that
 contains the schema-9 Bridge admission fix. The promoted root manifest pins
-Server `0.2.13` at the reviewed commit; keep candidate and evidence bound to
+Server `0.2.14` at the reviewed commit; keep candidate and evidence bound to
 that exact release (or a subsequently reviewed replacement). Do not substitute
 an older Server release as the production Bridge control plane.
 
@@ -159,5 +159,5 @@ The original blocked state was `release_published=false`,
 `production_ready=false`, with the four blockers listed above. The current
 promoted root component is `release_published=true`, `production_ready=true`,
 and has `readiness_blockers=[]`. This does not switch the capability on: the
-stable root `0.2.23` release contains the tag-bound evidence, but deployment of
+stable root `0.2.25` release contains the tag-bound evidence, but deployment of
 its exact certified bundle and the final logged-in canary are still required.
