@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.24 - 2026-09-09
+
+- docs: avoid patch-bound release status wording (a57426d)
+- docs: align release status and changelog history (3306285)
+
 ## v0.2.23 - 2026-09-09
 
 - chore(release): promote ego-browser bridge v0.1.7 (#1) (12096c8)
