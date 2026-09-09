@@ -7,10 +7,10 @@
       "version": "0.2.13"
     },
     "agent-remote-cli": {
-      "commit": "ddb09578496d859d9cc39852df5ce9e1e47153c3",
+      "commit": "5be1e6afe70c4b4bdfd26cd7630facd7633b2ea6",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-cli",
-      "version": "0.2.14"
+      "version": "0.2.15"
     },
     "agent-remote-device": {
       "commit": "f8212b85e3e8d2103ee177e3293705c38b6101b0",
@@ -20,7 +20,7 @@
     },
     "agent-remote-ego-browser": {
       "apple_notarized": false,
-      "commit": "4fab3f197c9e758fb653d0e6e1fd7fd28fe78661",
+      "commit": "2e2c103e62e2f81b8e61debc42beaae1f8bc90b0",
       "credential_profile": "community_file",
       "hardened_runtime": true,
       "learning_bundle_digest": "6662ad11797f86d721b2d9121049c35b02eff3e71821dc06dfcc190d250788a7",
@@ -41,13 +41,13 @@
       "skill_commit": "36053d07001a910cb806a15d42d00fdea1cdea3d",
       "skill_tree_sha256": "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c",
       "skill_version": "1.2.3",
-      "version": "0.1.9"
+      "version": "0.1.11"
     },
     "agent-remote-node": {
-      "commit": "157e7a53b0a2a7e56d7c5426512bf28648a1c7e3",
+      "commit": "0d67ee7948cd380ab16a7d61f600fc58ef56f939",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-node",
-      "version": "0.2.17"
+      "version": "0.2.18"
     },
     "agent-remote-server": {
       "commit": "0d7315060a9fbff9b6047a2b8ad1f4936dc9a565",

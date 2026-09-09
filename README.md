@@ -89,7 +89,7 @@ and pins deployed images by digest. The evidence has no time expiry and is valid
 signed composition; already issued schema 8 evidence remains permanently verifiable for its own
 exact composition. The release never enables the capability automatically.
 
-The schema-v3 composition also records the promoted ego-browser Bridge `0.1.9`
+The schema-v3 composition also records the promoted ego-browser Bridge `0.1.11`
 release and its security evidence. Its Bridge component declares
 `release_published=true`, `production_ready=true`, and an empty blocker list;
 the exact commit, certificate pin, learning-bundle digest, and nested evidence

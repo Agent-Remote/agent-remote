@@ -4,7 +4,7 @@
 
 | Component | Required identity |
 | --- | --- |
-| Remote wrapper / local Bridge / Device Client | `0.1.9` |
+| Remote wrapper / local Bridge / Device Client | `0.1.11` |
 | Protocol | `ego-browser-bridge-v1` |
 | Official Skill | `1.2.3` |
 | Skill commit | `36053d07001a910cb806a15d42d00fdea1cdea3d` |
@@ -47,8 +47,8 @@ release as the production Bridge control plane.
    single-user canary. Enable production admission only after every acceptance
    item and signed release gate is complete.
 
-The component record is now the published Bridge `0.1.9` promotion with
-`production_ready=true` and no blockers. The stable root `0.2.26` release
+The component record is now the published Bridge `0.1.11` promotion with
+`production_ready=true` and no blockers. The stable root `0.2.27` release
 contains the tag-bound schema 9 evidence. Step 8 still cannot authorize
 production enablement until its exact deployment bundle is installed and the
 final logged-in canary is complete; the feature flag remains disabled by
@@ -66,7 +66,7 @@ EGO_BROWSER_BRIDGE_ENABLED=true
 EGO_BROWSER_REQUIRE_DEVICE_POP=true
 EGO_BROWSER_EXPECTED_RELEASE_PROFILE=community-local-trust
 EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256=<64 lowercase hex>
-EGO_BROWSER_EXPECTED_WRAPPER_VERSION=0.1.9
+EGO_BROWSER_EXPECTED_WRAPPER_VERSION=0.1.11
 EGO_BROWSER_EXPECTED_SKILL_VERSION=1.2.3
 EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256=262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c
 EGO_BROWSER_EXPECTED_SKILL_COMMIT=36053d07001a910cb806a15d42d00fdea1cdea3d
