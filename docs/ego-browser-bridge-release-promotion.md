@@ -2,7 +2,7 @@
 
 The root composition was initially blocked until the Bridge had a real,
 published release and a protected Site Learning signing key. The original four
-blockers are evidence requirements, not configuration switches. Bridge `0.1.5`
+blockers are evidence requirements, not configuration switches. Bridge `0.1.7`
 now clears all four; the remaining work is binding that promotion to the root
 `0.2.21` release and completing the final canary.
 

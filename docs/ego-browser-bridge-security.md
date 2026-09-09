@@ -99,7 +99,7 @@ trusted channel and may add host egress controls.
 
 ## Production status
 
-The root schema-v3 composition records the published Bridge `0.1.5` commit,
+The root schema-v3 composition records the published Bridge `0.1.7` commit,
 certificate pin, learning-bundle digest, and nested-signature evidence with
 `production_ready=true` and an empty blocker list. The root release workflow
 still verifies those facts, binds schema 9 evidence to the exact root tag, and

@@ -119,7 +119,7 @@ upgrade, and rollback order. The full local-execution boundary is documented in
 release gates are tracked in
 [`ego-browser-bridge-acceptance.md`](ego-browser-bridge-acceptance.md).
 
-The current root manifest records the published Bridge `0.1.5` release,
+The current root manifest records the published Bridge `0.1.7` release,
 certificate pin, learning-bundle digest, and `production_ready=true` with no
 Bridge blockers. Keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the root
 `0.2.21` tag-bound schema 9 evidence, exact deployment bundle, and final
