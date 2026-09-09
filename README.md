@@ -93,7 +93,7 @@ The schema-v3 composition also records the promoted ego-browser Bridge `0.1.7`
 release and its security evidence. Its Bridge component declares
 `release_published=true`, `production_ready=true`, and an empty blocker list;
 the exact commit, certificate pin, learning-bundle digest, and nested evidence
-are immutable inputs to the root release. The stable root `0.2.23` release now
+are immutable inputs to the root release. The current certified root release
 binds those inputs to tag-bound schema 9 evidence. Operators must still install
 the exact certified bundle and complete the final artifact-bound canary before
 enabling the capability. The release never enables it automatically.
