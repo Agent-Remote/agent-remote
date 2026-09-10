@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.28 - 2026-09-10
+
+- fix(release): pin repaired node and server releases (867c2fe)
+
 ## v0.2.27 - 2026-09-09
 
 - fix(release): sync node and bridge composition (cd92a5a)

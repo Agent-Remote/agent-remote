@@ -236,7 +236,7 @@ Tag-triggered release workflows only build and publish artifacts; they do not mo
 Release a component from its own repository whenever it is ready:
 
 ```sh
-gh workflow run prepare-release.yml --ref main -f version=0.2.27
+gh workflow run prepare-release.yml --ref main -f version=0.2.28
 ```
 
 The root repository has a separate distribution version. `release-manifest.json` pins the exact
@@ -266,9 +266,9 @@ For a local manual component release, run that repository's prepare script, then
 own version:
 
 ```sh
-scripts/prepare-release.sh 0.2.27
+scripts/prepare-release.sh 0.2.28
 git add .
-git commit -m "chore: release v0.2.27"
-git tag v0.2.27
-git push origin main v0.2.27
+git commit -m "chore: release v0.2.28"
+git tag v0.2.28
+git push origin main v0.2.28
 ```
