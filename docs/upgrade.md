@@ -47,6 +47,8 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main
   --registration-token <original-registration-token>
 ```
 
+The Node installer selects an unused dynamic WireGuard UDP port for new installations and preserves it on later upgrades. Installations still using the legacy `51820` default are migrated automatically. After that migration, allow the UDP port printed by the installer in any host or provider firewall, wait for the Node heartbeat to publish the new endpoint, and run `agent-remote wireguard config` followed by a tunnel restart on every client. Use `--rotate-wireguard-listen-port` to select another random high port when an upstream route starts filtering the current one; always verify a real client handshake because a locally unused port does not prove Internet reachability.
+
 The installer also ensures Native developer tooling (`git`, `gh`, and the OpenSSH client) is present. Sessions created before an upgrade that adds runtime mounts or developer credential injection must be stopped and recreated; an existing Bubblewrap process cannot acquire new mounts.
 
 For the SSH agent forwarding rollout, upgrade the node first, then the control plane and CLI. Trigger one attach so the versioned `sync_ssh_keys` task refreshes the gateway entry, wait for the node to consume it, and create a new session on each enabled `native` or `docker_sandbox` backend for validation.

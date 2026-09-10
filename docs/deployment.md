@@ -97,7 +97,7 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main
   --registration-token <registration-token>
 ```
 
-The default backend is `native`. Add `--runtime-backends native,docker_sandbox` only after installing a Docker CLI that provides `docker sandbox`. Re-running the same command upgrades managed binaries and Claude while reusing the existing node token.
+The default backend is `native`. Add `--runtime-backends native,docker_sandbox` only after installing a Docker CLI that provides `docker sandbox`. Re-running the same command upgrades managed binaries and Claude while reusing the existing node token. Fresh Node installations randomly select an unused WireGuard UDP port in `49152-65535`, persist it across upgrades, and advertise it through the control plane. Permit the printed port in host and provider firewalls and verify a handshake from a real client; use `--rotate-wireguard-listen-port` only when selecting a replacement port is intentional.
 
 ## Local ego-browser Bridge
 
