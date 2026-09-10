@@ -2,10 +2,6 @@
 
 All notable changes to this repository are recorded here.
 
-## Unreleased
-
-- docs(network): document randomized WireGuard port selection, migration, and client refresh
-
 ## v0.2.28 - 2026-09-10
 
 - fix(release): pin repaired node and server releases (867c2fe)
