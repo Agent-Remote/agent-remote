@@ -4,8 +4,12 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.29 - 2026-09-18
 
-- feat(ego-browser): align the released Bridge, Skill, Node, CLI, Admin Web, and Server profile.
-- fix(release): derive deployment policy from certified release evidence.
+- chore(release): certify bridge v0.1.13 in root v0.2.29 (57a481f)
+- chore(release): pin server v0.2.19 for root candidate (210644e)
+- feat(ego-browser): prepare root v0.2.29 candidate policy (4acbec1)
+- ci(release): validate unsigned candidate on protected prep branch (5814743)
+- docs(release): remove unsupported unreleased section (50358f7)
+- docs(network): document dynamic WireGuard port rotation (2ad4eb7)
 
 ## v0.2.28 - 2026-09-10
 
