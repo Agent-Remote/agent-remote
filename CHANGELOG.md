@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.30 - 2026-09-18
+
+- chore(release): pin node v0.2.22 and cli v0.2.18 (f024ad8)
+
 ## v0.2.29 - 2026-09-18
 
 - chore(release): certify bridge v0.1.13 in root v0.2.29 (57a481f)
