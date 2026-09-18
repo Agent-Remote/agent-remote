@@ -1,0 +1,189 @@
+name: candidate-composition-ci
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_manifest_b64:
+        description: Canonical candidate manifest encoded as base64
+        required: true
+        type: string
+      candidate_manifest_sha256:
+        description: SHA-256 of the exact candidate bytes
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: startsWith(github.ref, 'refs/heads/release-prep/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      cli: ${{ steps.components.outputs.cli }}
+      node: ${{ steps.components.outputs.node }}
+      server: ${{ steps.components.outputs.server }}
+      device: ${{ steps.components.outputs.device }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - name: Validate candidate and stage it only in this runner
+        env:
+          CANDIDATE_B64: ${{ inputs.candidate_manifest_b64 }}
+          CANDIDATE_SHA256: ${{ inputs.candidate_manifest_sha256 }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, str(Path.cwd() / "scripts"))
+          from release_manifest import load_release_manifest
+
+          digest = os.environ["CANDIDATE_SHA256"]
+          if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+              raise SystemExit("candidate digest is invalid")
+          raw = base64.b64decode(os.environ["CANDIDATE_B64"], validate=True)
+          if not raw or len(raw) > 65536 or hashlib.sha256(raw).hexdigest() != digest:
+              raise SystemExit("candidate bytes do not match the digest")
+          candidate = json.loads(raw)
+          canonical = (json.dumps(candidate, ensure_ascii=True, sort_keys=True, indent=2) + "\n").encode()
+          if raw != canonical:
+              raise SystemExit("candidate manifest is not canonical")
+          path = Path("release-manifest.json")
+          path.write_bytes(raw)
+          validated = load_release_manifest(path)
+          if validated != candidate or validated["distribution_version"] != Path("VERSION").read_text().strip():
+              raise SystemExit("candidate identity differs from the prepared release")
+          print(f"validated candidate sha256:{digest}")
+          PY
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: candidate-manifest-${{ inputs.candidate_manifest_sha256 }}
+          path: release-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Resolve exact component commits
+        id: components
+        run: |
+          {
+            echo "cli=$(jq -er '.components["agent-remote-cli"].commit' release-manifest.json)"
+            echo "node=$(jq -er '.components["agent-remote-node"].commit' release-manifest.json)"
+            echo "server=$(jq -er '.components["agent-remote-server"].commit' release-manifest.json)"
+            echo "device=$(jq -er '.components["agent-remote-device"].commit' release-manifest.json)"
+          } >> "$GITHUB_OUTPUT"
+      - name: Check root release contracts
+        run: |
+          set -euo pipefail
+          python3 tests/release_workflow_contract_test.py
+          python3 tests/device_control_operations_runbook_contract_test.py
+          for test in \
+            tests/test_assemble_device_control_release_evidence.py \
+            tests/test_assemble_community_device_control_release_evidence.py \
+            tests/test_collect_community_computer_use_v2_evidence.py \
+            tests/test_collect_device_control_external_gates.py \
+            tests/test_device_control_release_readiness.py \
+            tests/test_update_release_component.py \
+            tests/test_ego_browser_release_manifest.py \
+            tests/test_render_ego_browser_policy_env.py \
+            tests/test_ego_browser_release_boundaries.py; do
+            python3 "$test"
+          done
+          python3 scripts/check-ego-browser-lifecycle.py
+          docker compose --env-file deploy/compose/.env.example \
+            -f deploy/compose/docker-compose.yml config --quiet
+
+  session-port-forwarding-e2e:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            e2e_args: ""
+          - os: macos-14
+            e2e_args: --skip-concurrency-stress
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: candidate-manifest-${{ inputs.candidate_manifest_sha256 }}
+          path: .candidate
+      - name: Stage validated candidate
+        run: cp .candidate/release-manifest.json release-manifest.json
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-cli
+          ref: ${{ needs.validate.outputs.cli }}
+          path: .e2e/agent-remote-cli
+          persist-credentials: false
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-node
+          ref: ${{ needs.validate.outputs.node }}
+          path: .e2e/agent-remote-node
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v6.5.0
+        with:
+          go-version-file: .e2e/agent-remote-node/go.mod
+          cache-dependency-path: .e2e/agent-remote-node/go.sum
+      - name: Run session port-forwarding E2E
+        env:
+          AGENT_REMOTE_CLI_REPO: ${{ github.workspace }}/.e2e/agent-remote-cli
+          AGENT_REMOTE_NODE_REPO: ${{ github.workspace }}/.e2e/agent-remote-node
+        run: scripts/run-session-port-forwarding-e2e.sh ${{ matrix.e2e_args }}
+
+  local-device-control-e2e:
+    needs: validate
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: candidate-manifest-${{ inputs.candidate_manifest_sha256 }}
+          path: .candidate
+      - name: Stage validated candidate
+        run: cp .candidate/release-manifest.json release-manifest.json
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-server
+          ref: ${{ needs.validate.outputs.server }}
+          path: .e2e/agent-remote-server
+          persist-credentials: false
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-node
+          ref: ${{ needs.validate.outputs.node }}
+          path: .e2e/agent-remote-node
+          persist-credentials: false
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-device
+          ref: ${{ needs.validate.outputs.device }}
+          path: .e2e/agent-remote-device
+          persist-credentials: false
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v8.3.1
+      - uses: actions/setup-go@v6.5.0
+        with:
+          go-version-file: .e2e/agent-remote-node/go.mod
+          cache-dependency-path: .e2e/agent-remote-node/go.sum
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install server test environment
+        run: uv sync --project .e2e/agent-remote-server --frozen
+      - name: Run local device-control E2E
+        env:
+          AGENT_REMOTE_SERVER_REPO: ${{ github.workspace }}/.e2e/agent-remote-server
+          AGENT_REMOTE_NODE_REPO: ${{ github.workspace }}/.e2e/agent-remote-node
+          AGENT_REMOTE_DEVICE_REPO: ${{ github.workspace }}/.e2e/agent-remote-device
+        run: scripts/run-local-device-control-e2e.sh
