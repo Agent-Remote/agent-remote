@@ -49,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main
 The current `agent-remote node install --node <node-id-or-prefix>` command is the managed install
 path. It authenticates the exact Node archive, checksum, and Sigstore bundle, transfers and installs
 that release over one protected SSH stdin channel, and only then sends the short-lived join code over
-a separate SSH invocation. The CLI pins Node `0.2.21`; the managed installer accepts only its exact
+a separate SSH invocation. The CLI pins Node `0.2.22`; the managed installer accepts only its exact
 published, tag-bound release assets and Sigstore evidence. Do not bypass the managed verifier.
 
 The Node installer selects an unused dynamic WireGuard UDP port for new installations and preserves it on later upgrades. Installations still using the legacy `51820` default are migrated automatically. After that migration, allow the UDP port printed by the installer in any host or provider firewall, wait for the Node heartbeat to publish the new endpoint, and run `agent-remote wireguard config` followed by a tunnel restart on every client. Use `--rotate-wireguard-listen-port` to select another random high port when an upstream route starts filtering the current one; always verify a real client handshake because a locally unused port does not prove Internet reachability.

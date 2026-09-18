@@ -7,10 +7,10 @@
       "version": "0.2.14"
     },
     "agent-remote-cli": {
-      "commit": "5ad36639f87048f20c96ab6f11f15a9d90174faf",
+      "commit": "24efc8aa8e8ec94ec6d7fe89954f201bf67aa1c7",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-cli",
-      "version": "0.2.17"
+      "version": "0.2.18"
     },
     "agent-remote-device": {
       "commit": "f8212b85e3e8d2103ee177e3293705c38b6101b0",
@@ -65,10 +65,10 @@
       "wrapper_version": "0.1.13"
     },
     "agent-remote-node": {
-      "commit": "d0944d21d989373a7a72c238a29a4032774685f2",
+      "commit": "0bde5be406d147d7fca57a1148b4a2064ff38742",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-node",
-      "version": "0.2.21"
+      "version": "0.2.22"
     },
     "agent-remote-server": {
       "commit": "fded36ef2fdea82af6e46ad5e4f3f159838109cc",

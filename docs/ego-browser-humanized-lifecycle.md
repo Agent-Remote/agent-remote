@@ -173,7 +173,7 @@ identity。ego-browser 的 Device identity 只由 `setup`/`ensure`（或明确�
 | 范围 | 当前兼容行为 | 目标行为 | 迁移要求 |
 | --- | --- | --- | --- |
 | Node `ego_browser_enabled` | 安装器只有显式 `--enable-ego-browser`/`--disable-ego-browser`，`configure-ego-browser` 只有显式 `--enable`/`--disable` 才改变已有值；缺省值按旧配置逻辑处理，因此不会因组件存在自动开启 | 新 Node 明确落盘 `false`，加入码显式授权才可写入 `true` | 先保留旧配置，再通过受管迁移补齐缺省 `false`；不得把安装器升级误当成启用 |
-| Node 受管传输 | `agent-remote node install` 验证 Node archive/checksum/Sigstore，经独立 SSH stdin 安装 release，再通过第二条 SSH stdin 发送 join code；CLI 固定的 Node `0.2.21` 已发布 | 受管 release 仍须由根清单认证，不允许绕过验证或把加入码放入 argv | 部署以已签名根组合为准；未完成认证时继续使用该组合中的稳定 installer，不得把单独发布的组件当作已部署 |
+| Node 受管传输 | `agent-remote node install` 验证 Node archive/checksum/Sigstore，经独立 SSH stdin 安装 release，再通过第二条 SSH stdin 发送 join code；CLI 固定的 Node `0.2.22` 已发布 | 受管 release 仍须由根清单认证，不允许绕过验证或把加入码放入 argv | 部署以已签名根组合为准；未完成认证时继续使用该组合中的稳定 installer，不得把单独发布的组件当作已部署 |
 | Device 注册 API | `register` 仍被旧脚本调用 | `POST /api/v1/ego-browser/devices/ensure` 为主，`register` 是同语义兼容别名 | 两条路由共享幂等收敛；新客户端显式发送 enrollment mode |
 | digest / token | 兼容 CLI/installer 可能要求 `--signer-certificate-sha256`、Server URL 或 token | 普通 `setup` 从已登录凭据和受保护 stdin/FD 取得 token；release/profile 使用已验证证据 | 旧入口仅限 advanced；profile 或签名变化时仍需重新确认 |
 | binding 操作 | 兼容命令可显式传 binding ID 和旧 `generation` | 普通 `pause`/`stop`/`resume` 优先使用本机 active handoff，再用唯一候选或交互选择；内部使用 `binding_generation` 并在动作前复查 Server | 旧参数继续兼容；无 TTY、多候选、代次变化均 fail closed |
