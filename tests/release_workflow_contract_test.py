@@ -17,7 +17,13 @@ community_evidence = Path(
 community_v2_evidence = Path(
     ".github/workflows/community-computer-use-v2-evidence.yml"
 ).read_text(encoding="utf-8")
+candidate_signing = Path(
+    ".github/workflows/sign-candidate-community-release-evidence.yml"
+).read_text(encoding="utf-8")
 github_cli_installer = Path("scripts/install-github-cli.sh").read_text(encoding="utf-8")
+browser_policy_renderer = Path("scripts/render-ego-browser-policy-env.py").read_text(
+    encoding="utf-8"
+)
 
 for name, workflow in (
     ("CI", ci),
@@ -27,11 +33,20 @@ for name, workflow in (
     ("external gates", external_gates),
     ("community release evidence", community_evidence),
     ("community v2 evidence", community_v2_evidence),
+    ("candidate signing", candidate_signing),
 ):
     if "concurrency:" not in workflow:
         raise SystemExit(f"{name} workflow must serialize or cancel duplicate work")
     if "timeout-minutes:" not in workflow:
         raise SystemExit(f"{name} workflow must bound job execution time")
+
+for fragment in (
+    "from release_manifest import load_release_manifest",
+    'candidate.get("schema_version") != 4',
+    "candidate manifest profile is invalid",
+):
+    if fragment not in candidate_signing:
+        raise SystemExit(f"candidate signing workflow is missing: {fragment}")
 
 for fragment in (
     "dorny/paths-filter@v4.0.3",
@@ -121,6 +136,24 @@ required_release_fragments = (
     "DEVICE_CONTROL_RELEASE_EVIDENCE_FILE=./device-control-release-evidence.json",
     '(cd ".release/device-control-release-evidence"',
     "production-release-manifest.json",
+    "render-ego-browser-policy-env.py",
+    "EGO_BROWSER_POLICY_ENV_FILE=./ego-browser-policy.env",
+    "SERVER_IMAGE=${server_image}@${server_digest}",
+    "admin-workflow: ${{ steps.manifest.outputs.admin-workflow }}",
+    "${ADMIN_WORKFLOW}@refs/tags/v${ADMIN_VERSION}",
+    '--source-ref "refs/tags/v${ADMIN_VERSION}"',
+)
+
+if "\n        env:\n        run:" in release:
+    raise SystemExit("release workflow contains an empty env mapping")
+
+missing = [
+    fragment for fragment in required_release_fragments if fragment not in release
+]
+if missing:
+    raise SystemExit(f"release workflow is missing: {', '.join(missing)}")
+
+for fragment in (
     "EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256",
     "EGO_BROWSER_EXPECTED_RELEASE_PROFILE",
     "EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256",
@@ -137,20 +170,9 @@ required_release_fragments = (
     "EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256",
     "EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256",
     "EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256",
-    "SERVER_IMAGE=${server_image}@${server_digest}",
-    "admin-workflow: ${{ steps.manifest.outputs.admin-workflow }}",
-    "${ADMIN_WORKFLOW}@refs/tags/v${ADMIN_VERSION}",
-    '--source-ref "refs/tags/v${ADMIN_VERSION}"',
-)
-
-if "\n        env:\n        run:" in release:
-    raise SystemExit("release workflow contains an empty env mapping")
-
-missing = [
-    fragment for fragment in required_release_fragments if fragment not in release
-]
-if missing:
-    raise SystemExit(f"release workflow is missing: {', '.join(missing)}")
+):
+    if fragment not in browser_policy_renderer:
+        raise SystemExit(f"ego-browser policy renderer is missing: {fragment}")
 
 if 'sha256sum "dist/${package}.tar.gz"' in release:
     raise SystemExit("deployment checksum must not contain the dist/ staging path")
@@ -291,8 +313,8 @@ required_community_evidence_fragments = (
     "--computer-use-v2-target",
     "community_computer_use_v2_without_apple_notarization",
     'gh release view "v${BROWSER_VERSION}"',
-    '.isPrerelease == false',
-    'refs/tags/v${BROWSER_VERSION}',
+    ".isPrerelease == false",
+    "refs/tags/v${BROWSER_VERSION}",
     "extract-learning-bundle.py",
     "while IFS= read -r -d '' checksum",
     "jq -r '.artifacts[] | [.name, .sbom] | @tsv'",
@@ -358,9 +380,8 @@ for fragment in (
     if fragment not in forwarding_e2e:
         raise SystemExit(f"forwarding E2E timeout contract is missing: {fragment}")
 
-release_version = Path("VERSION").read_text(encoding="utf-8").strip()
 release_manifest = json.loads(Path("release-manifest.json").read_text(encoding="utf-8"))
-if release_manifest["schema_version"] != 3:
+if release_manifest["schema_version"] != 4:
     raise SystemExit("release manifest must bind signing workflow identities")
 for name, component in release_manifest["components"].items():
     if not component.get("release_workflow", "").endswith((".yml", ".yaml")):
@@ -369,7 +390,6 @@ server_version = release_manifest["components"]["agent-remote-server"]["version"
 admin_version = release_manifest["components"]["agent-remote-admin-web"]["version"]
 test_environment = Path("deploy/compose/.env.device-test").read_text(encoding="utf-8")
 for fragment in (
-    f"AGENT_REMOTE_VERSION={release_version}",
     f"SERVER_VERSION={server_version}",
     f"ADMIN_WEB_VERSION={admin_version}",
     "SERVER_IMAGE=agent-remote-server:device-test-${SERVER_VERSION}",

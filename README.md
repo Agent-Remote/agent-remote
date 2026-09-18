@@ -52,6 +52,7 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `docs/ego-browser-bridge-deployment.md`
 - `docs/ego-browser-bridge-acceptance.md`
 - `docs/ego-browser-bridge-release-promotion.md`
+- `docs/ego-browser-humanized-lifecycle.md` (the unified ego-lite install, registration, upgrade, and daily-use contract)
 
 Computer Use v2 的完整优化方案以
 `docs/local-device-control-security-design.md` 第 6.5 节为架构与安全事实源；协议状态机、benchmark
@@ -89,11 +90,13 @@ and pins deployed images by digest. The evidence has no time expiry and is valid
 signed composition; already issued schema 8 evidence remains permanently verifiable for its own
 exact composition. The release never enables the capability automatically.
 
-The schema-v3 composition also records the promoted ego-browser Bridge `0.1.11`
+The schema-v4 composition also records the exact promoted ego-browser Bridge
 release and its security evidence. Its Bridge component declares
 `release_published=true`, `production_ready=true`, and an empty blocker list;
-the exact commit, certificate pin, learning-bundle digest, and nested evidence
-are immutable inputs to the root release. The current certified root release
+the exact commit, profile/version tuple, artifact and Bridge-manifest digests,
+certificate pin, ego lite installer tuple, learning-bundle digest, platform,
+origin selector, admission policy, and nested evidence are immutable inputs to
+the root release. The current certified root release
 binds those inputs to tag-bound schema 9 evidence. Operators must still install
 the exact certified bundle and complete the final artifact-bound canary before
 enabling the capability. The release never enables it automatically.

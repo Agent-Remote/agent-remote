@@ -18,13 +18,22 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from ego_browser_policy import (
+    ACTIVE_LOGIN_ORIGIN,
+    EGO_BROWSER_ADMISSION_POLICY_REF,
+    EGO_BROWSER_COMPONENT as BRIDGE_COMPONENT,
+    EGO_BROWSER_LOCAL_RUNTIME_VERSION,
+    EGO_BROWSER_PROFILE_ID as PROFILE_ID,
+    EGO_BROWSER_PROTOCOL_VERSION,
+    EGO_BROWSER_REPOSITORY as BRIDGE_REPOSITORY,
+    EGO_BROWSER_SKILL_VERSION,
+)
+
 # Loading release validators must not dirty a checked-out component repository
 # with interpreter cache files while we are proving its clean-worktree state.
 sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[1]
-BRIDGE_REPOSITORY = "Agent-Remote/agent-remote-ego-browser"
-BRIDGE_COMPONENT = "agent-remote-ego-browser"
 LEARNING_BLOCKER = "learning_bundle_signing_private_key_unavailable"
 ZERO_COMMIT = "0" * 40
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -296,6 +305,62 @@ def verify_github_release(
     return value
 
 
+def bridge_source_profile(repository: Path) -> dict[str, str]:
+    """Read the installer and replacement pins from the verified Bridge commit."""
+
+    path = repository / "scripts" / "install.sh"
+    if not path.is_file() or path.is_symlink():
+        raise ValueError("Bridge bootstrap is missing")
+    text = path.read_text(encoding="utf-8")
+
+    def assignment(name: str) -> str:
+        matches = re.findall(rf'^{re.escape(name)}="([^"]+)"$', text, re.MULTILINE)
+        if len(matches) != 1:
+            raise ValueError(f"Bridge bootstrap {name} assignment is invalid")
+        return matches[0]
+
+    commit = assignment("EGO_LITE_INSTALL_SCRIPT_COMMIT")
+    digest = assignment("EGO_LITE_INSTALL_SCRIPT_SHA256")
+    url_template = assignment("EGO_LITE_INSTALL_SCRIPT_URL")
+    expected_template = (
+        "https://raw.githubusercontent.com/citrolabs/ego-lite/"
+        "${EGO_LITE_INSTALL_SCRIPT_COMMIT}/skills/ego-browser/scripts/install.sh"
+    )
+    if not GIT_SHA.fullmatch(commit) or not SHA256.fullmatch(digest):
+        raise ValueError("Bridge bootstrap ego lite installer identity is invalid")
+    if url_template != expected_template:
+        raise ValueError("Bridge bootstrap ego lite installer URL is invalid")
+    protocol_path = repository / "crates" / "protocol" / "src" / "lib.rs"
+    if not protocol_path.is_file() or protocol_path.is_symlink():
+        raise ValueError("Bridge release profile source is missing")
+    protocol_source = protocol_path.read_text(encoding="utf-8")
+    replacements = re.findall(
+        r'^pub const REPLACED_COMMUNITY_PROFILE: &str = "([^"]+)";$',
+        protocol_source,
+        re.MULTILINE,
+    )
+    if len(replacements) != 1 or not re.fullmatch(
+        rf"{re.escape(PROFILE_ID)}@[0-9]+\.[0-9]+\.[0-9]+", replacements[0]
+    ):
+        raise ValueError("Bridge replaced profile pin is invalid")
+    skill_trees = re.findall(
+        r'pub const SUPPORTED_SKILL_TREE_SHA256: &str =\s*"([^"]+)";',
+        protocol_source,
+    )
+    if len(skill_trees) != 1 or not SHA256.fullmatch(skill_trees[0]):
+        raise ValueError("Bridge Skill tree pin is invalid")
+    return {
+        "ego_lite_installer_url": url_template.replace(
+            "${EGO_LITE_INSTALL_SCRIPT_COMMIT}", commit
+        ),
+        "ego_lite_installer_commit": commit,
+        "ego_lite_installer_sha256": digest,
+        "replaces_profile": replacements[0],
+        "skill_commit": commit,
+        "skill_tree_sha256": skill_trees[0],
+    }
+
+
 def verify_bridge_manifest(
     path: Path,
     artifact_directory: Path | None,
@@ -344,7 +409,7 @@ def verify_signing_evidence(
     expected: dict[str, object] = {
         "schema_version": 1,
         "version": version,
-        "profile": "community-local-trust",
+        "profile": PROFILE_ID,
         "production_ready": True,
         "readiness_blockers": [],
         "apple_notarized": False,
@@ -483,7 +548,7 @@ def verify_production_evidence(
         raise ValueError("schema 9 production evidence fields are incomplete")
     if (
         value["schema_version"] != 9
-        or value["release_profile"] != "community-local-trust"
+        or value["release_profile"] != PROFILE_ID
         or value["production_ready"] is not True
         or value["apple_notarized"] is not False
         or value["public_distribution"] is not False
@@ -539,6 +604,10 @@ def build_candidate_manifest(
     certificate: str,
     learning_digest: str,
     learning_key_id: str,
+    artifact_sha256: str,
+    bridge_manifest_sha256: str,
+    issued_at: str,
+    installer_profile: dict[str, str],
 ) -> dict[str, Any]:
     """Build and validate the complete promoted root manifest in memory."""
 
@@ -549,10 +618,49 @@ def build_candidate_manifest(
     component = components[BRIDGE_COMPONENT]
     if not isinstance(component, dict):
         raise ValueError("root Bridge component is invalid")
-    if bridge_manifest.get("version") != component.get("version"):
-        raise ValueError("Bridge version does not match the root component pin")
+    version_value = bridge_manifest.get("version")
+    if not isinstance(version_value, str) or not SEMVER.fullmatch(version_value):
+        raise ValueError("Bridge version is invalid")
+    version = str(bridge_manifest["version"])
+    protocol_versions = bridge_manifest.get("protocol_versions")
+    if not isinstance(protocol_versions, list) or protocol_versions != [
+        EGO_BROWSER_PROTOCOL_VERSION
+    ]:
+        raise ValueError("Bridge release protocol profile is invalid")
+    runtime_version = bridge_manifest.get("local_ego_browser_runtime_version")
+    wrapper_version = bridge_manifest.get("wrapper_version")
+    skill_version = bridge_manifest.get("skill_version")
+    if (
+        runtime_version != EGO_BROWSER_LOCAL_RUNTIME_VERSION
+        or wrapper_version != version
+        or skill_version != EGO_BROWSER_SKILL_VERSION
+    ):
+        raise ValueError("Bridge release compatibility profile is invalid")
+    candidate["schema_version"] = 4
     component.update(
         {
+            "version": version,
+            "profile": PROFILE_ID,
+            "protocol_version": protocol_versions[0],
+            "local_ego_browser_runtime_version": runtime_version,
+            "skill_version": skill_version,
+            "profile_id": PROFILE_ID,
+            "profile_version": version,
+            "bridge_version": version,
+            "bridge_protocol_version": protocol_versions[0],
+            "ego_lite_runtime_version": runtime_version,
+            "wrapper_version": wrapper_version,
+            "artifact_url": (
+                f"https://github.com/{BRIDGE_REPOSITORY}/releases/download/v{version}/"
+                f"agent-remote-ego-browser-macos-universal-{version}.tar.gz"
+            ),
+            "artifact_sha256": artifact_sha256,
+            "bridge_manifest_sha256": bridge_manifest_sha256,
+            **installer_profile,
+            "valid_platforms": ["macos"],
+            "allowed_server_origins": [ACTIVE_LOGIN_ORIGIN],
+            "admission_policy_ref": EGO_BROWSER_ADMISSION_POLICY_REF,
+            "issued_at": issued_at,
             "commit": commit,
             "release_published": True,
             "signer_certificate_sha256": certificate,
@@ -724,7 +832,9 @@ def main() -> int:
             raise ValueError("root release manifest must be a regular file")
         original_bytes = root_manifest_path.read_bytes()
         root_helpers = load_root_helpers()
-        root_manifest = root_helpers.load_release_manifest(root_manifest_path)
+        root_manifest = root_helpers.load_release_manifest(
+            root_manifest_path, allow_previous_profile=True
+        )
         root_components = root_manifest["components"]
         assert isinstance(root_components, dict)
         root_component = root_components[BRIDGE_COMPONENT]
@@ -760,7 +870,10 @@ def main() -> int:
         if not KEY_ID.fullmatch(key_id):
             raise ValueError("learning bundle signing key ID is invalid")
         verify_bridge_repository(bridge_repository, version, commit)
-        verify_github_release(version=version, release_json=args.github_release_json)
+        github_release = verify_github_release(
+            version=version, release_json=args.github_release_json
+        )
+        installer_profile = bridge_source_profile(bridge_repository)
         bridge_helpers = load_bridge_helpers(bridge_repository)
         bridge_manifest = bridge_helpers.load_manifest(bridge_release_manifest)
         learning_digest_from_manifest = bridge_manifest.get("learning_bundle_digest")
@@ -814,15 +927,9 @@ def main() -> int:
             repository=bridge_repository,
         )
         bridge_digests = {
-            "ego_browser_release_manifest_sha256": sha256_file(
-                bridge_release_manifest
-            ),
-            "ego_browser_release_archive_sha256": sha256_file(
-                release_archive
-            ),
-            "ego_browser_signing_evidence_sha256": sha256_file(
-                bridge_signing_evidence
-            ),
+            "ego_browser_release_manifest_sha256": sha256_file(bridge_release_manifest),
+            "ego_browser_release_archive_sha256": sha256_file(release_archive),
+            "ego_browser_signing_evidence_sha256": sha256_file(bridge_signing_evidence),
             "ego_browser_learning_bundle_sha256": learning_digest,
             "ego_browser_sigstore_sha256": sha256_file(bridge_archive_sigstore),
             "ego_browser_provenance_sha256": sha256_file(bridge_provenance),
@@ -834,6 +941,12 @@ def main() -> int:
             certificate=certificate,
             learning_digest=learning_digest,
             learning_key_id=key_id,
+            artifact_sha256=bridge_digests["ego_browser_release_archive_sha256"],
+            bridge_manifest_sha256=bridge_digests[
+                "ego_browser_release_manifest_sha256"
+            ],
+            issued_at=str(github_release["publishedAt"]),
+            installer_profile=installer_profile,
         )
         candidate_bytes = canonical_json(candidate)
         candidate_digest = hashlib.sha256(candidate_bytes).hexdigest()
@@ -876,7 +989,9 @@ def main() -> int:
         if production_public_key is None:
             public_key_path = ROOT / "deploy/compose/community-release-public-key.txt"
             if public_key_path.is_file() and not public_key_path.is_symlink():
-                production_public_key = public_key_path.read_text(encoding="ascii").strip()
+                production_public_key = public_key_path.read_text(
+                    encoding="ascii"
+                ).strip()
         if not production_public_key:
             raise ValueError(
                 "schema 9 production evidence public key is required; pass --production-evidence-public-key"

@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.29 - 2026-09-18
+
+- feat(ego-browser): align the released Bridge, Skill, Node, CLI, Admin Web, and Server profile.
+- fix(release): derive deployment policy from certified release evidence.
+
 ## v0.2.28 - 2026-09-10
 
 - fix(release): pin repaired node and server releases (867c2fe)

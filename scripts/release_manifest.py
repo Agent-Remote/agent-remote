@@ -5,7 +5,21 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import datetime
 from pathlib import Path
+
+from ego_browser_policy import (
+    ACTIVE_LOGIN_ORIGIN,
+    EGO_BROWSER_ADMISSION_POLICY_REF,
+    EGO_BROWSER_COMPONENT,
+    EGO_BROWSER_LOCAL_RUNTIME_VERSION,
+    EGO_BROWSER_PROFILE_ID,
+    EGO_BROWSER_PROTOCOL_VERSION,
+    EGO_BROWSER_SKILL_COMMIT,
+    EGO_BROWSER_SKILL_TREE_SHA256,
+    EGO_BROWSER_SKILL_VERSION,
+    EGO_LITE_INSTALLER_SHA256,
+)
 
 LEGACY_COMPONENTS = (
     "agent-remote-server",
@@ -14,7 +28,6 @@ LEGACY_COMPONENTS = (
     "agent-remote-admin-web",
     "agent-remote-device",
 )
-EGO_BROWSER_COMPONENT = "agent-remote-ego-browser"
 COMPONENTS = (*LEGACY_COMPONENTS, EGO_BROWSER_COMPONENT)
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
 GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -42,6 +55,25 @@ EGO_BROWSER_FIELDS = {
     "local_ego_browser_runtime_version",
     "protocol_version",
 }
+EGO_BROWSER_PROFILE_FIELDS = {
+    "profile_id",
+    "profile_version",
+    "bridge_version",
+    "bridge_protocol_version",
+    "ego_lite_runtime_version",
+    "wrapper_version",
+    "artifact_url",
+    "artifact_sha256",
+    "bridge_manifest_sha256",
+    "ego_lite_installer_url",
+    "ego_lite_installer_commit",
+    "ego_lite_installer_sha256",
+    "valid_platforms",
+    "allowed_server_origins",
+    "admission_policy_ref",
+    "issued_at",
+    "replaces_profile",
+}
 
 
 def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -55,7 +87,9 @@ def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return value
 
 
-def load_release_manifest(path: Path) -> dict[str, object]:
+def load_release_manifest(
+    path: Path, *, allow_previous_profile: bool = False
+) -> dict[str, object]:
     """Load and strictly validate one production release manifest."""
 
     if not path.is_file() or path.is_symlink():
@@ -72,13 +106,13 @@ def load_release_manifest(path: Path) -> dict[str, object]:
     if (
         isinstance(value["schema_version"], bool)
         or not isinstance(value["schema_version"], int)
-        or value["schema_version"] not in {1, 2, 3}
+        or value["schema_version"] not in {1, 2, 3, 4}
         or not isinstance(distribution_version, str)
         or SEMVER.fullmatch(distribution_version) is None
     ):
         raise ValueError("release manifest header is invalid")
     schema_version = value["schema_version"]
-    expected_components = COMPONENTS if schema_version == 3 else LEGACY_COMPONENTS
+    expected_components = COMPONENTS if schema_version >= 3 else LEGACY_COMPONENTS
     components = value["components"]
     if not isinstance(components, dict) or set(components) != set(expected_components):
         raise ValueError("release manifest component inventory is invalid")
@@ -87,8 +121,10 @@ def load_release_manifest(path: Path) -> dict[str, object]:
         expected_fields = {"repository", "version", "commit"}
         if schema_version >= 2:
             expected_fields.add("release_workflow")
-        if schema_version == 3 and name == EGO_BROWSER_COMPONENT:
+        if schema_version >= 3 and name == EGO_BROWSER_COMPONENT:
             expected_fields.update(EGO_BROWSER_FIELDS)
+        if schema_version >= 4 and name == EGO_BROWSER_COMPONENT:
+            expected_fields.update(EGO_BROWSER_PROFILE_FIELDS)
         if not isinstance(component, dict) or set(component) != expected_fields:
             raise ValueError(f"{name}: release manifest fields are invalid")
         if component["repository"] != f"Agent-Remote/{name}":
@@ -100,14 +136,23 @@ def load_release_manifest(path: Path) -> dict[str, object]:
         if not isinstance(commit, str) or GIT_SHA.fullmatch(commit) is None:
             raise ValueError(f"{name}: release manifest commit is invalid")
         workflow = component.get("release_workflow", "release.yml")
-        if not isinstance(workflow, str) or RELEASE_WORKFLOW.fullmatch(workflow) is None:
+        if (
+            not isinstance(workflow, str)
+            or RELEASE_WORKFLOW.fullmatch(workflow) is None
+        ):
             raise ValueError(f"{name}: release manifest workflow is invalid")
         if name == EGO_BROWSER_COMPONENT:
-            _validate_ego_browser_component(component)
+            _validate_ego_browser_component(
+                component,
+                schema_version=schema_version,
+                allow_previous_profile=allow_previous_profile,
+            )
     return value
 
 
-def _validate_ego_browser_component(component: dict[str, object]) -> None:
+def _validate_ego_browser_component(
+    component: dict[str, object], *, schema_version: int, allow_previous_profile: bool
+) -> None:
     """Validate the browser Bridge release and security-evidence state."""
 
     blockers = component["readiness_blockers"]
@@ -115,7 +160,7 @@ def _validate_ego_browser_component(component: dict[str, object]) -> None:
     learning_digest = component["learning_bundle_digest"]
     learning_key_id = component["learning_bundle_signing_key_id"]
     if (
-        component["profile"] != "community-local-trust"
+        component["profile"] != EGO_BROWSER_PROFILE_ID
         or component["signing_type"] != "project-self-signed"
         or component["apple_notarized"] is not False
         or component["public_distribution"] is not False
@@ -124,18 +169,34 @@ def _validate_ego_browser_component(component: dict[str, object]) -> None:
         or component["credential_profile"] != "community_file"
         or not isinstance(learning_key_id, str)
         or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", learning_key_id) is None
-        or component["skill_version"] != "1.2.3"
-        or component["skill_commit"]
-        != "36053d07001a910cb806a15d42d00fdea1cdea3d"
-        or component["skill_tree_sha256"]
-        != "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c"
-        or component["local_ego_browser_runtime_version"] != "0.4.7.4"
-        or component["protocol_version"] != "ego-browser-bridge-v1"
+        or not isinstance(component["skill_version"], str)
+        or SEMVER.fullmatch(component["skill_version"]) is None
+        or not isinstance(component["skill_commit"], str)
+        or GIT_SHA.fullmatch(component["skill_commit"]) is None
+        or not isinstance(component["skill_tree_sha256"], str)
+        or SHA256.fullmatch(component["skill_tree_sha256"]) is None
+        or not isinstance(component["local_ego_browser_runtime_version"], str)
+        or re.fullmatch(
+            r"[0-9]+(?:\.[0-9]+){3}",
+            component["local_ego_browser_runtime_version"],
+        ) is None
+        or component["protocol_version"] != EGO_BROWSER_PROTOCOL_VERSION
     ):
         raise ValueError("agent-remote-ego-browser: release profile is invalid")
+    if not allow_previous_profile and (
+        component["skill_version"] != EGO_BROWSER_SKILL_VERSION
+        or component["skill_commit"] != EGO_BROWSER_SKILL_COMMIT
+        or component["skill_tree_sha256"] != EGO_BROWSER_SKILL_TREE_SHA256
+        or component["local_ego_browser_runtime_version"]
+        != EGO_BROWSER_LOCAL_RUNTIME_VERSION
+    ):
+        raise ValueError("agent-remote-ego-browser: release compatibility is stale")
     if (
         not isinstance(blockers, list)
-        or any(not isinstance(item, str) or not item or len(item) > 128 for item in blockers)
+        or any(
+            not isinstance(item, str) or not item or len(item) > 128
+            for item in blockers
+        )
         or len(blockers) != len(set(blockers))
     ):
         raise ValueError("agent-remote-ego-browser: readiness blockers are invalid")
@@ -144,7 +205,8 @@ def _validate_ego_browser_component(component: dict[str, object]) -> None:
     ):
         raise ValueError("agent-remote-ego-browser: certificate digest is invalid")
     if learning_digest is not None and (
-        not isinstance(learning_digest, str) or SHA256.fullmatch(learning_digest) is None
+        not isinstance(learning_digest, str)
+        or SHA256.fullmatch(learning_digest) is None
     ):
         raise ValueError("agent-remote-ego-browser: learning bundle digest is invalid")
 
@@ -172,14 +234,108 @@ def _validate_ego_browser_component(component: dict[str, object]) -> None:
     if not ready:
         expected_blockers.add("production_release_evidence_unavailable")
     if set(blockers) != expected_blockers:
-        raise ValueError("agent-remote-ego-browser: readiness blockers do not match evidence")
+        raise ValueError(
+            "agent-remote-ego-browser: readiness blockers do not match evidence"
+        )
     if ready and (
         not published
         or certificate is None
         or learning_digest is None
         or nested_signatures is not True
     ):
-        raise ValueError("agent-remote-ego-browser: production readiness is unsupported")
+        raise ValueError(
+            "agent-remote-ego-browser: production readiness is unsupported"
+        )
+    if schema_version >= 4:
+        _validate_ego_browser_profile(component, allow_previous_profile)
+
+
+def _validate_ego_browser_profile(
+    component: dict[str, object], allow_previous_profile: bool
+) -> None:
+    """Validate the immutable lifecycle profile carried by schema 4."""
+
+    version = component["version"]
+    repository = component["repository"]
+    profile_id = component["profile_id"]
+    installer_commit = component["ego_lite_installer_commit"]
+    expected_artifact_url = (
+        f"https://github.com/{repository}/releases/download/v{version}/"
+        f"agent-remote-ego-browser-macos-universal-{version}.tar.gz"
+    )
+    expected_installer_url = (
+        "https://raw.githubusercontent.com/citrolabs/ego-lite/"
+        f"{installer_commit}/skills/ego-browser/scripts/install.sh"
+    )
+    if (
+        profile_id != component["profile"]
+        or component["profile_version"] != version
+        or component["bridge_version"] != version
+        or component["wrapper_version"] != version
+        or component["bridge_protocol_version"] != component["protocol_version"]
+        or component["ego_lite_runtime_version"]
+        != component["local_ego_browser_runtime_version"]
+        or component["artifact_url"] != expected_artifact_url
+        or not isinstance(installer_commit, str)
+        or GIT_SHA.fullmatch(installer_commit) is None
+        or installer_commit != component["skill_commit"]
+        or component["ego_lite_installer_url"] != expected_installer_url
+        or not isinstance(component["ego_lite_installer_sha256"], str)
+        or SHA256.fullmatch(component["ego_lite_installer_sha256"]) is None
+        or (
+            not allow_previous_profile
+            and component["ego_lite_installer_sha256"] != EGO_LITE_INSTALLER_SHA256
+        )
+        or component["valid_platforms"] != ["macos"]
+        or component["allowed_server_origins"] != [ACTIVE_LOGIN_ORIGIN]
+        or component["admission_policy_ref"] != EGO_BROWSER_ADMISSION_POLICY_REF
+    ):
+        raise ValueError("agent-remote-ego-browser: signed release profile is invalid")
+
+    replaces_profile = component["replaces_profile"]
+    if not isinstance(replaces_profile, str) or "@" not in replaces_profile:
+        raise ValueError("agent-remote-ego-browser: replaced profile is invalid")
+    replaced_id, replaced_version = replaces_profile.rsplit("@", 1)
+    if (
+        replaced_id != profile_id
+        or SEMVER.fullmatch(replaced_version) is None
+        or replaced_version == version
+    ):
+        raise ValueError("agent-remote-ego-browser: replaced profile is invalid")
+
+    artifact_digest = component["artifact_sha256"]
+    manifest_digest = component["bridge_manifest_sha256"]
+    issued_at = component["issued_at"]
+    for value, label in (
+        (artifact_digest, "artifact digest"),
+        (manifest_digest, "Bridge manifest digest"),
+    ):
+        if value is not None and (
+            not isinstance(value, str) or SHA256.fullmatch(value) is None
+        ):
+            raise ValueError(f"agent-remote-ego-browser: {label} is invalid")
+    if issued_at is not None:
+        if not isinstance(issued_at, str) or not issued_at.endswith("Z"):
+            raise ValueError("agent-remote-ego-browser: profile issue time is invalid")
+        try:
+            parsed = datetime.fromisoformat(issued_at.removesuffix("Z") + "+00:00")
+        except ValueError as error:
+            raise ValueError(
+                "agent-remote-ego-browser: profile issue time is invalid"
+            ) from error
+        if parsed.utcoffset() is None:
+            raise ValueError("agent-remote-ego-browser: profile issue time is invalid")
+
+    published = component["release_published"]
+    ready = component["production_ready"]
+    if published and (
+        artifact_digest is None or manifest_digest is None or issued_at is None
+    ):
+        raise ValueError(
+            "agent-remote-ego-browser: published profile evidence is incomplete"
+        )
+    if ready and not published:
+        raise ValueError("agent-remote-ego-browser: ready profile is unpublished")
 
 
 def release_manifest_sha256(path: Path) -> str:

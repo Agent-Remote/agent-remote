@@ -15,8 +15,10 @@ case "$(uname -m)" in
   arm64|aarch64) image_arch=arm64 ;;
   *) echo "unsupported image architecture: $(uname -m)" >&2; exit 1 ;;
 esac
-docker load -i "images/agent-remote-server-device-test-0.1.0-linux-${image_arch}.tar.gz"
-docker load -i "images/agent-remote-admin-web-device-test-0.1.0-linux-${image_arch}.tar.gz"
+server_version=$(sed -n 's/^SERVER_VERSION=//p' compose/.env.device-test)
+admin_version=$(sed -n 's/^ADMIN_WEB_VERSION=//p' compose/.env.device-test)
+docker load -i "images/agent-remote-server-device-test-${server_version}-linux-${image_arch}.tar.gz"
+docker load -i "images/agent-remote-admin-web-device-test-${admin_version}-linux-${image_arch}.tar.gz"
 docker compose \
   --env-file compose/.env.device-test \
   -f compose/docker-compose.yml \

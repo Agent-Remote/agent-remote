@@ -59,6 +59,9 @@ jobs:
           import sys
           from pathlib import Path
 
+          sys.path.insert(0, str(Path.cwd() / "scripts"))
+          from release_manifest import load_release_manifest
+
           candidate_path = Path(sys.argv[1])
           draft_path = Path(sys.argv[2])
           expected_hash = sys.argv[3]
@@ -95,7 +98,13 @@ jobs:
           actual_hash = hashlib.sha256(candidate_raw).hexdigest()
           if actual_hash != expected_hash:
               raise SystemExit("candidate manifest SHA-256 does not match bytes")
-          if candidate.get("schema_version") != 3 or not semver.fullmatch(str(candidate.get("distribution_version", ""))):
+          try:
+              validated_candidate = load_release_manifest(candidate_path)
+          except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+              raise SystemExit(f"candidate manifest profile is invalid: {exc}") from exc
+          if candidate != validated_candidate:
+              raise SystemExit("candidate manifest parser result differs from canonical input")
+          if candidate.get("schema_version") != 4 or not semver.fullmatch(str(candidate.get("distribution_version", ""))):
               raise SystemExit("candidate manifest header is invalid")
           components = candidate.get("components")
           required_components = {

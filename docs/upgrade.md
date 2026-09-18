@@ -37,15 +37,20 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.y
 
 ## Node
 
-Re-run the same one-command installer used for registration. It upgrades all three node binaries and the managed Claude runtime, refreshes systemd/SSH configuration, reuses the existing node token, and verifies the helper probe and heartbeat:
+Rerun the verified installer on an already configured Node without any registration arguments. The
+existing owner-only configuration supplies the Node identity and token; an upgrade must not put the
+original registration token back into argv:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main/scripts/install.sh | \
-  bash -s -- \
-  --server-url https://agent-remote.example.com \
-  --node-id <node-id> \
-  --registration-token <original-registration-token>
+  bash
 ```
+
+The current `agent-remote node install --node <node-id-or-prefix>` command is the managed install
+path. It authenticates the exact Node archive, checksum, and Sigstore bundle, transfers and installs
+that release over one protected SSH stdin channel, and only then sends the short-lived join code over
+a separate SSH invocation. The CLI pins Node `0.2.21`; the managed installer accepts only its exact
+published, tag-bound release assets and Sigstore evidence. Do not bypass the managed verifier.
 
 The Node installer selects an unused dynamic WireGuard UDP port for new installations and preserves it on later upgrades. Installations still using the legacy `51820` default are migrated automatically. After that migration, allow the UDP port printed by the installer in any host or provider firewall, wait for the Node heartbeat to publish the new endpoint, and run `agent-remote wireguard config` followed by a tunnel restart on every client. Use `--rotate-wireguard-listen-port` to select another random high port when an upstream route starts filtering the current one; always verify a real client handshake because a locally unused port does not prove Internet reachability.
 
@@ -84,6 +89,13 @@ claims, revoke or drain active bindings, and confirm the Node broker has no
 active requests or consumable permits. Upgrade the Server schema and relay,
 then Node's immutable wrapper/Skill directory, CLI/Admin, and finally the local
 macOS Bridge. Reconfirm full trust and use a new generation for the canary.
+
+The user-facing distinction between `setup`, `upgrade`, `pause`, `resume`, and
+Device re-enrollment is defined in
+[`ego-browser-humanized-lifecycle.md`](ego-browser-humanized-lifecycle.md).
+Normal Bridge/bootstrap upgrades reuse the existing Device identity; only an
+explicit rotate, forget, revoke, origin switch, or key-loss recovery creates a
+new identity.
 
 For rollback, keep `EGO_BROWSER_BRIDGE_ENABLED=false`, wait through the bounded
 renewal grace and process cleanup, roll Server/Node back without a destructive

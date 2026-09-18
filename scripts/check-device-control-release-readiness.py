@@ -22,10 +22,7 @@ REPOSITORIES = (
     "agent-remote-device",
     "agent-remote-ego-browser",
 )
-SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
-EXPECTED_ORIGINS = {
-    name: f"Agent-Remote/{name}" for name in REPOSITORIES
-}
+EXPECTED_ORIGINS = {name: f"Agent-Remote/{name}" for name in REPOSITORIES}
 
 
 def parse_args() -> argparse.Namespace:
@@ -110,13 +107,6 @@ def json_version(path: Path, *keys: str) -> str:
     return value
 
 
-def match_version(path: Path, pattern: str) -> str:
-    match = re.search(pattern, path.read_text(encoding="utf-8"), re.MULTILINE)
-    if match is None:
-        raise ValueError(f"version pattern was not found in {path}")
-    return match.group(1)
-
-
 def lock_version(path: Path, package_name: str) -> str:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     matches = [
@@ -134,21 +124,13 @@ def declared_versions(name: str, path: Path) -> dict[str, str]:
         return {"VERSION": (path / "VERSION").read_text(encoding="utf-8").strip()}
     if name == "agent-remote-server":
         return {
-            "pyproject.toml": toml_version(path / "pyproject.toml", "project", "version"),
-            "Dockerfile": match_version(
-                path / "Dockerfile", r"^ARG AGENT_REMOTE_VERSION=([^\s]+)$"
+            "pyproject.toml": toml_version(
+                path / "pyproject.toml", "project", "version"
             ),
         }
     if name == "agent-remote-node":
         return {
-            "internal/config/config.go": match_version(
-                path / "internal/config/config.go", r'^var DefaultVersion = "([^"]+)"$'
-            ),
-            "scripts/build-release.sh": match_version(
-                path / "scripts/build-release.sh",
-                r'^VERSION="\$\{VERSION:-([^}]+)\}"$',
-            ),
-            "config.example.json": json_version(path / "config.example.json", "version"),
+            "VERSION": (path / "VERSION").read_text(encoding="utf-8").strip(),
         }
     if name == "agent-remote-cli":
         return {
@@ -162,22 +144,25 @@ def declared_versions(name: str, path: Path) -> dict[str, str]:
             "package-lock.json#root": json_version(
                 path / "package-lock.json", "packages", "", "version"
             ),
-            "Dockerfile": match_version(
-                path / "Dockerfile", r"^ARG AGENT_REMOTE_VERSION=([^\s]+)$"
-            ),
         }
     if name == "agent-remote-device":
         return {
             "Cargo.toml": toml_version(
                 path / "Cargo.toml", "workspace", "package", "version"
             ),
-            "Cargo.lock": lock_version(path / "Cargo.lock", "agent-remote-device-proxy"),
+            "Cargo.lock": lock_version(
+                path / "Cargo.lock", "agent-remote-device-proxy"
+            ),
         }
     if name == "agent-remote-ego-browser":
         return {
             "VERSION": (path / "VERSION").read_text(encoding="utf-8").strip(),
-            "Cargo.toml": toml_version(path / "Cargo.toml", "workspace", "package", "version"),
-            "Cargo.lock": lock_version(path / "Cargo.lock", "ego-browser-bridge-protocol"),
+            "Cargo.toml": toml_version(
+                path / "Cargo.toml", "workspace", "package", "version"
+            ),
+            "Cargo.lock": lock_version(
+                path / "Cargo.lock", "ego-browser-bridge-protocol"
+            ),
         }
     raise ValueError(f"unsupported repository: {name}")
 
@@ -191,8 +176,10 @@ def load_manifest(
     assert isinstance(distribution_version, str)
     assert isinstance(raw_components, dict)
     schema_version = value["schema_version"]
-    component_names = COMPONENTS if schema_version == 3 else tuple(
-        name for name in COMPONENTS if name != "agent-remote-ego-browser"
+    component_names = (
+        COMPONENTS
+        if schema_version >= 3
+        else tuple(name for name in COMPONENTS if name != "agent-remote-ego-browser")
     )
     components: dict[str, dict[str, str]] = {}
     for name in component_names:
@@ -232,7 +219,12 @@ def inspect_repository(
         return result, [f"{name}: repository is missing at {path}"]
     try:
         versions = declared_versions(name, path)
-    except (OSError, ValueError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
+    except (
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        tomllib.TOMLDecodeError,
+    ) as error:
         return result, [f"{name}: {error}"]
     result["declared_versions"] = versions
     for source, declared in versions.items():
@@ -251,7 +243,9 @@ def inspect_repository(
         errors.append(f"{name}: repository has no commit at HEAD")
     result["head"] = head
     if expected_commit is not None and head is not None and head != expected_commit:
-        errors.append(f"{name}: HEAD is {head}, expected manifest commit {expected_commit}")
+        errors.append(
+            f"{name}: HEAD is {head}, expected manifest commit {expected_commit}"
+        )
     try:
         dirty = bool(run_git(path, "status", "--porcelain=v1", "--untracked-files=all"))
     except subprocess.CalledProcessError:

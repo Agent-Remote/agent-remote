@@ -2,11 +2,17 @@
 
 Status date: 2026-09-10.
 
+The root version mentioned in this status snapshot is historical. For a new
+deployment, resolve the exact distribution version, component pins, and
+evidence from the verified [`release-manifest.json`](../release-manifest.json).
+
 Overall status: **Bridge promotion complete (`production_ready=true`)**. The
 published Bridge `0.1.11` has an exact commit/tag, certificate pin, retained
 Site Learning bundle, and signed nested evidence; its blocker list is empty.
-The stable root `0.2.27` release contains the tag-bound evidence; the final
-artifact-bound logged-in canary remains before production enablement. A pending
+The historical stable root `0.2.27` release referenced by this snapshot contains
+the tag-bound evidence; the final artifact-bound logged-in canary remains before
+production enablement. For a new deployment, resolve the exact distribution
+version from the verified root manifest. A pending
 canary cannot be waived by changing configuration.
 
 | # | Acceptance requirement | Evidence | Status |
@@ -23,7 +29,7 @@ canary cannot be waived by changing configuration.
 | 10 | Disconnect, timeout, and unknown result never replay | Broker/Bridge state machines and process-group timeout/revoke E2E return terminal/unknown errors without retry | Implemented |
 | 11 | Exact compatibility; unknown capabilities reject | Shared strict schemas/vectors and Server/Node/Bridge version/capability tests pin wrapper `0.1.11`, Skill `1.2.3`, runtime `0.4.7.4` | Implemented |
 | 12 | Copy says local Node full trust, whole-browser access, and export capability | Admin English/Chinese warning plus root and Bridge English/Chinese security docs | Implemented |
-| 13 | Community signing, Hardened Runtime, pin, credentials, SBOM/provenance, egress, and `production_ready=true` are reviewable | Bridge `0.1.11` stable release, community signing record, certificate pin, exact artifact/SBOM/provenance inventory, and promoted root schema-v3 component are verified; the profile remains self-signed, non-notarized, and non-public by design | Implemented and promotion passed |
+| 13 | Community signing, Hardened Runtime, pin, credentials, SBOM/provenance, egress, and `production_ready=true` are reviewable | Bridge `0.1.11` stable release, community signing record, certificate pin, exact artifact/SBOM/provenance inventory, and promoted root schema-v4 profile are verified; the profile remains self-signed, non-notarized, and non-public by design | Implemented and promotion passed |
 | 14 | Canonical allowlist limits and signed learning digest pass activation/recovery | Retained `ego-browser-learning-2026-09` bundle verifies to `6662ad11797f86d721b2d9121049c35b02eff3e71821dc06dfcc190d250788a7`; archive filtering and nested signature checks pass | Implemented and promotion passed |
 | 15 | Removing the Bridge leaves ego lite independent and no other device product is required | Isolated macOS uninstaller execution proves default and `--remove-releases` remove only Bridge state while an external runtime stays byte-identical and runnable; the installed real runtime remains `0.4.7.4` and passed direct canaries; the repository-wide release contract prohibits cross-product references/dependencies | Implemented and canary passed |
 | 16 | First bind and resume show same-UID/no-sandbox and supervisor limits | Device Client requires explicit confirmation; CLI and Admin warnings describe same UID, no sandbox, irreversible effects, and detached-process limit in both languages | Implemented |
@@ -45,7 +51,7 @@ Current automated results:
   gate.
 - Admin: production build and 65 tests pass at 84.84% statements, 70.78%
   branches, 84.10% functions, and 87.87% lines.
-- Root schema-v3, release/readiness, evidence-assembly, workflow, Compose, and
+- Root schema-v4, release/readiness, evidence-assembly, workflow, Compose, and
   documentation contracts pass.
 - Shared Rust/Go/Python protocol and PoP vectors pass.
 - Isolated `prepare-release.sh 0.1.1` rehearsal passes.
@@ -136,10 +142,11 @@ Before enabling production, capture and bind to the final root release manifest:
    disconnect; repeat the now-proven navigation,
    Snapshot, click, fill, screenshot, Task Space reuse, and cleanup checks;
 3. complete green gates from the exact tagged commits in all six affected
-   repositories and root schema-v3 production evidence with no blockers.
+   repositories and root schema-v4 production evidence with no blockers.
 
 The certificate and retained learning-bundle evidence listed in the original
 blocker table are carried forward by the Bridge `0.1.11` promotion (originally
 established by `0.1.7`). The stable
-root `v0.2.27` release binds those records to its tag-bound evidence; deployment
-still requires the exact bundle and the final canary.
+historical root `v0.2.27` release binds those records to its tag-bound evidence;
+deployment still requires the exact bundle and the final canary. New deployments
+must use the distribution version and pins from the verified root manifest.

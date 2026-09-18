@@ -25,6 +25,10 @@ from release_manifest import (  # noqa: E402  # imported after bytecode policy
     load_release_manifest,
     release_manifest_sha256,
 )
+from ego_browser_policy import (  # noqa: E402
+    EGO_BROWSER_COMPONENT,
+    EGO_BROWSER_PROFILE_ID,
+)
 
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -35,7 +39,6 @@ TARGETS = (
     "linux-amd64-musl",
     "linux-arm64-musl",
 )
-EGO_BROWSER_COMPONENT = "agent-remote-ego-browser"
 EGO_BROWSER_DIGEST_FIELDS = (
     "ego_browser_release_manifest_sha256",
     "ego_browser_release_archive_sha256",
@@ -467,7 +470,7 @@ def validate_v2_evidence(
     if (
         value["schema_version"] != 1
         or value["release_version"] != version
-        or value["release_profile"] != "community-local-trust"
+        or value["release_profile"] != EGO_BROWSER_PROFILE_ID
         or value["target"] != target
         or value["artifacts"] != artifacts
     ):
@@ -503,7 +506,7 @@ def validate_community_signing(
     required = {
         "schema_version": 1,
         "release_version": version,
-        "profile": "community-local-trust",
+        "profile": EGO_BROWSER_PROFILE_ID,
         "production_ready": True,
         "apple_notarized": False,
         "public_distribution": False,
@@ -637,10 +640,14 @@ def validate_ego_browser_release(
         ),
         None,
     )
-    if not isinstance(artifact, dict) or artifact.get("sha256") != digest(
-        release_archive
-    ):
+    archive_digest = digest(release_archive)
+    manifest_digest = digest(release_manifest)
+    if not isinstance(artifact, dict) or artifact.get("sha256") != archive_digest:
         raise ValueError("ego-browser Bridge release archive digest does not match")
+    if root_component.get("artifact_sha256") not in (None, archive_digest):
+        raise ValueError("ego-browser Bridge archive does not match the root profile")
+    if root_component.get("bridge_manifest_sha256") not in (None, manifest_digest):
+        raise ValueError("ego-browser Bridge manifest does not match the root profile")
     for path in (archive_sigstore, manifest_sigstore, provenance):
         if not path.is_file() or path.is_symlink():
             raise ValueError(
@@ -651,7 +658,7 @@ def validate_ego_browser_release(
     expected_signing = {
         "schema_version": 1,
         "version": version,
-        "profile": "community-local-trust",
+        "profile": EGO_BROWSER_PROFILE_ID,
         "production_ready": True,
         "readiness_blockers": [],
         "apple_notarized": False,
@@ -701,8 +708,8 @@ def validate_ego_browser_release(
         raise ValueError("ego-browser learning bundle digest verification failed")
 
     return {
-        "ego_browser_release_manifest_sha256": digest(release_manifest),
-        "ego_browser_release_archive_sha256": digest(release_archive),
+        "ego_browser_release_manifest_sha256": manifest_digest,
+        "ego_browser_release_archive_sha256": archive_digest,
         "ego_browser_signing_evidence_sha256": digest(signing_evidence),
         "ego_browser_learning_bundle_sha256": learning_digest,
         "ego_browser_sigstore_sha256": digest(archive_sigstore),
@@ -719,7 +726,7 @@ def validate_automation(
     if (
         value.get("schema_version") != 1
         or value.get("release_version") != version
-        or value.get("profile") != "community-local-trust"
+        or value.get("profile") != EGO_BROWSER_PROFILE_ID
         or value.get("production_ready") is not True
         or value.get("official_runners_only") is not True
         or value.get("critical_high_vulnerabilities") != 0
@@ -782,7 +789,7 @@ def validate_risk_acceptance(path: Path, version: str, require_v2: bool) -> None
     if (
         value.get("schema_version") != 1
         or value.get("release_version") != version
-        or value.get("profile") != "community-local-trust"
+        or value.get("profile") != EGO_BROWSER_PROFILE_ID
         or value.get("accepted") is not True
         or not isinstance(value.get("accepted_by"), str)
         or not value["accepted_by"]
@@ -873,9 +880,9 @@ def main() -> None:
         bridge_enabled = any(value is not None for value in bridge_inputs)
         if bridge_enabled and not all(value is not None for value in bridge_inputs):
             raise ValueError("ego-browser Bridge inputs must be provided together")
-        if manifest["schema_version"] == 3 and not bridge_enabled:
+        if manifest["schema_version"] >= 3 and not bridge_enabled:
             raise ValueError(
-                "root schema 3 community evidence requires the Bridge inputs"
+                "root schema 3+ community evidence requires the Bridge inputs"
             )
         bridge_digests: dict[str, str] = {}
         if bridge_enabled:
@@ -890,8 +897,8 @@ def main() -> None:
             assert args.ego_browser_archive_sigstore is not None
             assert args.ego_browser_manifest_sigstore is not None
             assert args.ego_browser_provenance is not None
-            if manifest["schema_version"] != 3:
-                raise ValueError("ego-browser Bridge evidence requires root schema 3")
+            if manifest["schema_version"] < 3:
+                raise ValueError("ego-browser Bridge evidence requires root schema 3+")
             bridge_component = components.get(EGO_BROWSER_COMPONENT)
             if not isinstance(bridge_component, dict):
                 raise ValueError(
@@ -1019,7 +1026,7 @@ def main() -> None:
         risk_sha256 = digest(args.risk_acceptance)
         draft = {
             "schema_version": 9,
-            "release_profile": "community-local-trust",
+            "release_profile": EGO_BROWSER_PROFILE_ID,
             "production_ready": True,
             "apple_notarized": False,
             "public_distribution": False,

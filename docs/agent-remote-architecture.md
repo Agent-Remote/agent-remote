@@ -2561,6 +2561,15 @@ VPS 启动无痕 Chromium；本地 Bridge 不启动远端浏览器，而是把�
 的完整 heredoc 通过受信 Node broker、控制面 opaque relay 和端到端加密发送到 macOS，
 再调用用户已有 ego lite 的真实 `ego-browser` runtime。
 
+该能力在 CLI、Server API 和 Admin Web 中统一投影五个机器状态：`installed` 表示本机
+release、签名、manifest 和权限校验通过；`enabled` 只表示 Node 或 Bridge 的本机显式启用
+意图与本机证据有效；`registered` 表示本机 identity 对应的 Server Device 仍为 active；
+`available` 表示 artifact/profile/policy、服务健康、Device 状态和 Server execution admission
+都允许开始 claim；`connected` 才表示用户已确认的 binding、lease、binding admission 和
+local admission 都允许执行。Server 或 Admin 无法观察本机事实时返回 `null`，不得从 Device
+数量、enrollment 开关或缓存 binding 猜测这些状态。尤其不能用 `installed && registered &&
+enrollment` 计算 `enabled`，也不能把 execute 成功当成 `available` 的定义。
+
 该授权模式固定为 `ego_browser_script_full_trust`。它授予 Bridge 所属 macOS UID 下的任意
 Node.js 执行、全部 ego lite 标签页与 Task Space、浏览器登录数据、用户可读文件、网络和
 子进程能力，且没有 App Sandbox。专用 Task Space、helper allowlist 与并发锁只约束官方
@@ -2581,17 +2590,35 @@ broker 以 mode `0700` 目录、`0600` socket、numeric ACL、session nonce 和�
 Node 的 rootful Linux 集成门禁对两种 backend identity model 使用同一 ACL/peer proof，证明
 ACL 阻止未授权 UID，以及在刻意放宽文件访问后 `SO_PEERCRED` 仍拒绝错误 UID。
 
+Node 的推荐 enrollment 从已登录控制工作站运行 `agent-remote node install`。CLI 在签发
+join code 前生成并以 owner-only 原子状态持久化不可预测的 `exchange_id`，签发、SSH 调用和
+撤销始终使用这个 ID；短期 code 只在首次 SSH 调用的 stdin 中交给
+`agent-remote-node install --join-code-stdin`，不得进入 argv、URL、环境、输出或本地状态。
+若 Node 已消费 code 但响应丢失，控制工作站和 Node 都以同一个 `exchange_id` 重试且不再发送
+code，Server 返回原交换结果；不同 exchange 的第二次消费必须拒绝。join profile 中的
+`ego_browser_enabled` 只是管理员配置意图，不能替代本机 artifact/profile 校验或 Server
+execution admission。
+
 生产 Server 使用 Redis 原子消费 ticket/challenge，以 5 秒 TTL 共享每个
 binding/generation/role presence，并用 endpoint-specific Pub/Sub 传递 opaque frame 与 close；
 两端可以连接不同 worker。任何重复 role、missing subscriber/presence、Redis 错误或 malformed
 state 都 fail closed。PostgreSQL 生命周期事务先写 generation 和 durable revocation outbox，
 worker 只在跨 worker close 发布成功后标记 delivered。
 
-Device Client 每 2 秒向 Bridge 发送同 UID heartbeat；Bridge 要求初始 heartbeat，5 秒无有效
-heartbeat 即先 revoke supervisor/终止受监管执行，再清除本地 handoff，最后用最多 10 秒尝试
-generation-bound Server stop，失败不会重新开放 admission。Server、Node、Bridge 和 Device
-Client 分别输出 content-free、有限 label 的 metric event；SQL/Redis 巡检、告警、containment
-与 recovery 顺序由各组件 operations runbook 和根部署文档定义。
+Server execution admission 与 Bridge local admission 是相互独立的闸门。前者由控制面全局、
+用户、Node 和 Device 策略决定，关闭时仍允许 enrollment、`ensure`、状态查询和撤销；后者由
+当前 Mac 的 Device Client、supervisor、runtime health 和已确认 binding 控制。claim 之前
+local admission 保持关闭但 `local_admission_ready` 可以为真；只有 `connected=true` 才允许
+execute。任一闸门关闭都 fail closed，但不会因此删除 Device identity。
+
+Device Client 每 2 秒通过同 UID socket 发送 `EGB1\n` 表示本机 admission 打开，发送
+`EGB0\n` 表示显式关闭。Bridge 收到 `EGB0` 时只 revoke supervisor、终止受监管执行并保留由
+控制面生命周期命令管理的 handoff；不得把本机 `pause` 自动升级为远端 `stop`。只有 heartbeat
+EOF、超时、畸形或 observer 异常才按授权丢失处理：先 revoke supervisor/终止执行，再清除
+本地 handoff，最后用最多 10 秒尝试 generation-bound Server stop，失败也不重新开放
+admission。Server、Node、Bridge 和 Device Client 分别输出 content-free、有限 label 的 metric
+event；SQL/Redis 巡检、告警、containment 与 recovery 顺序由各组件 operations runbook 和根
+部署文档定义。
 
 Server 在 claim 时从所选 tool session 派生唯一合法的 Task Space label
 `agent-remote:<tool_session_id>`，拒绝客户端不匹配值；Device Client 校验 claim/resume 响应后
@@ -2607,9 +2634,14 @@ ego lite 原生 `listTaskSpaces()` 并读取 `ownership`，先观察到 `agent` 
 claim/takeover，也不重放被中断请求。Bridge 死亡会关闭 supervisor control pipe 并终止 monitor
 runtime。
 
+用户 `pause` 保留 binding 和 owner-only paused handoff，只有再次显示 full-trust 警告并明确
+`resume` 才签发新的 `binding_generation`；用户 `stop` 是 terminal 操作，清除 handoff 后旧
+binding 永久不可 resume，后续必须重新 `connect`。两者都先关闭 local admission，但不能因为
+共享这一步就把 `pause` 实现成远端 `stop`。
+
 组件边界、安装顺序、回滚与 16 项验收证据分别以
 `docs/remote-ego-browser-bridge-plan.md`、`docs/ego-browser-bridge-security.md`、
 `docs/ego-browser-bridge-deployment.md` 和 `docs/ego-browser-bridge-acceptance.md` 为准。
 当前根 release manifest 已记录 Bridge `0.1.11` 的 `production_ready=true`、证书 pin、
-learning digest 和稳定 commit/tag。stable root `0.2.27` release 已包含绑定 evidence；生产
+learning digest 和稳定 commit/tag；其中记录的当前 root release 已包含绑定 evidence。生产
 capability 仍必须等准确部署包和最终 canary 获批后才可开启；运行时环境变量不能替代这些证据。

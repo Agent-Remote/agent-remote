@@ -1,7 +1,22 @@
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from ego_browser_policy import (  # noqa: E402
+    ACTIVE_LOGIN_ORIGIN,
+    EGO_BROWSER_ADMISSION_POLICY_REF,
+    EGO_BROWSER_LOCAL_RUNTIME_VERSION,
+    EGO_BROWSER_PROFILE_ID,
+    EGO_BROWSER_PROTOCOL_VERSION,
+    EGO_BROWSER_SKILL_COMMIT,
+    EGO_BROWSER_SKILL_TREE_SHA256,
+    EGO_BROWSER_SKILL_VERSION,
+    EGO_LITE_INSTALLER_SHA256,
+)
 
 
 SCRIPT = Path("scripts/check-device-control-release-readiness.py").resolve()
@@ -49,16 +64,8 @@ def initialize_repository(path: Path, name: str, version: str) -> None:
         write(path / "VERSION", f"{version}\n")
     elif name == "agent-remote-server":
         write(path / "pyproject.toml", f'[project]\nversion = "{version}"\n')
-        write(path / "Dockerfile", f"ARG AGENT_REMOTE_VERSION={version}\n")
     elif name == "agent-remote-node":
-        write(
-            path / "internal/config/config.go", f'var DefaultVersion = "{version}"\n'
-        )
-        write(
-            path / "scripts/build-release.sh",
-            f'VERSION="${{VERSION:-{version}}}"\n',
-        )
-        write(path / "config.example.json", json.dumps({"version": version}))
+        write(path / "VERSION", f"{version}\n")
     elif name == "agent-remote-cli":
         write(path / "Cargo.toml", f'[package]\nversion = "{version}"\n')
         write(
@@ -71,7 +78,6 @@ def initialize_repository(path: Path, name: str, version: str) -> None:
             path / "package-lock.json",
             json.dumps({"version": version, "packages": {"": {"version": version}}}),
         )
-        write(path / "Dockerfile", f"ARG AGENT_REMOTE_VERSION={version}\n")
     elif name == "agent-remote-device":
         write(
             path / "Cargo.toml",
@@ -121,12 +127,10 @@ def initialize_workspace(workspace: Path) -> Path:
         manifest,
         json.dumps(
             {
-                "schema_version": 3,
+                "schema_version": 4,
                 "distribution_version": versions["agent-remote"],
                 "components": {
-                    name: browser_component(
-                        versions[name], commit(workspace / name)
-                    )
+                    name: browser_component(versions[name], commit(workspace / name))
                     if name == "agent-remote-ego-browser"
                     else {
                         "repository": f"Agent-Remote/{name}",
@@ -141,7 +145,10 @@ def initialize_workspace(workspace: Path) -> Path:
     )
     root = workspace / "agent-remote"
     subprocess.run(["git", "-C", str(root), "add", "release-manifest.json"], check=True)
-    subprocess.run(["git", "-C", str(root), "commit", "--amend", "-qm", "release fixture"], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "commit", "--amend", "-qm", "release fixture"],
+        check=True,
+    )
     subprocess.run(["git", "-C", str(root), "tag", "-f", "v9.0.0"], check=True)
     return manifest
 
@@ -152,8 +159,31 @@ def browser_component(version: str, component_commit: str) -> dict[str, object]:
         "release_workflow": "release.yml",
         "version": version,
         "commit": component_commit,
+        "profile_id": EGO_BROWSER_PROFILE_ID,
+        "profile_version": version,
+        "bridge_version": version,
+        "bridge_protocol_version": EGO_BROWSER_PROTOCOL_VERSION,
+        "ego_lite_runtime_version": EGO_BROWSER_LOCAL_RUNTIME_VERSION,
+        "wrapper_version": version,
+        "artifact_url": (
+            "https://github.com/Agent-Remote/agent-remote-ego-browser/releases/"
+            f"download/v{version}/agent-remote-ego-browser-macos-universal-{version}.tar.gz"
+        ),
+        "artifact_sha256": "c" * 64,
+        "bridge_manifest_sha256": "d" * 64,
+        "ego_lite_installer_url": (
+            "https://raw.githubusercontent.com/citrolabs/ego-lite/"
+            f"{EGO_BROWSER_SKILL_COMMIT}/skills/ego-browser/scripts/install.sh"
+        ),
+        "ego_lite_installer_commit": EGO_BROWSER_SKILL_COMMIT,
+        "ego_lite_installer_sha256": EGO_LITE_INSTALLER_SHA256,
+        "valid_platforms": ["macos"],
+        "allowed_server_origins": [ACTIVE_LOGIN_ORIGIN],
+        "admission_policy_ref": EGO_BROWSER_ADMISSION_POLICY_REF,
+        "issued_at": "2026-09-08T00:00:00Z",
+        "replaces_profile": f"{EGO_BROWSER_PROFILE_ID}@0.0.9",
         "release_published": True,
-        "profile": "community-local-trust",
+        "profile": EGO_BROWSER_PROFILE_ID,
         "signing_type": "project-self-signed",
         "signer_certificate_sha256": "a" * 64,
         "production_ready": True,
@@ -165,12 +195,12 @@ def browser_component(version: str, component_commit: str) -> dict[str, object]:
         "outbound_policy": "application-enforced",
         "credential_profile": "community_file",
         "learning_bundle_digest": "b" * 64,
-        "learning_bundle_signing_key_id": "ego-browser-learning-2026-09",
-        "skill_version": "1.2.3",
-        "skill_commit": "36053d07001a910cb806a15d42d00fdea1cdea3d",
-        "skill_tree_sha256": "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c",
-        "local_ego_browser_runtime_version": "0.4.7.4",
-        "protocol_version": "ego-browser-bridge-v1",
+        "learning_bundle_signing_key_id": "ego-browser-learning-2026-09-v2",
+        "skill_version": EGO_BROWSER_SKILL_VERSION,
+        "skill_commit": EGO_BROWSER_SKILL_COMMIT,
+        "skill_tree_sha256": EGO_BROWSER_SKILL_TREE_SHA256,
+        "local_ego_browser_runtime_version": EGO_BROWSER_LOCAL_RUNTIME_VERSION,
+        "protocol_version": EGO_BROWSER_PROTOCOL_VERSION,
     }
 
 
@@ -198,7 +228,10 @@ def test_release_train_accepts_only_exact_clean_tagged_repositories() -> None:
         inventory = json.loads(result.stdout)
         assert inventory["ready"] is True
         assert inventory["distribution_version"] == "9.0.0"
-        assert inventory["repositories"]["agent-remote-node"]["manifest"]["version"] == "2.3.4"
+        assert (
+            inventory["repositories"]["agent-remote-node"]["manifest"]["version"]
+            == "2.3.4"
+        )
         assert set(inventory["repositories"]) == set(REPOSITORIES)
 
 
@@ -220,7 +253,14 @@ def test_release_train_reports_version_dirty_origin_and_tag_failures() -> None:
             check=True,
         )
         subprocess.run(
-            ["git", "-C", str(workspace / "agent-remote-device"), "tag", "-d", "v5.6.7"],
+            [
+                "git",
+                "-C",
+                str(workspace / "agent-remote-device"),
+                "tag",
+                "-d",
+                "v5.6.7",
+            ],
             check=True,
             capture_output=True,
         )

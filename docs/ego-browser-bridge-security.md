@@ -99,13 +99,21 @@ trusted channel and may add host egress controls.
 
 ## Production status
 
-The root schema-v3 composition records the published Bridge `0.1.11` commit,
+The version named below is a release-status snapshot. For current deployment
+values, use the verified root [`release-manifest.json`](../release-manifest.json)
+and its schema; this security document remains authoritative for the stricter
+trust and fail-closed rules.
+
+The root schema-v4 composition records the published Bridge `0.1.11` commit,
 certificate pin, learning-bundle digest, and nested-signature evidence with
 `production_ready=true` and an empty blocker list. The root release workflow
 still verifies those facts, binds schema 9 evidence to the exact root tag, and
 refuses a mismatched composition.
 
 Production deployments must keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the
-exact stable root `0.2.27` bundle is installed and its artifact-bound logged-in
-canary is approved.
+exact root bundle whose `distribution_version`, component pins, and signed
+evidence are recorded in the verified [`release-manifest.json`](../release-manifest.json)
+is installed and its artifact-bound logged-in canary is approved. The version
+mentioned in older status snapshots is historical and must not be copied into a
+new deployment.
 Development mode remains limited to synthetic, non-sensitive data.

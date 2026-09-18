@@ -58,7 +58,7 @@ jobs:
           DISTRIBUTION_VERSION: ${{ steps.version.outputs.value }}
         run: |
           set -euo pipefail
-          test "$(jq -er .schema_version release-manifest.json)" = "3"
+          test "$(jq -er .schema_version release-manifest.json)" = "4"
           test "$(jq -er .distribution_version release-manifest.json)" = \
             "$DISTRIBUTION_VERSION"
           if ! jq -e '
@@ -66,6 +66,22 @@ jobs:
             $browser.release_published == true and
             $browser.production_ready == true and
             $browser.readiness_blockers == [] and
+            $browser.profile_id == $browser.profile and
+            $browser.profile_version == $browser.version and
+            $browser.bridge_version == $browser.version and
+            $browser.wrapper_version == $browser.version and
+            $browser.bridge_protocol_version == $browser.protocol_version and
+            $browser.ego_lite_runtime_version == $browser.local_ego_browser_runtime_version and
+            ($browser.artifact_url | test("^https://github\\.com/Agent-Remote/agent-remote-ego-browser/releases/download/v")) and
+            ($browser.artifact_sha256 | test("^[0-9a-f]{64}$")) and
+            ($browser.bridge_manifest_sha256 | test("^[0-9a-f]{64}$")) and
+            ($browser.ego_lite_installer_commit | test("^[0-9a-f]{40}$")) and
+            ($browser.ego_lite_installer_sha256 | test("^[0-9a-f]{64}$")) and
+            $browser.valid_platforms == ["macos"] and
+            $browser.allowed_server_origins == ["$active_login_origin"] and
+            $browser.admission_policy_ref == "server-policy:ego-browser-v1" and
+            ($browser.issued_at | test("Z$")) and
+            ($browser.replaces_profile | test("^community-local-trust@")) and
             ($browser.signer_certificate_sha256 | test("^[0-9a-f]{64}$")) and
             ($browser.learning_bundle_digest | test("^[0-9a-f]{64}$")) and
             $browser.nested_signatures_verified == true
@@ -260,49 +276,12 @@ jobs:
             "dist/${package}/deploy/compose/.env.example"
           sed -i "s#^ADMIN_WEB_IMAGE=.*#ADMIN_WEB_IMAGE=${admin_image}@${admin_digest}#" \
             "dist/${package}/deploy/compose/.env.example"
-          bridge_learning_key_id=$(jq -er \
-            '.components["agent-remote-ego-browser"].learning_bundle_signing_key_id' \
-            "$evidence_source")
-          bridge_profile=$(jq -er \
-            '.components["agent-remote-ego-browser"].profile' "$evidence_source")
-          bridge_certificate=$(jq -er \
-            '.components["agent-remote-ego-browser"].signer_certificate_sha256' "$evidence_source")
-          bridge_version=$(jq -er \
-            '.components["agent-remote-ego-browser"].version' "$evidence_source")
-          bridge_skill_version=$(jq -er \
-            '.components["agent-remote-ego-browser"].skill_version' "$evidence_source")
-          bridge_skill_tree=$(jq -er \
-            '.components["agent-remote-ego-browser"].skill_tree_sha256' "$evidence_source")
-          bridge_skill_commit=$(jq -er \
-            '.components["agent-remote-ego-browser"].skill_commit' "$evidence_source")
-          bridge_runtime_version=$(jq -er \
-            '.components["agent-remote-ego-browser"].local_ego_browser_runtime_version' "$evidence_source")
-          bridge_protocol=$(jq -er \
-            '.components["agent-remote-ego-browser"].protocol_version' "$evidence_source")
-          bridge_learning_digest=$(jq -er .ego_browser_learning_bundle_sha256 "$evidence_source")
-          bridge_manifest_digest=$(jq -er .ego_browser_release_manifest_sha256 "$evidence_source")
-          bridge_archive_digest=$(jq -er .ego_browser_release_archive_sha256 "$evidence_source")
-          bridge_signing_digest=$(jq -er .ego_browser_signing_evidence_sha256 "$evidence_source")
-          bridge_sigstore_digest=$(jq -er .ego_browser_sigstore_sha256 "$evidence_source")
-          bridge_provenance_digest=$(jq -er .ego_browser_provenance_sha256 "$evidence_source")
+          python3 scripts/render-ego-browser-policy-env.py \
+            --manifest release-manifest.json \
+            --evidence "$evidence_source" \
+            --output "dist/${package}/deploy/compose/ego-browser-policy.env"
           sed -i \
-            -e "s#^EGO_BROWSER_EXPECTED_RELEASE_PROFILE=.*#EGO_BROWSER_EXPECTED_RELEASE_PROFILE=${bridge_profile}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256=.*#EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256=${bridge_certificate}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_WRAPPER_VERSION=.*#EGO_BROWSER_EXPECTED_WRAPPER_VERSION=${bridge_version}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_SKILL_VERSION=.*#EGO_BROWSER_EXPECTED_SKILL_VERSION=${bridge_skill_version}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256=.*#EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256=${bridge_skill_tree}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_SKILL_COMMIT=.*#EGO_BROWSER_EXPECTED_SKILL_COMMIT=${bridge_skill_commit}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION=.*#EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION=${bridge_runtime_version}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_PROTOCOL_VERSION=.*#EGO_BROWSER_EXPECTED_PROTOCOL_VERSION=${bridge_protocol}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID=.*#EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID=${bridge_learning_key_id}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256=.*#EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256=${bridge_learning_digest}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION=.*#EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION=${version}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256=.*#EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256=${manifest_sha256}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256=${bridge_manifest_digest}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256=${bridge_archive_digest}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256=${bridge_signing_digest}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256=${bridge_sigstore_digest}#" \
-            -e "s#^EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256=.*#EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256=${bridge_provenance_digest}#" \
+            's#^EGO_BROWSER_POLICY_ENV_FILE=.*#EGO_BROWSER_POLICY_ENV_FILE=./ego-browser-policy.env#' \
             "dist/${package}/deploy/compose/.env.example"
           jq \
             --arg server_image "${server_image}@${server_digest}" \

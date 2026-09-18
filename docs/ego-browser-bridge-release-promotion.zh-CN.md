@@ -1,6 +1,10 @@
 # ego-browser Bridge 发布晋级
 
-根 composition 在 Bridge 有真实已发布 release、受保护 Site Learning 签名 key 和完整证据前曾必须保持阻塞。原四项 blocker 是证据要求，不是可以切换的配置开关。Bridge `0.1.11` 现在已经清除四项 blocker，stable root `0.2.27` release 也已将这次晋级绑定到 tag-bound schema 9 evidence；剩余工作是安装准确的 certified bundle，并完成最终 canary：
+文中 root 版本是历史晋级快照；新的部署必须从已验证的根
+[`release-manifest.json`](../release-manifest.json) 解析准确的 distribution 版本、组件 pin
+和 evidence。本文件只规定证据晋级规则，不固定部署 tag。
+
+根 composition 在 Bridge 有真实已发布 release、受保护 Site Learning 签名 key 和完整证据前曾必须保持阻塞。原四项 blocker 是证据要求，不是可以切换的配置开关。Bridge `0.1.11` 现在已经清除四项 blocker；本文引用的历史 stable root `0.2.27` snapshot 已将这次晋级绑定到 tag-bound schema 9 evidence。剩余工作是安装准确的 certified bundle，并完成最终 canary；新的部署必须从已验证 root manifest 读取 distribution version：
 
 | 当前 blocker | 清除它所需的真实证据 | 记录位置 |
 | --- | --- | --- |
@@ -12,9 +16,9 @@
 不要手工编辑 `production_ready`、`release_published` 或 blocker 列表。晋级工具会重新计算这些字段，并拒绝不匹配或只完成一部分签名的输入。测试私钥、开发 digest 和 prerelease 都不能清除 blocker。
 
 开始晋级前，必须先发布包含 schema 9 Bridge admission 修复的
-`agent-remote-server` 版本。当前已晋级的 root manifest 固定 Server `0.2.15` 及已评审 commit；
-candidate 和 evidence 必须继续绑定该准确版本（或后续已评审替代版本）。不得把更旧 Server
-release 用作生产 Bridge control plane。
+`agent-remote-server` 版本。本文历史晋级记录固定 Server `0.2.15` 及已评审 commit；新的
+晋级必须把 candidate 和 evidence 绑定到已验证 root manifest 中的准确 Server 版本和 commit
+（或后续已评审替代版本）。不得把更旧 Server release 用作生产 Bridge control plane。
 
 ## 固定顺序
 
@@ -119,6 +123,7 @@ python3 scripts/check-device-control-release-readiness.py \
 ```
 
 原始阻塞状态是 `release_published=false`、`production_ready=false`，并带有上表四项 blocker。
-当前晋级后的 root component 已是 `release_published=true`、`production_ready=true`，且
-`readiness_blockers=[]`。这不会自动打开 capability；stable root `0.2.27` release 已包含
-tag-bound evidence，但仍需部署其准确的 certified bundle 并完成最终 logged-in canary。
+本文历史晋级后的 root component 已是 `release_published=true`、`production_ready=true`，且
+`readiness_blockers=[]`。这不会自动打开 capability；历史 stable root `0.2.27` release 已包含
+tag-bound evidence，但仍需部署其准确的 certified bundle 并完成最终 logged-in canary。新的部署
+必须使用已验证 root manifest 中的准确版本和 pin。

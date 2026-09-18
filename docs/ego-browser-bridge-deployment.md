@@ -1,26 +1,31 @@
 # Local ego-browser Bridge Deployment and Recovery
 
+For the humanized user-facing lifecycle, start with
+[`ego-browser-humanized-lifecycle.md`](ego-browser-humanized-lifecycle.md). It is the source of
+truth for `setup`/`connect`/`ensure`, automatic parameter discovery, and upgrade behavior. This
+document remains the low-level release, evidence, recovery, and rollback runbook; where the two
+documents describe the same user lifecycle, the humanized contract takes precedence.
+
 ## Compatibility row
 
 | Component | Required identity |
 | --- | --- |
-| Remote wrapper / local Bridge / Device Client | `0.1.11` |
+| Remote wrapper / local Bridge / Device Client | Exact Bridge version in `release-manifest.json` |
 | Protocol | `ego-browser-bridge-v1` |
-| Official Skill | `1.2.3` |
-| Skill commit | `36053d07001a910cb806a15d42d00fdea1cdea3d` |
-| Skill tree SHA-256 | `262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c` |
-| Local `ego-browser` runtime | `0.4.7.4` |
+| Official Skill, commit, tree SHA-256 | Exact tuple in `release-manifest.json` |
+| Local `ego-browser` runtime | Exact runtime in `release-manifest.json` |
 | Remote / local platform and backend | Native or Docker Sandbox Linux / macOS |
 
 No component may silently fall back to a remote browser, a GUI-control relay,
 raw CDP transport, or an automatically selected session when this row does not
 match.
 
-Release prerequisite: the current root manifest pins `agent-remote-server`
-`0.2.15`, which contains the schema-9 Bridge admission fix. Keep the root
-component pin and the candidate/evidence bound to that exact Server release
-until a reviewed replacement is published. Do not substitute an older Server
-release as the production Bridge control plane.
+Release prerequisite: use the exact `agent-remote-server` version and commit in
+the verified root [`release-manifest.json`](../release-manifest.json). The
+manifest, not a version copied from this runbook, binds the schema-9 Bridge
+admission fix to the candidate/evidence. Keep that root component pin until a
+reviewed replacement is published; do not substitute an older Server release
+as the production Bridge control plane.
 
 ## Deployment order
 
@@ -35,7 +40,7 @@ release as the production Bridge control plane.
    their backend-specific verified startup contract.
 4. Upgrade the CLI and Admin console so users can inspect, pause, stop, revoke,
    and diagnose browser bindings.
-5. Install ego lite and official local `ego-browser` runtime `0.4.7.4` on the
+5. Install ego lite and the certified local `ego-browser` runtime on the
    Mac. Do not copy its profile to the control plane.
 6. Verify and install the macOS Bridge archive with its aggregate manifest,
    archive and manifest Sigstore bundles, and the signing-certificate digest
@@ -47,45 +52,26 @@ release as the production Bridge control plane.
    single-user canary. Enable production admission only after every acceptance
    item and signed release gate is complete.
 
-The component record is now the published Bridge `0.1.11` promotion with
-`production_ready=true` and no blockers. The stable root `0.2.27` release
-contains the tag-bound schema 9 evidence. Step 8 still cannot authorize
-production enablement until its exact deployment bundle is installed and the
-final logged-in canary is complete; the feature flag remains disabled by
-default.
+The component record describes the published Bridge promotion with
+`production_ready=true` and no blockers. The exact distribution version and
+tag-bound schema-9 evidence are the ones recorded in the verified root
+manifest. Step 8 still cannot authorize production enablement until its exact
+deployment bundle is installed and the final logged-in canary is complete; the
+feature flag remains disabled by default.
 
 The exact path from the four blocked fields to a root release is in
 [`ego-browser-bridge-release-promotion.md`](ego-browser-bridge-release-promotion.md).
 It requires a two-phase candidate/evidence promotion and a new root
 distribution tag; changing environment variables alone is never sufficient.
 
-## Required Server policy when evidence exists
+## Generated Server policy when evidence exists
 
-```text
-EGO_BROWSER_BRIDGE_ENABLED=true
-EGO_BROWSER_REQUIRE_DEVICE_POP=true
-EGO_BROWSER_EXPECTED_RELEASE_PROFILE=community-local-trust
-EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256=<64 lowercase hex>
-EGO_BROWSER_EXPECTED_WRAPPER_VERSION=0.1.11
-EGO_BROWSER_EXPECTED_SKILL_VERSION=1.2.3
-EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256=262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c
-EGO_BROWSER_EXPECTED_SKILL_COMMIT=36053d07001a910cb806a15d42d00fdea1cdea3d
-EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION=0.4.7.4
-EGO_BROWSER_EXPECTED_PROTOCOL_VERSION=ego-browser-bridge-v1
-EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID=ego-browser-learning-2026-09
-EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256=<64 lowercase hex>
-EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION=<root distribution version>
-EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256=<64 lowercase hex>
-EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256=<64 lowercase hex>
-EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256=<64 lowercase hex>
-EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256=<64 lowercase hex>
-EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256=<64 lowercase hex>
-EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256=<64 lowercase hex>
-```
-
-The final eight values come from the exact signed schema 9 evidence and root
-manifest used for the deployment. The Server compares every value at startup;
-missing or changed pins fail closed. These settings are necessary but are not
+The certified deployment bundle generates `ego-browser-policy.env` from its
+verified root manifest and schema-9 evidence. Compose loads it through
+`EGO_BROWSER_POLICY_ENV_FILE`; operators must not maintain a second handwritten
+copy. The Server compares the profile, version, Skill, runtime, certificate,
+learning bundle, distribution, and Bridge artifact digests at startup. Missing
+or changed pins fail closed. These settings are necessary but are not
 permission to override the root manifest's false readiness status.
 
 ## Remote identity and relay prerequisites
@@ -118,29 +104,60 @@ close notifications.
 
 ## Operations
 
+CLI, API, and Admin Web must expose `installed`, `enabled`, `registered`,
+`available`, and `connected` separately. Installation and enablement are local
+release and explicit-configuration facts; registration is an active Server
+Device; availability means local readiness and Server execution admission allow
+a claim to begin; only connected means the binding, lease, and
+server/binding/local admission permit execution. A control-plane process that
+cannot observe local facts returns `null`; it must not infer them from Device
+counts, enrollment, or execution responses. Server execution admission and
+Bridge local admission remain independent. Closing execution admission must not
+block installation, enrollment, `ensure`, status, or revocation, and local
+admission stays closed before claim even when `local_admission_ready` is true.
+
+For managed Node enrollment, the control-workstation CLI persists an
+owner-only `exchange_id` before issuing a join code or starting SSH. It sends
+the code only through stdin on the first
+`agent-remote-node install --join-code-stdin` call; the code must not enter
+argv, URLs, the environment, output, or persistent state. If the consume
+response is lost, CLI and Node retry the same `exchange_id` without a code and
+recover the same result. Workstation state is cleared only after completion or
+an exact revocation. The join profile's `ego_browser_enabled` value is
+administrator intent, not evidence that execution admission is open.
+
 The local Device Client owns registration and authorization:
 
 ```sh
 ego-browser-device candidates
 ego-browser-device claim TOOL_SESSION_ID --confirm
 ego-browser-device status BINDING_ID
-ego-browser-device pause BINDING_ID --generation GENERATION
-ego-browser-device resume BINDING_ID --generation GENERATION --confirm
-ego-browser-device stop BINDING_ID --generation GENERATION
-ego-browser-device revoke BINDING_ID --generation GENERATION
+ego-browser-device pause BINDING_ID --binding-generation GENERATION
+ego-browser-device resume BINDING_ID --binding-generation GENERATION --confirm
+ego-browser-device stop BINDING_ID --binding-generation GENERATION
+ego-browser-device revoke BINDING_ID --binding-generation GENERATION
 ```
+
+`pause` closes local and binding admission but retains the binding and the
+owner-only paused handoff for a separately confirmed `resume`, which advances
+`binding_generation`. `stop` is terminal for that binding generation: it
+clears the handoff, cannot be resumed, and the next authorization must use a
+fresh `connect`. Do not infer a target from historical bindings.
 
 The default lease is 60 seconds, renewal interval 20 seconds, admission window
 20 seconds, renewal-failure grace 10 seconds, per-request timeout 120 seconds,
 maximum concurrency four, and absolute binding TTL eight hours. Stop and revoke
 win over renewal. Unknown results and disconnected requests are never replayed.
 
-The Device Client sends a same-UID local heartbeat every two seconds. The
-Bridge requires the initial heartbeat and treats five seconds without a valid
-heartbeat as authorization loss. It first revokes its supervisor and terminates
-managed executions, then clears the active-binding handoff, and only then tries
-a generation-bound Server stop for at most ten seconds. A failed stop never
-restores admission.
+The Device Client sends a same-UID local frame every two seconds: `EGB1\n`
+means local admission is open and `EGB0\n` is an intentional local admission
+close. On `EGB0`, the Bridge revokes its supervisor and terminates managed work,
+but leaves the lifecycle command in control of the handoff and remote action;
+it must not turn a local `pause` into a remote `stop`. EOF, timeout, malformed
+frames, or observer failure instead mean unexpected authorization loss. That
+fail-closed path revokes the supervisor and terminates managed executions,
+clears the active-binding handoff, and only then tries a generation-bound
+Server stop for at most ten seconds. A failed stop never restores admission.
 
 At claim, the Server derives the only valid Task Space label as
 `agent-remote:<tool_session_id>`; the Device Client validates the returned

@@ -1,11 +1,18 @@
 # ego-browser Bridge Release Promotion
 
+The root version in this promotion record is a historical snapshot. New
+deployments must resolve the exact distribution version and component pins from
+the verified root [`release-manifest.json`](../release-manifest.json); this
+document describes the evidence-promotion rules, not a fixed deployment tag.
+
 The root composition was initially blocked until the Bridge had a real,
 published release and a protected Site Learning signing key. The original four
 blockers are evidence requirements, not configuration switches. Bridge `0.1.11`
-now clears all four, and the stable root `0.2.27` release binds that promotion
-to tag-bound schema 9 evidence. The remaining work is installing the exact
-certified bundle and completing the final canary.
+now clears all four, and the historical stable root `0.2.27` snapshot referenced
+by this record binds that promotion to tag-bound schema 9 evidence. The remaining
+work is installing the exact certified bundle and completing the final canary;
+new deployments must resolve their distribution version from the verified root
+manifest.
 
 | Current blocker | Evidence that clears it | Where it is recorded |
 | --- | --- | --- |
@@ -20,10 +27,11 @@ partially signed input. Test keys, development digests, and a prerelease do not
 clear any blocker.
 
 Before starting this promotion, publish an `agent-remote-server` release that
-contains the schema-9 Bridge admission fix. The promoted root manifest pins
-Server `0.2.15` at the reviewed commit; keep candidate and evidence bound to
-that exact release (or a subsequently reviewed replacement). Do not substitute
-an older Server release as the production Bridge control plane.
+contains the schema-9 Bridge admission fix. This historical promotion pinned
+Server `0.2.15` at its reviewed commit; for a new promotion, keep candidate and
+evidence bound to the exact Server version and commit in the verified root
+manifest (or a subsequently reviewed replacement). Do not substitute an older
+Server release as the production Bridge control plane.
 
 ## Required order
 
@@ -156,8 +164,10 @@ python3 scripts/check-device-control-release-readiness.py \
 ```
 
 The original blocked state was `release_published=false`,
-`production_ready=false`, with the four blockers listed above. The current
-promoted root component is `release_published=true`, `production_ready=true`,
-and has `readiness_blockers=[]`. This does not switch the capability on: the
-stable root `0.2.27` release contains the tag-bound evidence, but deployment of
-its exact certified bundle and the final logged-in canary are still required.
+`production_ready=false`, with the four blockers listed above. The promoted
+root component in this historical record is `release_published=true`,
+`production_ready=true`, and has `readiness_blockers=[]`. This does not switch
+the capability on: the historical stable root `0.2.27` release contains the
+tag-bound evidence, but deployment of its exact certified bundle and the final
+logged-in canary are still required. New deployments must use the exact values
+from the verified root manifest.

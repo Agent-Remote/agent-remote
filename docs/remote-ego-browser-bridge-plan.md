@@ -7,10 +7,11 @@
 由本地真实的 ego lite `ego-browser` 执行。
 
 - 产品决策状态：已确认。
-- 方案状态：功能实现、自动化契约、Bridge `0.1.11` promotion、root `0.2.27` 的 tag-bound
-  schema 9 evidence 与 development real ego lite canary 已完成；artifact-bound logged-in
-  canary 和显式生产开关仍待完成。Bridge component 当前为 `production_ready=true`，但
-  capability 默认保持关闭。
+- 方案状态：功能实现、自动化契约、Bridge `0.1.11` promotion、root manifest 记录的
+  tag-bound schema 9 evidence 与 development real ego lite canary 已完成；artifact-bound
+  logged-in canary 和显式生产开关仍待完成。Bridge component 当前为
+  `production_ready=true`，但 capability 默认保持关闭。具体 root distribution version
+  以已验证的 [`release-manifest.json`](../release-manifest.json) 为准。
 - MVP 平台：远端 Linux runtime + 本地 macOS ego lite。
 - 远端 backend：同时支持 Linux `native` 与 `docker_sandbox`。两者都必须通过各自的受信
   runtime state、非 root 身份、固定制品 mount、最小 ACL、nonce 与 `SO_PEERCRED` 合同。
@@ -42,6 +43,11 @@
 `ego_browser_script_full_trust` 的独立授权对象和本地脚本全信任语义为准。该模式不授予
 通用 GUI 协议能力，但 heredoc 本身拥有 Bridge 运行身份可获得的 Node.js、文件、网络、
 子进程和 ego lite 浏览器能力，不能描述为窄化到某个 Tab 或 Task Space。
+
+用户入口和生命周期的收敛契约见
+[`ego-browser-humanized-lifecycle.md`](ego-browser-humanized-lifecycle.md)。该文档是本方案
+关于 `setup`/`connect`/`ensure`、参数自动发现、升级复用 Device identity 以及旧入口迁移的
+唯一事实源；本计划中的底层安全和协议约束仍然有效。
 
 ## 2. 已确认的产品决策
 
@@ -794,6 +800,10 @@ Skill 与 wrapper 必须随 Node release 一起 pin 和升级；版本不一致�
 不兼容，Server 禁止新建 binding。
 
 ### 本地安装策略
+
+这里区分两层：高层 `agent-remote ego-browser setup` 可以在用户明确同意后调用签名
+profile 固定的官方 ego lite installer；下方所说的“本地安装器”特指 Bridge release
+installer，它只安装 Bridge/Device Client，不能自行下载、替换或修改 ego lite。
 
 本地安装器必须：
 

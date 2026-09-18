@@ -32,9 +32,13 @@ required_contracts = (
     "不要自动重放未确认动作",
 )
 
-missing = [value for value in (*required_sections, *required_contracts) if value not in runbook]
+missing = [
+    value for value in (*required_sections, *required_contracts) if value not in runbook
+]
 if missing:
-    raise SystemExit(f"device-control operations runbook is missing: {', '.join(missing)}")
+    raise SystemExit(
+        f"device-control operations runbook is missing: {', '.join(missing)}"
+    )
 
 required_compose_contracts = (
     "DEVICE_CONTROL_ENABLED: ${DEVICE_CONTROL_ENABLED:-false}",
@@ -47,33 +51,26 @@ required_compose_contracts = (
     "DEVICE_SESSION_AUDIT_RETENTION_DAYS: ${DEVICE_SESSION_AUDIT_RETENTION_DAYS:-0}",
     "EGO_BROWSER_BRIDGE_ENABLED: ${EGO_BROWSER_BRIDGE_ENABLED:-false}",
     "EGO_BROWSER_REQUIRE_DEVICE_POP: ${EGO_BROWSER_REQUIRE_DEVICE_POP:-false}",
-    "EGO_BROWSER_EXPECTED_RELEASE_PROFILE: ${EGO_BROWSER_EXPECTED_RELEASE_PROFILE:-development-local}",
-    "EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256: ${EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256:-}",
-    "EGO_BROWSER_EXPECTED_WRAPPER_VERSION: ${EGO_BROWSER_EXPECTED_WRAPPER_VERSION:-0.1.11}",
-    "EGO_BROWSER_EXPECTED_SKILL_VERSION: ${EGO_BROWSER_EXPECTED_SKILL_VERSION:-1.2.3}",
-    "EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256: ${EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256:-262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c}",
-    "EGO_BROWSER_EXPECTED_SKILL_COMMIT: ${EGO_BROWSER_EXPECTED_SKILL_COMMIT:-36053d07001a910cb806a15d42d00fdea1cdea3d}",
-    "EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION: ${EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION:-0.4.7.4}",
-    "EGO_BROWSER_EXPECTED_PROTOCOL_VERSION: ${EGO_BROWSER_EXPECTED_PROTOCOL_VERSION:-ego-browser-bridge-v1}",
-    "EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID: ${EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID:-ego-browser-learning-2026-09}",
-    "EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256: ${EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256:-}",
-    "EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION: ${EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION:-}",
-    "EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256: ${EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256:-}",
-    "EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256: ${EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256:-}",
-    "EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256: ${EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256:-}",
-    "EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256: ${EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256:-}",
-    "EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256: ${EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256:-}",
-    "EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256: ${EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256:-}",
+    "env_file:",
+    "${EGO_BROWSER_POLICY_ENV_FILE:-/dev/null}",
 )
-missing_compose = [value for value in required_compose_contracts if value not in compose]
+missing_compose = [
+    value for value in required_compose_contracts if value not in compose
+]
 if missing_compose:
-    raise SystemExit(f"compose device-control deployment is missing: {', '.join(missing_compose)}")
+    raise SystemExit(
+        f"compose device-control deployment is missing: {', '.join(missing_compose)}"
+    )
 
 revoke_position = runbook.index("agent-remote device revoke --device DEVICE_ID --yes")
 uninstall_position = runbook.index("agent-remote device uninstall --yes")
 if revoke_position >= uninstall_position:
-    raise SystemExit("the runbook must revoke remote access before uninstalling the app")
+    raise SystemExit(
+        "the runbook must revoke remote access before uninstalling the app"
+    )
 
 for forbidden_claim in ("生产门禁已满足", "production ready", "ready: true"):
     if forbidden_claim in runbook:
-        raise SystemExit(f"the runbook makes a forbidden readiness claim: {forbidden_claim}")
+        raise SystemExit(
+            f"the runbook makes a forbidden readiness claim: {forbidden_claim}"
+        )

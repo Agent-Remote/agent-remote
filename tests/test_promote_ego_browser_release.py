@@ -63,6 +63,17 @@ def make_bridge(root: Path) -> tuple[Path, Path, dict[str, object], str]:
         (BRIDGE_SOURCE / "scripts/release_manifest.py").read_bytes(),
         0o755,
     )
+    write(
+        bridge / "scripts/install.sh",
+        (BRIDGE_SOURCE / "scripts/install.sh").read_bytes(),
+        0o755,
+    )
+    write(
+        bridge / "crates/protocol/src/lib.rs",
+        'pub const REPLACED_COMMUNITY_PROFILE: &str = "community-local-trust@0.0.9";\n'
+        'pub const SUPPORTED_SKILL_TREE_SHA256: &str = '
+        '"a45cc7fcbea45a6f6222faf83c891b0fd22955193699dd99c9e40b0c0b4a0741";\n',
+    )
     subprocess.run(["git", "init", "-q", str(bridge)], check=True)
     git(bridge, "config", "user.name", "Release Test")
     git(bridge, "config", "user.email", "release@example.invalid")
@@ -194,6 +205,17 @@ def make_root_manifest(path: Path) -> None:
     source = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
     browser = source["components"]["agent-remote-ego-browser"]
     browser["version"] = VERSION
+    browser["profile_version"] = VERSION
+    browser["bridge_version"] = VERSION
+    browser["wrapper_version"] = VERSION
+    browser["artifact_url"] = (
+        "https://github.com/Agent-Remote/agent-remote-ego-browser/releases/"
+        f"download/v{VERSION}/agent-remote-ego-browser-macos-universal-{VERSION}.tar.gz"
+    )
+    browser["artifact_sha256"] = None
+    browser["bridge_manifest_sha256"] = None
+    browser["issued_at"] = None
+    browser["replaces_profile"] = "community-local-trust@0.0.8"
     browser["commit"] = "0" * 40
     browser["release_published"] = False
     browser["production_ready"] = False
@@ -385,6 +407,25 @@ def test_promotion_prepares_and_applies_atomically(tmp_path: Path) -> None:
     assert promoted["production_ready"] is True
     assert promoted["readiness_blockers"] == []
     assert promoted["commit"] != "0" * 40
+    assert promoted["profile_version"] == VERSION
+    assert promoted["bridge_version"] == VERSION
+    assert promoted["wrapper_version"] == VERSION
+    assert promoted["replaces_profile"] == "community-local-trust@0.0.9"
+    assert promoted["artifact_sha256"] == hashlib.sha256(
+        Path(args[args.index("--bridge-release-archive") + 1]).read_bytes()
+    ).hexdigest()
+    assert promoted["bridge_manifest_sha256"] == hashlib.sha256(
+        Path(args[args.index("--bridge-release-manifest") + 1]).read_bytes()
+    ).hexdigest()
+    assert promoted["issued_at"] == "2026-09-08T00:00:00Z"
+    assert (
+        promoted["ego_lite_installer_commit"]
+        == "d01be93325c7ea59d41c2ca9f4c59b58b4be4046"
+    )
+    assert (
+        promoted["ego_lite_installer_sha256"]
+        == "4cbbc9f211aca61244d9ada601c385cabbeba4ec4417b3a8be1819a01cb0221b"
+    )
 
 
 def test_promotion_rejects_bad_evidence_without_mutating_manifest(
@@ -534,7 +575,6 @@ def test_promotion_rejects_manifest_and_candidate_symlinks(tmp_path: Path) -> No
     assert result.returncode == 2
     assert real_manifest.read_bytes() == before
 
-    # A dangling link must not be resolved into an arbitrary output target.
     case_two = tmp_path / "case-two"
     case_two.mkdir()
     real_manifest = case_two / "release-manifest.json"

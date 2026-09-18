@@ -85,9 +85,26 @@ Requirements on each VPS node:
 - TUN support for WireGuard networking when the deployment uses WireGuard.
 - Docker with the Docker Sandbox CLI only when `docker_sandbox` compatibility is enabled.
 
-The one-command installer installs missing Native Runtime packages and a consistent AI development command baseline, installs and pins Claude Code through Anthropic's official installer, installs a checksum-verified Node.js 22 runtime with npm and npx, configures the restricted SSH gateway and root runtime helper, registers the node, starts both systemd services, and verifies the runtime probe and control-plane heartbeat. It does not proactively upgrade OS packages already installed and does not install Docker.
+The current managed Node command enrolls an already installed, compatible Node release with a
+short-lived join code. The join code is delivered only over SSH stdin and is never shown or placed
+in argv. Release transfer, dependency installation, service startup, and probe verification still
+belong to the verified Node installer until the target two-channel managed bootstrap is released.
 
-Install the node:
+After deploying the approved Node release, enroll it from a logged-in control workstation without
+enabling ego-browser implicitly:
+
+```sh
+agent-remote node install --node <node-id-or-prefix>
+```
+
+Add `--enable-ego-browser` only when the administrator intends to enable the capability and the
+approved local artifact/profile checks can pass. Re-enrolling an existing Node preserves its current
+setting. Despite its compatibility name, this CLI command does not currently install or upgrade the
+Node release on the remote host.
+
+The direct registration-token installer below is an advanced legacy compatibility path for isolated
+manual provisioning. Its short-lived token is carried in argv, so keep it out of shell history and
+logs:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main/scripts/install.sh | \
@@ -97,7 +114,7 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main
   --registration-token <registration-token>
 ```
 
-The default backend is `native`. Add `--runtime-backends native,docker_sandbox` only after installing a Docker CLI that provides `docker sandbox`. Re-running the same command upgrades managed binaries and Claude while reusing the existing node token. Fresh Node installations randomly select an unused WireGuard UDP port in `49152-65535`, persist it across upgrades, and advertise it through the control plane. Permit the printed port in host and provider firewalls and verify a handshake from a real client; use `--rotate-wireguard-listen-port` only when selecting a replacement port is intentional.
+The default backend is `native`. Add `--runtime-backends native,docker_sandbox` only after installing a Docker CLI that provides `docker sandbox`. Re-running the installer on an already configured Node can omit all three registration arguments; it upgrades managed binaries and Claude while reusing the existing node token. Fresh Node installations randomly select an unused WireGuard UDP port in `49152-65535`, persist it across upgrades, and advertise it through the control plane. Permit the printed port in host and provider firewalls and verify a handshake from a real client; use `--rotate-wireguard-listen-port` only when selecting a replacement port is intentional.
 
 ## Local ego-browser Bridge
 
@@ -112,6 +129,12 @@ release-pinned wrapper, Skill, broker, and Task Space context mounted from the
 root-owned trusted spec. Either backend fails closed when its capability,
 identity, ACL, mount, or nonce contract does not match.
 
+For the human-facing install, registration, upgrade, and daily-use flow, follow
+[`ego-browser-humanized-lifecycle.md`](ego-browser-humanized-lifecycle.md). This
+guide remains the low-level ordering and release-evidence runbook; exact
+component versions and certificate pins come from the verified root
+[`release-manifest.json`](../release-manifest.json).
+
 Follow [`ego-browser-bridge-deployment.md`](ego-browser-bridge-deployment.md)
 for the exact Server, Node, CLI/Admin, macOS installation, registration, canary,
 upgrade, and rollback order. The full local-execution boundary is documented in
@@ -121,35 +144,21 @@ release gates are tracked in
 
 The current root manifest records the published Bridge `0.1.11` release,
 certificate pin, learning-bundle digest, and `production_ready=true` with no
-Bridge blockers. The stable root `0.2.27` release contains the tag-bound schema
-9 evidence. Keep `EGO_BROWSER_BRIDGE_ENABLED=false` until the exact deployment
-bundle is installed and the final artifact-bound canary is complete. A
+Bridge blockers. Its distribution version and tag-bound schema-9 evidence are
+authoritative; do not substitute a version copied from this guide. Keep
+`EGO_BROWSER_BRIDGE_ENABLED=false` until the exact deployment bundle is
+installed and the final artifact-bound canary is complete. A
 successful Node wrapper installation or development-mode test is not
 authorization to enable the capability.
 
-After a promoted root manifest and signed schema 9 evidence exist, set the
-Bridge policy pins from that exact release bundle before enabling the flag:
-`EGO_BROWSER_REQUIRE_DEVICE_POP=true`,
-`EGO_BROWSER_EXPECTED_RELEASE_PROFILE=community-local-trust`,
-`EGO_BROWSER_EXPECTED_SIGNER_CERTIFICATE_SHA256`,
-`EGO_BROWSER_EXPECTED_WRAPPER_VERSION`,
-`EGO_BROWSER_EXPECTED_SKILL_VERSION`,
-`EGO_BROWSER_EXPECTED_SKILL_TREE_SHA256`,
-`EGO_BROWSER_EXPECTED_SKILL_COMMIT`,
-`EGO_BROWSER_EXPECTED_LOCAL_RUNTIME_VERSION`,
-`EGO_BROWSER_EXPECTED_PROTOCOL_VERSION`, and
-`EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SIGNING_KEY_ID`. Also populate
-`EGO_BROWSER_EXPECTED_LEARNING_BUNDLE_SHA256`,
-`EGO_BROWSER_EXPECTED_DISTRIBUTION_VERSION`,
-`EGO_BROWSER_EXPECTED_ROOT_MANIFEST_SHA256`,
-`EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_MANIFEST_SHA256`,
-`EGO_BROWSER_EXPECTED_BRIDGE_RELEASE_ARCHIVE_SHA256`,
-`EGO_BROWSER_EXPECTED_BRIDGE_SIGNING_EVIDENCE_SHA256`,
-`EGO_BROWSER_EXPECTED_BRIDGE_SIGSTORE_SHA256`, and
-`EGO_BROWSER_EXPECTED_BRIDGE_PROVENANCE_SHA256` from that exact signed schema 9
-evidence and root manifest. The Server compares these values with the signed
-Bridge identity and artifact records and rejects missing or mismatched pins or
-evidence; environment variables cannot clear the root blockers.
+The certified deployment bundle contains `deploy/compose/ego-browser-policy.env`,
+generated from its exact root manifest and signed schema-9 evidence. Keep
+`EGO_BROWSER_POLICY_ENV_FILE=./ego-browser-policy.env`, set
+`EGO_BROWSER_REQUIRE_DEVICE_POP=true`, and enable the Bridge only after the
+artifact-bound canary. Do not transcribe component versions, commits, or
+digests into `.env`; the Server compares every generated value with the signed
+Bridge identity and artifact records and rejects missing or mismatched
+evidence. Environment variables cannot clear root blockers.
 
 Before a release review, run both infrastructure proofs from their owning
 repositories:
@@ -236,7 +245,8 @@ Tag-triggered release workflows only build and publish artifacts; they do not mo
 Release a component from its own repository whenever it is ready:
 
 ```sh
-gh workflow run prepare-release.yml --ref main -f version=0.2.28
+version=MAJOR.MINOR.PATCH
+gh workflow run prepare-release.yml --ref main -f version="$version"
 ```
 
 The root repository has a separate distribution version. `release-manifest.json` pins the exact
@@ -266,9 +276,10 @@ For a local manual component release, run that repository's prepare script, then
 own version:
 
 ```sh
-scripts/prepare-release.sh 0.2.28
+version=MAJOR.MINOR.PATCH
+scripts/prepare-release.sh "$version"
 git add .
-git commit -m "chore: release v0.2.28"
-git tag v0.2.28
-git push origin main v0.2.28
+git commit -m "chore: release v${version}"
+git tag "v${version}"
+git push origin main "v${version}"
 ```

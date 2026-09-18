@@ -30,6 +30,8 @@ jobs:
               - 'release-manifest.json'
               - 'release-manifest.schema.json'
               - 'scripts/release_manifest.py'
+              - 'scripts/check-ego-browser-lifecycle.py'
+              - 'docs/ego-browser-humanized-lifecycle.md'
               - 'scripts/run-local-device-control-e2e.sh'
               - 'scripts/run-session-port-forwarding-e2e.sh'
               - 'tests/local_device_control_e2e.py'
@@ -88,8 +90,12 @@ jobs:
         run: python3 tests/test_update_release_component.py
       - name: Test ego-browser release manifest contract
         run: python3 tests/test_ego_browser_release_manifest.py
+      - name: Test ego-browser Compose policy renderer
+        run: python3 tests/test_render_ego_browser_policy_env.py
       - name: Test ego-browser release input boundaries
         run: python3 tests/test_ego_browser_release_boundaries.py
+      - name: Validate ego-browser humanized lifecycle contract
+        run: python3 scripts/check-ego-browser-lifecycle.py
       - name: Validate compose bundle
         run: docker compose --env-file deploy/compose/.env.example -f deploy/compose/docker-compose.yml config --quiet
   session-port-forwarding-e2e:

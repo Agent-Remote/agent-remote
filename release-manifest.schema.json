@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://agentremote.dev/schemas/release-manifest-v3.json",
+  "$id": "https://agentremote.dev/schemas/release-manifest-v4.json",
   "title": "Agent Remote release composition",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "distribution_version", "components"],
   "properties": {
-    "schema_version": { "const": 3 },
+    "schema_version": { "const": 4 },
     "distribution_version": { "$ref": "#/$defs/semver" },
     "components": {
       "type": "object",
@@ -55,6 +55,23 @@
         "release_workflow",
         "version",
         "commit",
+        "profile_id",
+        "profile_version",
+        "bridge_version",
+        "bridge_protocol_version",
+        "ego_lite_runtime_version",
+        "wrapper_version",
+        "artifact_url",
+        "artifact_sha256",
+        "bridge_manifest_sha256",
+        "ego_lite_installer_url",
+        "ego_lite_installer_commit",
+        "ego_lite_installer_sha256",
+        "valid_platforms",
+        "allowed_server_origins",
+        "admission_policy_ref",
+        "issued_at",
+        "replaces_profile",
         "release_published",
         "profile",
         "signing_type",
@@ -80,6 +97,43 @@
         "release_workflow": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.ya?ml$" },
         "version": { "$ref": "#/$defs/semver" },
         "commit": { "$ref": "#/$defs/gitSha" },
+        "profile_id": { "const": "community-local-trust" },
+        "profile_version": { "$ref": "#/$defs/semver" },
+        "bridge_version": { "$ref": "#/$defs/semver" },
+        "bridge_protocol_version": { "const": "ego-browser-bridge-v1" },
+        "ego_lite_runtime_version": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+){3}$" },
+        "wrapper_version": { "$ref": "#/$defs/semver" },
+        "artifact_url": {
+          "type": "string",
+          "pattern": "^https://github\\.com/Agent-Remote/agent-remote-ego-browser/releases/download/v[0-9]+\\.[0-9]+\\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?/agent-remote-ego-browser-macos-universal-[0-9]+\\.[0-9]+\\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?\\.tar\\.gz$"
+        },
+        "artifact_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "bridge_manifest_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "ego_lite_installer_url": {
+          "type": "string",
+          "pattern": "^https://raw\\.githubusercontent\\.com/citrolabs/ego-lite/[0-9a-f]{40}/skills/ego-browser/scripts/install\\.sh$"
+        },
+        "ego_lite_installer_commit": { "$ref": "#/$defs/gitSha" },
+        "ego_lite_installer_sha256": { "$ref": "#/$defs/sha256" },
+        "valid_platforms": {
+          "type": "array",
+          "const": ["macos"]
+        },
+        "allowed_server_origins": {
+          "type": "array",
+          "const": ["$active_login_origin"]
+        },
+        "admission_policy_ref": { "const": "server-policy:ego-browser-v1" },
+        "issued_at": {
+          "oneOf": [
+            { "type": "string", "format": "date-time", "pattern": "Z$" },
+            { "type": "null" }
+          ]
+        },
+        "replaces_profile": {
+          "type": "string",
+          "pattern": "^community-local-trust@[0-9]+\\.[0-9]+\\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$"
+        },
         "release_published": { "type": "boolean" },
         "profile": { "const": "community-local-trust" },
         "signing_type": { "const": "project-self-signed" },

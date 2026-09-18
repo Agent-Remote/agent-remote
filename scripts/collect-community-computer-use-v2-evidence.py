@@ -12,6 +12,8 @@ import shutil
 import stat
 from pathlib import Path
 
+from ego_browser_policy import EGO_BROWSER_PROFILE_ID
+
 RECORD_NAME = "community-computer-use-v2-evidence.json"
 ARCHIVE_NAME = "community-computer-use-v2.evidence.tar.gz"
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.+][0-9A-Za-z.-]+)?$")
@@ -73,7 +75,7 @@ def collect(source_directory: Path, output_directory: Path, version: str) -> Non
                 not isinstance(record, dict)
                 or record.get("schema_version") != 1
                 or record.get("release_version") != version
-                or record.get("release_profile") != "community-local-trust"
+                or record.get("release_profile") != EGO_BROWSER_PROFILE_ID
             ):
                 raise ValueError("Community Computer Use v2 record identity is invalid")
             output_directory.mkdir(mode=0o700, parents=False, exist_ok=False)

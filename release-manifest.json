@@ -1,16 +1,16 @@
 {
   "components": {
     "agent-remote-admin-web": {
-      "commit": "9441c02eb33a596fd6a30f3078d88bdeb32806e2",
+      "commit": "241757d5f8834d932097ec048b5288d034fee7bc",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-admin-web",
-      "version": "0.2.13"
+      "version": "0.2.14"
     },
     "agent-remote-cli": {
-      "commit": "5be1e6afe70c4b4bdfd26cd7630facd7633b2ea6",
+      "commit": "5ad36639f87048f20c96ab6f11f15a9d90174faf",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-cli",
-      "version": "0.2.15"
+      "version": "0.2.17"
     },
     "agent-remote-device": {
       "commit": "f8212b85e3e8d2103ee177e3293705c38b6101b0",
@@ -19,10 +19,24 @@
       "version": "0.2.15"
     },
     "agent-remote-ego-browser": {
+      "admission_policy_ref": "server-policy:ego-browser-v1",
+      "allowed_server_origins": [
+        "$active_login_origin"
+      ],
       "apple_notarized": false,
+      "artifact_sha256": "5ada9534a5d3cb31151c72a763f39b541f20386b72f9f8935d6dee02220bedb0",
+      "artifact_url": "https://github.com/Agent-Remote/agent-remote-ego-browser/releases/download/v0.1.11/agent-remote-ego-browser-macos-universal-0.1.11.tar.gz",
+      "bridge_manifest_sha256": "dce3fd131d21425a706fc879e542143ee0e45678bf8bf48f6b79ea7e15bcf3d3",
+      "bridge_protocol_version": "ego-browser-bridge-v1",
+      "bridge_version": "0.1.11",
       "commit": "2e2c103e62e2f81b8e61debc42beaae1f8bc90b0",
       "credential_profile": "community_file",
+      "ego_lite_installer_commit": "36053d07001a910cb806a15d42d00fdea1cdea3d",
+      "ego_lite_installer_sha256": "7a4c307c9a8ee6abae094f7cd497a81992de81e1fc37719fde61c43fd841d057",
+      "ego_lite_installer_url": "https://raw.githubusercontent.com/citrolabs/ego-lite/36053d07001a910cb806a15d42d00fdea1cdea3d/skills/ego-browser/scripts/install.sh",
+      "ego_lite_runtime_version": "0.4.7.4",
       "hardened_runtime": true,
+      "issued_at": "2026-09-09T18:40:50Z",
       "learning_bundle_digest": "6662ad11797f86d721b2d9121049c35b02eff3e71821dc06dfcc190d250788a7",
       "learning_bundle_signing_key_id": "ego-browser-learning-2026-09",
       "local_ego_browser_runtime_version": "0.4.7.4",
@@ -30,32 +44,39 @@
       "outbound_policy": "application-enforced",
       "production_ready": true,
       "profile": "community-local-trust",
+      "profile_id": "community-local-trust",
+      "profile_version": "0.1.11",
       "protocol_version": "ego-browser-bridge-v1",
       "public_distribution": false,
       "readiness_blockers": [],
       "release_published": true,
       "release_workflow": "release.yml",
+      "replaces_profile": "community-local-trust@0.1.10",
       "repository": "Agent-Remote/agent-remote-ego-browser",
       "signer_certificate_sha256": "1b1527d1c0ac6b3a1e95ccd7d4e6462ece9f5a42d2f4d309d09170588a4197e5",
       "signing_type": "project-self-signed",
       "skill_commit": "36053d07001a910cb806a15d42d00fdea1cdea3d",
       "skill_tree_sha256": "262110a09678fd3e0bbb382400588dacb98b24659b3b4a57903703b65d133c7c",
       "skill_version": "1.2.3",
-      "version": "0.1.11"
+      "valid_platforms": [
+        "macos"
+      ],
+      "version": "0.1.11",
+      "wrapper_version": "0.1.11"
     },
     "agent-remote-node": {
-      "commit": "4a2487c62e90cad857f0fee2e5140aee23ab5964",
+      "commit": "d0944d21d989373a7a72c238a29a4032774685f2",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-node",
-      "version": "0.2.19"
+      "version": "0.2.21"
     },
     "agent-remote-server": {
-      "commit": "006fa5a67a1a80685b4090c71a17bac99d0469fc",
+      "commit": "4fff52f91d93e25373e1d8f9644a5560889d0948",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-server",
-      "version": "0.2.16"
+      "version": "0.2.18"
     }
   },
-  "distribution_version": "0.2.28",
-  "schema_version": 3
+  "distribution_version": "0.2.29",
+  "schema_version": 4
 }
