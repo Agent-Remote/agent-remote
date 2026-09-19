@@ -4,7 +4,8 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.31 - 2026-09-19
 
-- chore: prepare v0.2.31 from v0.2.30 with repository-owned version metadata only.
+- fix(release): certify Bridge v0.1.14 with CLI v0.2.20, Server v0.2.20, and Node v0.2.23.
+- fix(security): ship the Server with the secure AnyIO 4.14.2 compatibility line.
 
 ## v0.2.30 - 2026-09-18
 
