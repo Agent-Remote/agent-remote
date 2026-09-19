@@ -4,7 +4,8 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.33 - 2026-09-19
 
-- chore: prepare v0.2.33 from v0.2.32 with repository-owned version metadata only.
+- chore(release): certify v0.2.33 composition (2a5363e)
+- chore(release): prepare 0.2.33 component composition (73b4f2b)
 
 ## v0.2.32 - 2026-09-19
 
