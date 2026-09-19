@@ -4,8 +4,10 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.31 - 2026-09-19
 
-- fix(release): certify Bridge v0.1.14 with CLI v0.2.20, Server v0.2.20, and Node v0.2.23.
-- fix(security): ship the Server with the secure AnyIO 4.14.2 compatibility line.
+- chore(release): certify v0.2.31 composition (864df0e)
+- test(release): align device test server version (5642c33)
+- test(release): derive bridge assertions from manifest (8f25142)
+- chore(release): prepare root v0.2.31 candidate (9cb1645)
 
 ## v0.2.30 - 2026-09-18
 
