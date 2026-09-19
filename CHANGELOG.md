@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.33 - 2026-09-19
+
+- chore: prepare v0.2.33 from v0.2.32 with repository-owned version metadata only.
+
 ## v0.2.32 - 2026-09-19
 
 - chore(release): certify v0.2.32 composition (2b1edcd)
