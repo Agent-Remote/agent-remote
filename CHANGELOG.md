@@ -4,7 +4,7 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.34 - 2026-09-19
 
-- chore: prepare v0.2.34 from v0.2.33 with repository-owned version metadata only.
+- chore(release): pin remembered login composition for 0.2.34 (a6f3e79)
 
 ## v0.2.33 - 2026-09-19
 
