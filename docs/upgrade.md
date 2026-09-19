@@ -68,6 +68,14 @@ Use `--force-register` only when intentionally replacing the node token. Before 
 
 ## CLI
 
+Upgrade the Server and matching root evidence bundle before the CLI when adopting
+remembered login. A new login then stores a rotating refresh credential alongside
+the short-lived access token. The session lasts at most 30 days by default; normal
+commands renew access automatically without another device-code approval.
+Still-valid legacy logins migrate automatically. An already expired legacy login
+needs one new login; logout, revocation, and session expiry still require reauthentication.
+Browser connect/resume full-trust confirmation remains separate from CLI login.
+
 Replace the local CLI package, then verify:
 
 ```sh
