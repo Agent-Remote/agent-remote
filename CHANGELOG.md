@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.31 - 2026-09-19
+
+- chore: prepare v0.2.31 from v0.2.30 with repository-owned version metadata only.
+
 ## v0.2.30 - 2026-09-18
 
 - chore(release): pin node v0.2.22 and cli v0.2.18 (f024ad8)
