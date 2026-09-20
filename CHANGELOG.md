@@ -4,7 +4,9 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.40 - 2026-09-20
 
-- chore: prepare v0.2.40 from v0.2.39 with repository-owned version metadata only.
+- chore(release): certify bridge 0.1.19 composition (b9777e3)
+- chore(release): align server policy with bridge 0.1.19 (2867549)
+- chore(release): prepare 0.2.40 bridge property fixes (3bd56b3)
 
 ## v0.2.39 - 2026-09-20
 
