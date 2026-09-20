@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.40 - 2026-09-20
+
+- chore: prepare v0.2.40 from v0.2.39 with repository-owned version metadata only.
+
 ## v0.2.39 - 2026-09-20
 
 - chore(release): certify cli 0.2.28 and refresh lifecycle evidence checks (02f3c37)
