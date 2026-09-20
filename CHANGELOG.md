@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.36 - 2026-09-20
+
+- chore: prepare v0.2.36 from v0.2.35 with repository-owned version metadata only.
+
 ## v0.2.35 - 2026-09-20
 
 - chore(release): certify ego-browser runtime fixes in 0.2.35 (ffb3abb)
