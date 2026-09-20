@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.39 - 2026-09-20
+
+- chore(release): certify cli 0.2.28 and refresh lifecycle evidence checks (02f3c37)
+
 ## v0.2.38 - 2026-09-20
 
 - chore(release): certify bridge 0.1.18 composition (c0cbd5a)
