@@ -2,6 +2,12 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.38 - 2026-09-20
+
+- Fix long-path helper socket failures after request sequence growth with Bridge 0.1.18.
+- Preserve observed local admission when lifecycle commands require confirmation with CLI 0.2.27.
+- Certify Server 0.2.25 and Node 0.2.27 against the updated Bridge artifacts.
+
 ## v0.2.37 - 2026-09-20
 
 - chore(release): prepare 0.2.37 with binding recovery fixes (8eca49c)
