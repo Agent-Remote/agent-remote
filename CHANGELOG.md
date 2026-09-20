@@ -4,9 +4,8 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.35 - 2026-09-20
 
-- Pin Bridge 0.1.17, Node 0.2.26, CLI 0.2.24, and Server 0.2.24 as one compatible release composition.
-- Stop running browser scripts on cancellation, enforce Skill 2.0 file helper paths, and return screenshots and detailed script errors to remote sessions.
-- Recover binding generations after repair, isolate CLI tests from real local authorization, and distinguish relay health from browser execution availability.
+- chore(release): certify ego-browser runtime fixes in 0.2.35 (ffb3abb)
+- chore(release): prepare 0.2.35 component composition (ada6c7c)
 
 ## v0.2.34 - 2026-09-19
 
