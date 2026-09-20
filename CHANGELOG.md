@@ -4,7 +4,7 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.37 - 2026-09-20
 
-- Upgrade CLI to 0.2.26: preserve active browser bindings during repeated connect or claim, and provide correct recovery commands after repair or upgrade.
+- chore(release): prepare 0.2.37 with binding recovery fixes (8eca49c)
 
 ## v0.2.36 - 2026-09-20
 
