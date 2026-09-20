@@ -24,19 +24,19 @@
         "$active_login_origin"
       ],
       "apple_notarized": false,
-      "artifact_sha256": "da8d5db8be4ac80efe363bbd1b8c2659c9dea235ce8b4e1dc1c630cdb51a36cc",
-      "artifact_url": "https://github.com/Agent-Remote/agent-remote-ego-browser/releases/download/v0.1.18/agent-remote-ego-browser-macos-universal-0.1.18.tar.gz",
-      "bridge_manifest_sha256": "9c4517ad03e1e02078c76574ed8021cefb13c8fd6321c52645c212a5ac9fb1bd",
+      "artifact_sha256": "74b051dbae3e38563ad3259a366e385b9ca99645d43ed52195df865d02809eb8",
+      "artifact_url": "https://github.com/Agent-Remote/agent-remote-ego-browser/releases/download/v0.1.19/agent-remote-ego-browser-macos-universal-0.1.19.tar.gz",
+      "bridge_manifest_sha256": "4f446826be1454d70dc360982d4dd3d6fdc931fb0d9c8504908ea8b940d6c7ab",
       "bridge_protocol_version": "ego-browser-bridge-v1",
-      "bridge_version": "0.1.18",
-      "commit": "396034d391ec95fb2e54e00e30edfe8e17a09845",
+      "bridge_version": "0.1.19",
+      "commit": "39b7bb641ea043ec5860bac19e4ded2636f53f2a",
       "credential_profile": "community_file",
       "ego_lite_installer_commit": "d01be93325c7ea59d41c2ca9f4c59b58b4be4046",
       "ego_lite_installer_sha256": "4cbbc9f211aca61244d9ada601c385cabbeba4ec4417b3a8be1819a01cb0221b",
       "ego_lite_installer_url": "https://raw.githubusercontent.com/citrolabs/ego-lite/d01be93325c7ea59d41c2ca9f4c59b58b4be4046/skills/ego-browser/scripts/install.sh",
       "ego_lite_runtime_version": "0.5.0.32",
       "hardened_runtime": true,
-      "issued_at": "2026-09-20T13:54:25Z",
+      "issued_at": "2026-09-20T18:11:41Z",
       "learning_bundle_digest": "4d782365e73284c55de320ef91a669c6da5d67650cf066a85c238b152d4f531f",
       "learning_bundle_signing_key_id": "ego-browser-learning-2026-09-v2",
       "local_ego_browser_runtime_version": "0.5.0.32",
@@ -45,7 +45,7 @@
       "production_ready": true,
       "profile": "community-local-trust",
       "profile_id": "community-local-trust",
-      "profile_version": "0.1.18",
+      "profile_version": "0.1.19",
       "protocol_version": "ego-browser-bridge-v1",
       "public_distribution": false,
       "readiness_blockers": [],
@@ -61,8 +61,8 @@
       "valid_platforms": [
         "macos"
       ],
-      "version": "0.1.18",
-      "wrapper_version": "0.1.18"
+      "version": "0.1.19",
+      "wrapper_version": "0.1.19"
     },
     "agent-remote-node": {
       "commit": "0df5fe71d100650e43c5cb5eacc859286cb50780",
