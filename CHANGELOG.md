@@ -4,7 +4,7 @@ All notable changes to this repository are recorded here.
 
 ## v0.2.36 - 2026-09-20
 
-- chore: prepare v0.2.36 from v0.2.35 with repository-owned version metadata only.
+- chore(release): prepare 0.2.36 with cli lifecycle fixes (d89ac9e)
 
 ## v0.2.35 - 2026-09-20
 
