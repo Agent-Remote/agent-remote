@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.41 - 2026-09-21
+
+- chore(release): certify cli 0.2.30 diagnostic fixes (b804a9e)
+
 ## v0.2.40 - 2026-09-20
 
 - chore(release): certify bridge 0.1.19 composition (b9777e3)
