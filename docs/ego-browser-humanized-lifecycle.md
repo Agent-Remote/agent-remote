@@ -1084,6 +1084,7 @@ error、当前状态和下一步三项信息，不能只打印底层异常字符
 | `device_conflict` | 否 | 校验登录用户、Server origin 和现有 key；必要时执行 `switch-server`/forget |
 | `device_generation_conflict` | 否 | 检查是否有并发 rotate；恢复 pending-rotation 或显式 forget/rejoin |
 | `device_revoked` | 否 | 执行显式 forget/rejoin |
+| `device_not_revoked` | 否 | 删除前先确认目标设备并撤销；`--yes` 不绕过撤销要求 |
 | `identity_corrupt` | 否 | 停止执行，备份诊断后显式 forget/rejoin |
 | `identity_origin_conflict` | 否 | 执行 `switch-server` 或 forget，不能迁移 key |
 | `compatibility_mismatch` | 否 | 执行 `repair`/`upgrade` 或重新信任 |
@@ -1091,6 +1092,7 @@ error、当前状态和下一步三项信息，不能只打印底层异常字符
 | `no_active_binding` | 否 | 先执行 `connect`；`resume` 需要存在 `paused` binding |
 | `candidate_stale` | 否 | 重新获取候选列表并重新选择 |
 | `binding_conflict` / `binding_generation_stale` | 否 | 查看当前 binding，明确选择 pause/stop/resume |
+| `binding_not_terminal` | 否 | 删除前先 stop/revoke 指定 binding，等待其进入终态 |
 | `confirmation_required` | 否 | 在本机确认具体 session 和 full-trust |
 | `node_not_found` | 否 | 检查 Node 是否在线或选择正确的 Node |
 | `node_ambiguous` | 否 | 从候选列表明确选择一个 Node，再重试 |
@@ -1102,6 +1104,8 @@ error、当前状态和下一步三项信息，不能只打印底层异常字符
 `trust_confirmation_required` 只用于首次或变更 release/profile 的本机信任；
 `confirmation_required` 用于具体 binding 的 full-trust、resume 或破坏性 identity 操作。
 两者都必须在非 TTY 环境直接失败并返回 `next_action`，不能退化为等待输入或默认同意。
+未执行变更的身份操作和删除前置检查报告实际本地准入；不得因操作被拒绝就报告
+`closed` 或 `identity_corrupt`。未经核实的连接和可用性字段保持 `null`。
 旧客户端返回的 `generation_stale` 只允许在 binding endpoint 上映射为
 `binding_generation_stale`；Device endpoint 的代次冲突必须映射为
 `device_generation_conflict`。
