@@ -2,6 +2,13 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.43 - 2026-09-27
+
+- fix(release): pin cli 0.2.33 with node 0.2.30 dependency (b875a95)
+- fix(release): enforce component-owned dependency alignment (d6b5a7c)
+- fix(skills): pin repaired components and document native rollout (9b63785)
+- docs(skills): reconcile published delivery and deferred acceptance (03c6d06)
+
 ## v0.2.42 - 2026-09-27
 
 - chore(release): pin skill manager component releases (d315f88)
