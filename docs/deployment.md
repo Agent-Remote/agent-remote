@@ -40,6 +40,23 @@ curl -fsS https://$AGENT_REMOTE_DOMAIN/healthz
 
 Bootstrap the first administrator from the admin web. The normal CLI initialization flow does not create users.
 
+### Skill Content Persistence
+
+The Compose bundle reserves a `skill-content` named volume at
+`/var/lib/agent-remote/skill-storage`. The Server stores private content in its `content` child
+directory, creating that directory with service ownership and mode `0700`; the Docker-created
+volume root is only its trusted parent. Database rows contain identities and references, so a
+PostgreSQL-only backup cannot recover uploaded skills or runtime checkpoints. Follow the
+coordinated backup procedure in [backup-restore.md](backup-restore.md).
+
+`SKILL_MANAGER_ENABLED=false` remains the default. The volume and settings prepare persistence;
+they do not certify the currently pinned release or enable account takeover or runtime support.
+`SKILL_STORAGE_POLICY` accepts a JSON object: omitted fields retain the Server's versioned defaults.
+Sizes use bytes and history periods use days. For example,
+`SKILL_STORAGE_POLICY={"user_state_bytes":21474836480,"history_days":30,"archive_days":90}`.
+All Server replicas must share the same database, content filesystem and policy. Do not repoint
+the content root to an empty directory when recreating or upgrading a Server.
+
 Device control remains disabled in the example. Select either the default
 `community-local-trust` profile documented in `community-local-trust-release.md` or the stricter
 `apple-developer-id` profile documented in `device-control-release-evidence.md`, then set the

@@ -41,6 +41,7 @@ The project is designed for individuals and small teams that want Claude Code fi
 - `docs/agent-remote-architecture.md`
 - `docs/agent-remote-implementation-appendix.md`
 - `docs/native-runtime-design.md`
+- [Remote user skill manager design and CLI contract (draft, Chinese)](docs/skill-manager-design.zh-CN.md)
 - `docs/session-port-forwarding-design.md`
 - `docs/local-device-control-security-design.md`
 - `docs/local-device-control-binding-design.md`

@@ -1,0 +1,170 @@
+[
+  {
+    "name": "original-int64",
+    "input": {
+      "operation_id": "00000000-0000-0000-0000-000000000002",
+      "attempt_id": "00000000-0000-0000-0000-000000000005",
+      "task_id": "00000000-0000-0000-0000-000000000006",
+      "user_id": "00000000-0000-0000-0000-000000000001",
+      "account_id": "00000000-0000-0000-0000-000000000003",
+      "node_id": "00000000-0000-0000-0000-000000000004",
+      "checkpoint_id": "00000000-0000-0000-0000-000000000007",
+      "plan_digest": "1d17009daf88027f87c0b91135e97617d608f5c0dc7588006b973eb06617fb8d",
+      "tree_digest": "c483e2827f02a0f8b9c04155ae844eb9b104595c1977ab77567f2e9d95bbb94e",
+      "runtime_backend": "native",
+      "directory_epoch": 9007199254740995,
+      "plan": {
+        "version": 1,
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "operation_id": "00000000-0000-0000-0000-000000000002",
+        "generation": 9007199254740993,
+        "account_id": "00000000-0000-0000-0000-000000000003",
+        "node_id": "00000000-0000-0000-0000-000000000004",
+        "tool_type": "claude",
+        "runtime_backend": "native",
+        "sources": [
+          {
+            "source_id": "00000000-0000-0000-0000-000000000009",
+            "revision_id": "00000000-0000-0000-0000-00000000000a",
+            "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "learning",
+            "enabled": true,
+            "origin": "library",
+            "installation_epoch": 9007199254740997
+          },
+          {
+            "source_id": "00000000-0000-0000-0000-00000000000b",
+            "revision_id": "00000000-0000-0000-0000-00000000000c",
+            "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "name": "disabled",
+            "enabled": false,
+            "origin": "account_local"
+          }
+        ]
+      },
+      "manifest": {
+        "version": 1,
+        "entries": [
+          {
+            "path": "learning",
+            "kind": "directory",
+            "mode": 493,
+            "size": 0,
+            "sha256": "",
+            "target": "",
+            "content_kind": "",
+            "dependency": ""
+          },
+          {
+            "path": "learning/SKILL.md",
+            "kind": "file",
+            "mode": 420,
+            "size": 44,
+            "sha256": "f5f0d3c359d63e9b2bc9aa59cad52c4b47f3dbc7ccd575714ae757a2f0bb15c0",
+            "target": "",
+            "content_kind": "text",
+            "dependency": ""
+          }
+        ]
+      },
+      "items": [
+        {
+          "entry_name": "learning",
+          "state_id": "00000000-0000-0000-0000-00000000000d",
+          "state_epoch": 9007199254740999,
+          "checkpoint_id": "00000000-0000-0000-0000-00000000000e"
+        }
+      ]
+    },
+    "input_digest": "916ce734f0dd0fe12eec158fccc77bf762d85e9f7d9f7fb4fc513c7f90ee021f"
+  },
+  {
+    "name": "unicode-and-html",
+    "input": {
+      "operation_id": "00000000-0000-0000-0000-000000000002",
+      "attempt_id": "00000000-0000-0000-0000-000000000005",
+      "task_id": "00000000-0000-0000-0000-000000000006",
+      "user_id": "00000000-0000-0000-0000-000000000001",
+      "account_id": "00000000-0000-0000-0000-000000000003",
+      "node_id": "00000000-0000-0000-0000-000000000004",
+      "checkpoint_id": "00000000-0000-0000-0000-000000000007",
+      "plan_digest": "1d17009daf88027f87c0b91135e97617d608f5c0dc7588006b973eb06617fb8d",
+      "tree_digest": "b24c59d401aeb2d179b6073255e94f8a9b99707a1efba80b98f5595e6dfce50e",
+      "runtime_backend": "native",
+      "directory_epoch": 9007199254740995,
+      "plan": {
+        "version": 1,
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "operation_id": "00000000-0000-0000-0000-000000000002",
+        "generation": 9007199254740993,
+        "account_id": "00000000-0000-0000-0000-000000000003",
+        "node_id": "00000000-0000-0000-0000-000000000004",
+        "tool_type": "claude",
+        "runtime_backend": "native",
+        "sources": [
+          {
+            "source_id": "00000000-0000-0000-0000-000000000009",
+            "revision_id": "00000000-0000-0000-0000-00000000000a",
+            "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "learning",
+            "enabled": true,
+            "origin": "library",
+            "installation_epoch": 9007199254740997
+          },
+          {
+            "source_id": "00000000-0000-0000-0000-00000000000b",
+            "revision_id": "00000000-0000-0000-0000-00000000000c",
+            "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "name": "disabled",
+            "enabled": false,
+            "origin": "account_local"
+          }
+        ]
+      },
+      "manifest": {
+        "version": 1,
+        "entries": [
+          {
+            "path": "learning",
+            "kind": "directory",
+            "mode": 493,
+            "size": 0,
+            "sha256": "",
+            "target": "",
+            "content_kind": "",
+            "dependency": ""
+          },
+          {
+            "path": "learning/SKILL.md",
+            "kind": "file",
+            "mode": 420,
+            "size": 44,
+            "sha256": "f5f0d3c359d63e9b2bc9aa59cad52c4b47f3dbc7ccd575714ae757a2f0bb15c0",
+            "target": "",
+            "content_kind": "text",
+            "dependency": ""
+          },
+          {
+            "path": "\u5b66\u4e60<&>\u2028\u2029",
+            "kind": "symlink",
+            "mode": 511,
+            "size": 0,
+            "sha256": "",
+            "target": "learning/SKILL.md",
+            "content_kind": "",
+            "dependency": ""
+          }
+        ]
+      },
+      "items": [
+        {
+          "entry_name": "learning",
+          "state_id": "00000000-0000-0000-0000-00000000000d",
+          "state_epoch": 9007199254740999,
+          "checkpoint_id": "00000000-0000-0000-0000-00000000000e"
+        }
+      ]
+    },
+    "input_digest": "8b6ee7ba63c5e6e352d33a91559471bb6dcb796da4de4430d2e3ef290db9eeae"
+  }
+]

@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "valid": [
+    {
+      "name": "empty",
+      "tree_sha256": "8192e6dfba20e0ea8e062848fc7b2f1bb166a7a8b8d31917d6a864bf9f4deebe",
+      "manifest_json": "{\"version\":1,\"entries\":[]}"
+    },
+    {
+      "name": "text",
+      "tree_sha256": "222107eed8fc76933d86e7575420f83237c834a5daaa5e4274d6bfa903c93276",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"SKILL.md\",\"kind\":\"file\",\"mode\":420,\"size\":6,\"sha256\":\"5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "complete",
+      "tree_sha256": "ea3d759d13ddeac3a964dd8169d26e631ea4d534095b945286875cb65267d0fd",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"SKILL.md\",\"kind\":\"file\",\"mode\":420,\"size\":6,\"sha256\":\"5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"},{\"path\":\"assets\",\"kind\":\"directory\",\"mode\":493,\"size\":0,\"sha256\":\"\",\"target\":\"\",\"content_kind\":\"\",\"dependency\":\"\"},{\"path\":\"assets/logo.bin\",\"kind\":\"file\",\"mode\":420,\"size\":3,\"sha256\":\"2da45f2cd1f9c8e69a67abf7a6b26c282533d0a7686787a9533265418680d4d2\",\"target\":\"\",\"content_kind\":\"binary\",\"dependency\":\"\"},{\"path\":\"entry\",\"kind\":\"symlink\",\"mode\":511,\"size\":0,\"sha256\":\"\",\"target\":\"SKILL.md\",\"content_kind\":\"\",\"dependency\":\"\"},{\"path\":\"python\",\"kind\":\"runtime_link\",\"mode\":511,\"size\":0,\"sha256\":\"\",\"target\":\"/usr/bin/python3\",\"content_kind\":\"\",\"dependency\":\"python3\"},{\"path\":\"references\",\"kind\":\"directory\",\"mode\":493,\"size\":0,\"sha256\":\"\",\"target\":\"\",\"content_kind\":\"\",\"dependency\":\"\"},{\"path\":\"references/\\u8bf4\\u660e.md\",\"kind\":\"file\",\"mode\":420,\"size\":13,\"sha256\":\"99c844ac235d660977744f34d070a7db1f4d69a6463b92c1abedfd75043d2161\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "absolute_path",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"/secret\",\"kind\":\"file\",\"mode\":420,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "parent_escape",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"../secret\",\"kind\":\"file\",\"mode\":420,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "missing_directory",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"a/b\",\"kind\":\"file\",\"mode\":420,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "duplicate",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"a\",\"kind\":\"file\",\"mode\":420,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"},{\"path\":\"a\",\"kind\":\"file\",\"mode\":420,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "boolean_version",
+      "manifest_json": "{\"version\":true,\"entries\":[]}"
+    },
+    {
+      "name": "boolean_mode",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"a\",\"kind\":\"file\",\"mode\":true,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "null_mode",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"a\",\"kind\":\"file\",\"mode\":null,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "null_entries",
+      "manifest_json": "{\"version\":1,\"entries\":null}"
+    },
+    {
+      "name": "unknown_field",
+      "manifest_json": "{\"version\":1,\"entries\":[],\"owner\":\"untrusted\"}"
+    },
+    {
+      "name": "non_nfc",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"e\\u0301.md\",\"kind\":\"file\",\"mode\":420,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "surrogate",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"\\ud800\",\"kind\":\"file\",\"mode\":420,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"target\":\"\",\"content_kind\":\"text\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "link_escape",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"a\",\"kind\":\"symlink\",\"mode\":511,\"size\":0,\"sha256\":\"\",\"target\":\"../secret\",\"content_kind\":\"\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "link_cycle",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"a\",\"kind\":\"symlink\",\"mode\":511,\"size\":0,\"sha256\":\"\",\"target\":\"b\",\"content_kind\":\"\",\"dependency\":\"\"},{\"path\":\"b\",\"kind\":\"symlink\",\"mode\":511,\"size\":0,\"sha256\":\"\",\"target\":\"a\",\"content_kind\":\"\",\"dependency\":\"\"}]}"
+    },
+    {
+      "name": "runtime_dependency_missing",
+      "manifest_json": "{\"version\":1,\"entries\":[{\"path\":\"python\",\"kind\":\"runtime_link\",\"mode\":511,\"size\":0,\"sha256\":\"\",\"target\":\"/usr/bin/python3\",\"content_kind\":\"\",\"dependency\":\"\"}]}"
+    }
+  ],
+  "blobs": [
+    {
+      "sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+      "base64": "aGVsbG8K"
+    },
+    {
+      "sha256": "2da45f2cd1f9c8e69a67abf7a6b26c282533d0a7686787a9533265418680d4d2",
+      "base64": "AP8Q"
+    },
+    {
+      "sha256": "99c844ac235d660977744f34d070a7db1f4d69a6463b92c1abedfd75043d2161",
+      "base64": "5oqA6IO95Y+C6ICDCg=="
+    }
+  ]
+}

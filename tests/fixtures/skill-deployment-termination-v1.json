@@ -1,0 +1,94 @@
+[
+  {
+    "result": {
+      "intent": {
+        "version": 1,
+        "intent_id": "99999999-1111-4111-8111-111111111111",
+        "binding": {
+          "operation_id": "00000000-0000-0000-0000-000000000002",
+          "attempt_id": "00000000-0000-0000-0000-000000000005",
+          "task_id": "00000000-0000-0000-0000-000000000006",
+          "user_id": "00000000-0000-0000-0000-000000000001",
+          "account_id": "00000000-0000-0000-0000-000000000003",
+          "node_id": "00000000-0000-0000-0000-000000000004",
+          "checkpoint_id": "00000000-0000-0000-0000-000000000007",
+          "plan_digest": "1d17009daf88027f87c0b91135e97617d608f5c0dc7588006b973eb06617fb8d",
+          "tree_digest": "c483e2827f02a0f8b9c04155ae844eb9b104595c1977ab77567f2e9d95bbb94e",
+          "runtime_backend": "native"
+        },
+        "request": {
+          "lease_attempt": 3,
+          "error_code": "TRANSFER_FAILED"
+        },
+        "outcome": "failed",
+        "error_code": "TRANSFER_FAILED",
+        "retryable": true
+      },
+      "drain": {
+        "version": 1,
+        "binding": {
+          "operation_id": "00000000-0000-0000-0000-000000000002",
+          "attempt_id": "00000000-0000-0000-0000-000000000005",
+          "task_id": "00000000-0000-0000-0000-000000000006",
+          "user_id": "00000000-0000-0000-0000-000000000001",
+          "account_id": "00000000-0000-0000-0000-000000000003",
+          "node_id": "00000000-0000-0000-0000-000000000004",
+          "checkpoint_id": "00000000-0000-0000-0000-000000000007",
+          "plan_digest": "1d17009daf88027f87c0b91135e97617d608f5c0dc7588006b973eb06617fb8d",
+          "tree_digest": "c483e2827f02a0f8b9c04155ae844eb9b104595c1977ab77567f2e9d95bbb94e",
+          "runtime_backend": "native"
+        },
+        "helper_receipt_id": "99999999-2222-4222-8222-222222222222"
+      }
+    },
+    "accepted": true,
+    "current_lease_attempt": 4,
+    "task_status": "failed"
+  },
+  {
+    "result": {
+      "intent": {
+        "version": 1,
+        "intent_id": "99999999-1111-4111-8111-111111111111",
+        "binding": {
+          "operation_id": "00000000-0000-0000-0000-000000000002",
+          "attempt_id": "00000000-0000-0000-0000-000000000005",
+          "task_id": "00000000-0000-0000-0000-000000000006",
+          "user_id": "00000000-0000-0000-0000-000000000001",
+          "account_id": "00000000-0000-0000-0000-000000000003",
+          "node_id": "00000000-0000-0000-0000-000000000004",
+          "checkpoint_id": "00000000-0000-0000-0000-000000000007",
+          "plan_digest": "1d17009daf88027f87c0b91135e97617d608f5c0dc7588006b973eb06617fb8d",
+          "tree_digest": "c483e2827f02a0f8b9c04155ae844eb9b104595c1977ab77567f2e9d95bbb94e",
+          "runtime_backend": "native"
+        },
+        "request": {
+          "lease_attempt": 3,
+          "error_code": "TRANSFER_FAILED"
+        },
+        "outcome": "superseded",
+        "error_code": "OPERATION_SUPERSEDED",
+        "retryable": false
+      },
+      "drain": {
+        "version": 1,
+        "binding": {
+          "operation_id": "00000000-0000-0000-0000-000000000002",
+          "attempt_id": "00000000-0000-0000-0000-000000000005",
+          "task_id": "00000000-0000-0000-0000-000000000006",
+          "user_id": "00000000-0000-0000-0000-000000000001",
+          "account_id": "00000000-0000-0000-0000-000000000003",
+          "node_id": "00000000-0000-0000-0000-000000000004",
+          "checkpoint_id": "00000000-0000-0000-0000-000000000007",
+          "plan_digest": "1d17009daf88027f87c0b91135e97617d608f5c0dc7588006b973eb06617fb8d",
+          "tree_digest": "c483e2827f02a0f8b9c04155ae844eb9b104595c1977ab77567f2e9d95bbb94e",
+          "runtime_backend": "native"
+        },
+        "helper_receipt_id": "99999999-2222-4222-8222-222222222222"
+      }
+    },
+    "accepted": true,
+    "current_lease_attempt": 4,
+    "task_status": "cancelled"
+  }
+]
