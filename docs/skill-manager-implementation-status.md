@@ -6,7 +6,7 @@ design, its commands, invariants, runtime backends, or acceptance cases.
 
 ## Production test repairs — 2026-09-27
 
-The follow-up composition selects Server **0.2.28** and Node **0.2.30**, retaining CLI **0.2.32**,
+The follow-up composition selects Server **0.2.28**, Node **0.2.30** and CLI **0.2.33**,
 Admin Web/Device **0.2.15** and Ego Browser **0.1.19**. Exact source identities belong to
 [the release manifest](../release-manifest.json). See [production findings](skill-production-troubleshooting.md).
 
@@ -17,7 +17,11 @@ Upload filesystem failures return a structured storage error. Existing CLI 0.2.3
 against that new HTTP response. Empty unsupported Node reports remain compatible with the isolated
 lifecycle fixtures; they are not substituted for real supported reports in production.
 
-Final local Server gates passed **1864 tests, 104 skips**, at **91.50%** coverage. Node full local
+Final local Server gates passed **1865 tests, 104 skips**, at **91.50%** coverage. Server CI
+`36326613606` passed **1878 tests, 91 skips**, at **92.51%** coverage after fixing test metadata
+isolation and synchronization. CLI 0.2.33 updates its embedded Node dependency from 0.2.29 to
+0.2.30; distribution CI and release gates now check component-owned dependency manifests.
+Node full local
 gates and Linux amd64 compilation/vet passed; its published archive checksum, version and default-off
 configuration were verified. No production configuration was changed in this repair phase.
 R46 genuine Docker Sandbox and R49 actual model discovery/learning/inheritance remain open;

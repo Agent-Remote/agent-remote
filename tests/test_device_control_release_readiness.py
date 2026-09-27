@@ -122,6 +122,65 @@ def initialize_workspace(workspace: Path) -> Path:
     }
     for name in REPOSITORIES:
         initialize_repository(workspace / name, name, versions[name])
+    browser = browser_component(
+        versions["agent-remote-ego-browser"],
+        commit(workspace / "agent-remote-ego-browser"),
+    )
+    dependency_documents = {
+        "agent-remote-cli": {
+            "schema_version": 1,
+            "node": {
+                "repository": "Agent-Remote/agent-remote-node",
+                "version": versions["agent-remote-node"],
+                "release_workflow": "release.yml",
+            },
+            "ego_browser_bridge": {
+                **{
+                    field: browser[field]
+                    for field in (
+                        "repository",
+                        "version",
+                        "protocol_version",
+                        "profile_id",
+                        "credential_profile",
+                        "signer_certificate_sha256",
+                    )
+                },
+                "bootstrap": {"commit": browser["commit"]},
+            },
+        },
+        "agent-remote-node": {
+            "schema_version": 4,
+            "device_proxy": {
+                "repository": "Agent-Remote/agent-remote-device",
+                "version": versions["agent-remote-device"],
+                "commit": commit(workspace / "agent-remote-device"),
+                "release_workflow": "release.yml",
+            },
+            "ego_browser_wrapper": {
+                field: browser[field]
+                for field in (
+                    "repository",
+                    "version",
+                    "protocol_version",
+                    "release_workflow",
+                )
+            },
+        },
+    }
+    for name, document in dependency_documents.items():
+        path = workspace / name
+        write(path / "release-dependencies.json", json.dumps(document))
+        subprocess.run(["git", "-C", str(path), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(path), "commit", "--amend", "-qm", "release fixture"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(path), "tag", "-f", f"v{versions[name]}"],
+            check=True,
+            capture_output=True,
+        )
     manifest = workspace / "agent-remote" / "release-manifest.json"
     write(
         manifest,
@@ -300,6 +359,79 @@ def test_release_train_reports_version_dirty_origin_and_tag_failures() -> None:
         assert "repository has no commit at HEAD" in errors
 
 
+def test_release_train_rejects_stale_component_owned_dependency() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        workspace = Path(temporary)
+        manifest = initialize_workspace(workspace)
+        cli = workspace / "agent-remote-cli"
+        dependencies = cli / "release-dependencies.json"
+        document = json.loads(dependencies.read_text())
+        document["node"]["version"] = "2.3.3"
+        write(dependencies, json.dumps(document))
+        subprocess.run(["git", "-C", str(cli), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(cli), "commit", "--amend", "-qm", "stale dependency"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(cli), "tag", "-f", "v3.4.5"],
+            check=True,
+            capture_output=True,
+        )
+        value = json.loads(manifest.read_text())
+        value["components"]["agent-remote-cli"]["commit"] = commit(cli)
+        write(manifest, json.dumps(value))
+        root = workspace / "agent-remote"
+        subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "commit",
+                "--amend",
+                "-qm",
+                "matching component pin",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(root), "tag", "-f", "v9.0.0"],
+            check=True,
+            capture_output=True,
+        )
+        result = run_check(workspace, manifest)
+        inventory = json.loads(result.stdout)
+        assert result.returncode == 1
+        assert len(inventory["errors"]) == 1, inventory["errors"]
+        assert (
+            "node.version declares '2.3.3', expected '2.3.4'" in inventory["errors"][0]
+        )
+
+
+def test_release_train_rejects_wrong_device_commit_and_missing_dependencies() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        workspace = Path(temporary)
+        manifest = initialize_workspace(workspace)
+        dependencies = workspace / "agent-remote-node" / "release-dependencies.json"
+        document = json.loads(dependencies.read_text())
+        document["device_proxy"]["commit"] = "0" * 40
+        write(dependencies, json.dumps(document))
+        result = run_check(workspace, manifest)
+        assert result.returncode == 1
+        assert "device_proxy.commit declares" in "\n".join(
+            json.loads(result.stdout)["errors"]
+        )
+        dependencies.unlink()
+        result = run_check(workspace, manifest)
+        assert result.returncode == 1
+        assert "cannot validate release-dependencies.json" in "\n".join(
+            json.loads(result.stdout)["errors"]
+        )
+
+
 if __name__ == "__main__":
     test_release_train_accepts_only_exact_clean_tagged_repositories()
     test_release_train_reports_version_dirty_origin_and_tag_failures()
+    test_release_train_rejects_stale_component_owned_dependency()
+    test_release_train_rejects_wrong_device_commit_and_missing_dependencies()

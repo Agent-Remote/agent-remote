@@ -5,6 +5,16 @@ from pathlib import Path
 release = Path(".github/workflows/release.yml").read_text(encoding="utf-8")
 prepare = Path(".github/workflows/prepare-release.yml").read_text(encoding="utf-8")
 ci = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+for fragment in (
+    "scripts/release_dependencies.py --manifest release-manifest.json",
+    "ref: ${{ steps.dependency-sources.outputs.cli }}",
+    "ref: ${{ steps.dependency-sources.outputs.node }}",
+):
+    if fragment not in ci:
+        raise SystemExit(f"component-owned dependency CI gate is missing: {fragment}")
+readiness = Path("scripts/check-device-control-release-readiness.py").read_text()
+if "dependency_errors(paths, manifest_components)" not in readiness:
+    raise SystemExit("final release readiness must check component-owned dependencies")
 evidence = Path(".github/workflows/device-control-release-evidence.yml").read_text(
     encoding="utf-8"
 )

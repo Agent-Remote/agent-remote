@@ -86,6 +86,28 @@ jobs:
         run: python3 tests/test_collect_device_control_external_gates.py
       - name: Test certified composition readiness verifier
         run: python3 tests/test_device_control_release_readiness.py
+      - name: Resolve component dependency sources
+        id: dependency-sources
+        run: |
+          echo "cli=$(jq -er '.components["agent-remote-cli"].commit' release-manifest.json)" >> "$GITHUB_OUTPUT"
+          echo "node=$(jq -er '.components["agent-remote-node"].commit' release-manifest.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-cli
+          ref: ${{ steps.dependency-sources.outputs.cli }}
+          path: .dependencies/agent-remote-cli
+          persist-credentials: false
+      - uses: actions/checkout@v7.0.0
+        with:
+          repository: Agent-Remote/agent-remote-node
+          ref: ${{ steps.dependency-sources.outputs.node }}
+          path: .dependencies/agent-remote-node
+          persist-credentials: false
+      - name: Verify component-owned release dependencies
+        run: |
+          python3 scripts/release_dependencies.py --manifest release-manifest.json \
+            --cli-repository .dependencies/agent-remote-cli \
+            --node-repository .dependencies/agent-remote-node
       - name: Test component composition updater
         run: python3 tests/test_update_release_component.py
       - name: Test ego-browser release manifest contract

@@ -11,6 +11,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+from release_dependencies import dependency_errors
 from release_manifest import COMPONENTS, load_release_manifest
 
 REPOSITORIES = (
@@ -336,6 +337,8 @@ def main() -> int:
         if name != "agent-remote":
             result["manifest"] = components[name]
         errors.extend(repository_errors)
+    if manifest_value["schema_version"] >= 4:
+        errors.extend(dependency_errors(paths, manifest_components))
     inventory["repositories"] = repositories
     inventory["ready"] = not errors
     inventory["errors"] = errors

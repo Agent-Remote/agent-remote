@@ -8,6 +8,7 @@ SCRIPT = Path("scripts/update-release-component.py").resolve()
 EXPORT_SCRIPT = Path("scripts/export-release-manifest.py").resolve()
 SOURCE_MANIFEST = Path("release-manifest.json").resolve()
 SOURCE_ENVIRONMENT = Path("deploy/compose/.env.device-test").resolve()
+SOURCE_COMPOSE = Path("deploy/compose/.env.example").resolve()
 
 
 def test_updates_only_selected_component_and_derived_test_version() -> None:
@@ -15,8 +16,10 @@ def test_updates_only_selected_component_and_derived_test_version() -> None:
         root = Path(temporary)
         manifest = root / "release-manifest.json"
         environment = root / ".env.device-test"
+        compose = root / ".env.example"
         manifest.write_bytes(SOURCE_MANIFEST.read_bytes())
         environment.write_bytes(SOURCE_ENVIRONMENT.read_bytes())
+        compose.write_bytes(SOURCE_COMPOSE.read_bytes())
         before = json.loads(manifest.read_text(encoding="utf-8"))
 
         subprocess.run(
@@ -30,6 +33,8 @@ def test_updates_only_selected_component_and_derived_test_version() -> None:
                 str(manifest),
                 "--test-environment",
                 str(environment),
+                "--compose-environment",
+                str(compose),
             ],
             check=True,
         )
@@ -42,8 +47,15 @@ def test_updates_only_selected_component_and_derived_test_version() -> None:
             after["components"]["agent-remote-server"]["release_workflow"]
             == before["components"]["agent-remote-server"]["release_workflow"]
         )
-        assert after["components"]["agent-remote-node"] == before["components"]["agent-remote-node"]
+        assert (
+            after["components"]["agent-remote-node"]
+            == before["components"]["agent-remote-node"]
+        )
         assert "SERVER_VERSION=1.4.2" in environment.read_text(encoding="utf-8")
+        assert (
+            "SERVER_IMAGE=ghcr.io/agent-remote/agent-remote-server:1.4.2"
+            in compose.read_text()
+        )
 
 
 def test_rejects_unversioned_or_ambiguous_component_identity() -> None:
@@ -137,8 +149,22 @@ def test_rejects_browser_pin_without_verified_promotion() -> None:
         assert manifest.read_bytes() == before
 
 
+def test_compose_image_defaults_match_composition() -> None:
+    components = json.loads(SOURCE_MANIFEST.read_text())["components"]
+    compose = SOURCE_COMPOSE.read_text()
+    for variable, name in (
+        ("SERVER_IMAGE", "agent-remote-server"),
+        ("ADMIN_WEB_IMAGE", "agent-remote-admin-web"),
+    ):
+        expected = (
+            f"{variable}=ghcr.io/agent-remote/{name}:{components[name]['version']}"
+        )
+        assert expected in compose.splitlines(), expected
+
+
 if __name__ == "__main__":
     test_updates_only_selected_component_and_derived_test_version()
     test_rejects_unversioned_or_ambiguous_component_identity()
     test_exports_independent_component_versions_for_github_actions()
     test_rejects_browser_pin_without_verified_promotion()
+    test_compose_image_defaults_match_composition()

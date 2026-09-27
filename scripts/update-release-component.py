@@ -57,8 +57,11 @@ def main() -> None:
         "--release-workflow",
         help="Signer workflow filename; retain the current identity when omitted",
     )
+    parser.add_argument("--manifest", type=Path, default=Path("release-manifest.json"))
     parser.add_argument(
-        "--manifest", type=Path, default=Path("release-manifest.json")
+        "--compose-environment",
+        type=Path,
+        default=Path("deploy/compose/.env.example"),
     )
     parser.add_argument(
         "--test-environment",
@@ -95,8 +98,18 @@ def main() -> None:
 
     if args.component == "agent-remote-server":
         replace_line(args.test_environment, "SERVER_VERSION", args.version)
+        replace_line(
+            args.compose_environment,
+            "SERVER_IMAGE",
+            f"ghcr.io/agent-remote/agent-remote-server:{args.version}",
+        )
     elif args.component == "agent-remote-admin-web":
         replace_line(args.test_environment, "ADMIN_WEB_VERSION", args.version)
+        replace_line(
+            args.compose_environment,
+            "ADMIN_WEB_IMAGE",
+            f"ghcr.io/agent-remote/agent-remote-admin-web:{args.version}",
+        )
 
     load_release_manifest(args.manifest)
 
