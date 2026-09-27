@@ -2,6 +2,12 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.42 - 2026-09-27
+
+- Introduce the managed Skill lifecycle across Server 0.2.27, Node 0.2.29 and CLI 0.2.32, with immutable revisions, scoped rules, session state, exports, retention and explicit backend recovery.
+- Add persistent Server Skill storage to the deployment bundle and document coordinated database/content backup and restore requirements.
+- Publish the design, wire contracts and requirement/evidence audits. Remaining real Linux, genuine Docker Sandbox and actual model acceptance are explicitly deferred until after release with user assistance; this release does not certify those tests as passed.
+
 ## v0.2.41 - 2026-09-21
 
 - chore(release): certify cli 0.2.30 diagnostic fixes (b804a9e)

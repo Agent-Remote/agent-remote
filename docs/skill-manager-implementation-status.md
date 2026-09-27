@@ -9230,3 +9230,103 @@ historical; skipped or deferred checks are not passing evidence. R46/R49 and act
 remain pending. Standard repository hooks, unit/contract checks and release supply-chain gates
 remain required. Planned independent versions are Node 0.2.29, Server 0.2.27, CLI 0.2.31 and
 deployment bundle 0.2.42. Release does not certify completion of the full design acceptance.
+
+### Release execution checkpoint — 2026-09-27
+
+The user subsequently required commits pushed to `main`, publication through each repository's
+`prepare-release` Action, and verification that all inter-repository dependencies select the latest
+compatible published versions. No direct Node tag push reached origin; the local unpublished tag
+was removed before switching to the requested workflow.
+
+Node 0.2.29 was published successfully through prepare run `36294302607` and release run
+`36294356971`, at `b835e7d7c976cf541b7707e25e755938af975839`. Its release includes 23 assets.
+Unprivileged Linux contract tests now assert rejection of non-root-owned fixtures, while root
+success-path coverage remains in the dedicated runtime acceptance runner. Per the user's deferred
+acceptance decision, the new Skill copy/config-import/mount/systemd CI runners moved to manually
+triggered `skill-runtime-acceptance.yml`. The preceding hosted mount failure (`bwrap: setting up uid
+map: Permission denied`) is retained as failed environment evidence. Node main CI `36294568154`
+passes; this does not turn deferred real-environment checks into acceptance.
+
+CLI prepare run `36294926738` created 0.2.31, but its release run `36295054044` was cancelled before
+publication after Windows CI found platform-specific mutability and main-stack overflow issues.
+The tag is preserved. Independent fixes scope Unix directory-builder mutability and heap-pin the
+large command futures; a size regression reproduced 150464 bytes before the latter fix and passes
+its 128 KiB bound afterward. Final CLI release is planned as 0.2.32, still pinned to Node 0.2.29.
+Linux/macOS CI and three-platform installer smoke checks passed before the stack correction; final
+Windows and complete release verification remain pending at this checkpoint.
+
+Server source commit `1c24f42` passed its complete pre-commit gate: 1857 passed, 104 skipped,
+83.02% coverage in 1375.65 seconds. The first pre-push repeat had a two-second body-wait timeout
+and a start-confirmation 409 in short-lease fixtures; its result is not passing evidence. The two
+affected modules subsequently passed (37 passed, 5 skipped), and the complete pre-push repeat is
+running. No check or production lease validation was bypassed.
+
+Admin Web 0.2.15, Device 0.2.15 and Ego Browser 0.1.19 remain their repositories' latest published
+versions and match the unchanged dependency identities. Deployment bundle 0.2.42 remains pending
+until final Server and CLI tags, immutable commits and release assets are available. The complete
+design acceptance remains unfinished; genuine Sandbox and user-assisted model/runtime acceptance
+are deferred, not certified by these release actions.
+
+### Release execution follow-up — Server workflow duration
+
+CLI 0.2.32 prepare `36309090170`, release `36309223703`, and final three-platform CI
+`36308835232` all passed. Its immutable source is `0f51c844832cfcaa0d878607b5456dd3e0d1b90e`.
+The 29-asset release is published; its macOS ARM64 archive checksum, exact-tag GitHub provenance,
+version output and Skill/recovery help passed artifact checks. Node's Linux ARM64 glibc archive
+checksum and exact-tag provenance passed, with internal versions Node 0.2.29, Device 0.2.15 and
+Ego Browser 0.1.19 matching the pinned composition.
+
+Server `1c24f42c52370223b50fa1cb0985ced1a75a0c29` reached remote main after two further complete
+passing gates (1857 passed, 104 skipped, 83.02% coverage). The first upload disconnected after its
+passing gate; a later HTTPS push with `Connection: close` and HTTP/1.1 succeeded. No hook was skipped.
+Cloud CI `36310470086` and prepare `36310537137` were cancelled by their 15-minute job limit; CI
+had reached only 32%. The check annotation explicitly reports `The job has exceeded the maximum
+execution time of 15m0s`. A workflow-only follow-up raises both job budgets to 90 minutes while
+retaining every test and check. Server 0.2.27 and deployment 0.2.42 are still pending; no complete
+Server cloud test result or Server 0.2.27 publication is claimed at this checkpoint.
+
+### Check-duration optimization — 2026-09-27
+
+At the user's request, test speed was optimized without removing tests, lowering coverage gates,
+or bypassing hooks. Node commit `3d7da54` reuses Go's content-addressed build cache for real
+installer package checks, runs full vet once, and isolates protocol probes from the host Docker
+daemon. Its complete pre-push gate took 23.89 seconds and CI `36314643609` passed.
+CLI commit `d4368fa` uses pinned nextest 0.9.146 across test binaries with eight isolated processes,
+retains Cargo doc tests, and keeps a complete four-thread Cargo fallback. Its full commit gate
+passed 608 tests in 108.95 seconds. These are test/CI-only follow-ups to published Node 0.2.29
+and CLI 0.2.32; the deployment manifest continues to pin their immutable published tag commits.
+
+The first Server optimization run passed 1860 tests with 104 deferred/unavailable checks skipped,
+using four workers and independent SQLite copies of an empty schema. It took 536.94 seconds
+for pytest, compared with 1061.90 seconds immediately before optimization. Final validation of
+CPU-aware workers (maximum eight) and Python 3.13 system-monitoring coverage is pending.
+
+Final Server optimization commit `5b048cb` passed all 1860 tests (104 skipped) in 232.20 seconds;
+the complete hook took 240.32 seconds. Source scope remains 25584 statements and the gate remains
+70%. System-monitoring coverage reports 91.48%. A controlled comparison on the same seven HTTP
+tests found that the old C tracer misses coroutine continuation lines after SQLAlchemy awaits:
+for example, successful content uploads necessarily execute `SkillContentService.begin`'s row
+creation and return, but those lines were absent from C-tracer coverage and present with system
+monitoring. A separate 12-test direct async service comparison had no extra executed lines under
+system monitoring (only one nondeterministic line fewer). The higher percentage is not evidence
+of newly added behavior coverage, and is not compared numerically with the old tracer as such.
+
+CLI follow-up `68bacc4` separates child-process startup from the interruption deadline: startup
+readiness may wait up to ten seconds under concurrent process load, but Ctrl+C must still exit
+within the original three seconds without replaying creation. The complete gate passed again
+in 103.72 seconds. The preceding pre-push failure is retained as evidence, not treated as passed.
+
+The final Server pre-push repeat also passed (1860 passed, 104 skipped, 91.48% coverage), with
+pytest taking 198.40 seconds and the entire push taking 207.82 seconds. Main now contains
+`5b048cbf412eaf20fafaf7ec33105c560b67eb13`; prepare-release `36315594046` is preparing 0.2.27.
+CLI main now contains `68bacc4d3b539deaf7c549a003a99d6f76f1dded`; optimized CI `36315366122`
+has passed Ubuntu coverage and Windows checks, with macOS still pending at this checkpoint.
+
+Optimized CLI CI `36315366122` completed successfully on Ubuntu, macOS and Windows, and installer
+smoke `36315366096` passed. This confirms the runner and interruption changes across all supported
+CI platforms; it does not replace the deferred real Skill runtime/model acceptance.
+
+Server prepare `36315594046` completed successfully on four hosted workers: 1858 passed,
+106 platform/deferred checks skipped in 499.92 seconds. It created immutable tag 0.2.27 at
+`40e9407032de7fe50b32ca1ddd8821c397189172` and dispatched release `36316080787`. The deployment
+manifest now selects this exact Server source alongside published Node 0.2.29 and CLI 0.2.32.
