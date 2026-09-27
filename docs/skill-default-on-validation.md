@@ -48,3 +48,11 @@ The unbound account correctly reported `stored` with `deploy_on_first_use=true`.
 configuration and content, not actual Node deployment. Real bound-account takeover, Claude skill
 discovery/learning and next-session inheritance remain separate acceptance work. Docker Sandbox
 managed Skill support is not claimed.
+
+## Repository checks
+
+Node full gates passed at 63.1% coverage. Server full gates passed with 1868 tests, 104 skips and
+91.50% coverage; its explicit-disabled admission test now sets false instead of assuming the former
+default. CLI full local gates passed all 608 tests. Its three-platform CI passed after the macOS
+blocked-output cancellation test timed out once, then passed both isolated local verification and
+an unchanged failed-job rerun; no threshold or product logic was modified for that timing event.

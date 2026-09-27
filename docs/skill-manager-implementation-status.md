@@ -6,6 +6,10 @@ design, its commands, invariants, runtime backends, or acceptance cases.
 
 ## Installation defaults — 2026-09-27
 
+The default-on composition selects Server **0.2.29**, Node **0.2.31**, CLI **0.2.34**,
+Admin Web/Device **0.2.15** and Ego Browser **0.1.19**. CLI's own dependency file now pins Node
+0.2.31; the composition records the exact release commits and Server image tag.
+
 Skill management is a default-on base feature in Server settings, deployment templates, Node
 configuration and fresh installer configuration. Explicit false overrides survive upgrades; old
 installer-generated false values require a one-time intentional migration. Missing Node fields
