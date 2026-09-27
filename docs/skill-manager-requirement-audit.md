@@ -17,6 +17,13 @@ The user authorized release before the remaining real Linux, genuine Docker Sand
 model acceptance, to be completed after release with their assistance. The pending acceptance
 boundaries below remain pending; publication is not additional acceptance evidence.
 
+Deployment bundle **0.2.42** and Server **0.2.27**, Node **0.2.29**, CLI **0.2.32** are now
+published through their prepare/release Actions. Exact component commits, supply-chain checks and
+current CI results are recorded at the top of [implementation status](skill-manager-implementation-status.md).
+R46/R49 and each row's real-runtime boundary remain open; successful publication and faster checks
+do not complete those requirements. Remaining real-environment runs await the user's agreed
+post-release assistance, rather than another automatic acceptance attempt.
+
 ## Identity, rules and commands
 
 | ID / design | Required behavior | Executable contract / evidence | Acceptance boundary |

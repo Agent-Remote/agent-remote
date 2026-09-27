@@ -4,7 +4,39 @@ The complete contract is [the reviewed design](skill-manager-design.zh-CN.md).
 This tracker records implementation evidence; a completed row cannot substitute for the full
 design, its commands, invariants, runtime backends, or acceptance cases.
 
-All four repositories use `feature/skill-manager`. No release or deployment is implied.
+## Current delivery status — 2026-09-27
+
+Implementation and check-duration improvements have been committed and pushed to `main`.
+The published deployment bundle is **0.2.42**, selecting Server **0.2.27**, Node **0.2.29**,
+CLI **0.2.32**, Admin Web/Device **0.2.15**, and Ego Browser **0.1.19**. Component identities are
+fixed in [the release manifest](../release-manifest.json); test-only follow-up commits on Node
+and CLI main do not replace the immutable published source identities.
+
+- [Deployment release 36316299879](https://github.com/Agent-Remote/agent-remote/actions/runs/36316299879)
+  passed tag compatibility, component supply-chain verification and bundle publication.
+- [Server CI 36315567738](https://github.com/Agent-Remote/agent-remote-server/actions/runs/36315567738)
+  passed 1873 tests, with 91 skipped, and 92.50% line coverage in 650.38 seconds of pytest time.
+- [Node CI 36314643609](https://github.com/Agent-Remote/agent-remote-node/actions/runs/36314643609)
+  and [three-platform CLI CI 36315366122](https://github.com/Agent-Remote/agent-remote-cli/actions/runs/36315366122)
+  passed. Local complete gates measured approximately 24 seconds, 104 seconds and 208 seconds
+  for Node, CLI and Server respectively; required test scope and coverage thresholds remain.
+
+The downloaded deployment archive matches the manifest exactly, and its checksum and exact-tag
+provenance passed verification. Server release metadata, checksums and image provenance also passed.
+Publishing these artifacts does not deploy a live service or complete the entire design acceptance.
+`SKILL_MANAGER_ENABLED=false` remains the deployment default.
+
+**Still open:** R46 genuine Docker Sandbox capability/runtime acceptance and R49 real Claude
+enrollment, exact-session discovery, learning and inheritance, including independent accounts.
+Related full-runtime verification boundaries remain as recorded in the requirement audit.
+The user deferred remaining real Linux, Docker Sandbox and model acceptance until after release
+with their assistance. Do not start those runs, copy host credentials, or count synthetic/skipped
+tests as completing them. The overall goal remains unfinished.
+
+## Historical implementation evidence
+
+The initial work used `feature/skill-manager`. The table and chronological entries below retain
+their original milestone boundaries; their earlier pending/release statements are historical.
 The [section 11.1 audit](skill-manager-interleaving-audit.md) maps all 19 required interleavings to
 concrete tests and identifies remaining combined/runtime acceptance gaps.
 
