@@ -4,6 +4,20 @@ The complete contract is [the reviewed design](skill-manager-design.zh-CN.md).
 This tracker records implementation evidence; a completed row cannot substitute for the full
 design, its commands, invariants, runtime backends, or acceptance cases.
 
+## Installation defaults — 2026-09-27
+
+Skill management is a default-on base feature in Server settings, deployment templates, Node
+configuration and fresh installer configuration. Explicit false overrides survive upgrades; old
+installer-generated false values require a one-time intentional migration. Missing Node fields
+enable automatically. Native dependency, private storage and fresh heartbeat checks remain intact.
+The earlier default-off descriptions below record historical release behavior.
+
+The existing Node configuration was migrated and the actual Helper probe, Server heartbeat and
+CLI regression passed. [Validation record](skill-default-on-validation.md) documents exact versions,
+installation/update/rollback/rule checks, byte-verified downloads and cleanup. Temporary accounts
+were deleted, active libraries restored empty and original account configuration preserved. Normal
+archive receipts and generation remain. Real Claude learning/inheritance acceptance is still open.
+
 ## Production test repairs — 2026-09-27
 
 The follow-up composition selects Server **0.2.28**, Node **0.2.30** and CLI **0.2.33**,

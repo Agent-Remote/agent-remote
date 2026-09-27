@@ -3,6 +3,14 @@
 The 2026-09-27 test used CLI 0.2.32, Server 0.2.27 and Node 0.2.29. It confirmed library content and
 configuration behavior, but did not establish actual model execution or next-session inheritance.
 
+## Installation default correction
+
+Skill management now defaults to enabled in the Server application, Compose templates, Node
+configuration defaults and installer example. Explicit false overrides remain respected. The earlier
+Node installer wrote false, so existing installations need a one-time false-to-true migration;
+missing fields enable automatically. Native dependencies and storage probes remain mandatory.
+The findings below describe the earlier releases, including their former default-off policy.
+
 ## Missing content volume
 
 The deployed Compose file lacked the `skill-content` mount even though the release template already

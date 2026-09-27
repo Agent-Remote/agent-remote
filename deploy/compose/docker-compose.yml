@@ -44,7 +44,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-["https://agent-remote.example.com"]}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      SKILL_MANAGER_ENABLED: ${SKILL_MANAGER_ENABLED:-false}
+      SKILL_MANAGER_ENABLED: ${SKILL_MANAGER_ENABLED:-true}
       SKILL_STORAGE_ROOT: /var/lib/agent-remote/skill-storage/content
       SKILL_STORAGE_POLICY: "${SKILL_STORAGE_POLICY:-{}}"
       SKILL_DELETION_INTERVAL_SECONDS: ${SKILL_DELETION_INTERVAL_SECONDS:-30}

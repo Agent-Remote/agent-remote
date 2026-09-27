@@ -49,8 +49,9 @@ volume root is only its trusted parent. Database rows contain identities and ref
 PostgreSQL-only backup cannot recover uploaded skills or runtime checkpoints. Follow the
 coordinated backup procedure in [backup-restore.md](backup-restore.md).
 
-`SKILL_MANAGER_ENABLED=false` remains the default. The volume and settings prepare persistence;
-they do not certify the currently pinned release or enable account takeover or runtime support.
+`SKILL_MANAGER_ENABLED=true` is the installation and Server application default. An explicit
+`false` remains an administrative disable. Default enablement does not enroll accounts or bypass
+runtime capability checks.
 `SKILL_STORAGE_POLICY` accepts a JSON object: omitted fields retain the Server's versioned defaults.
 Sizes use bytes and history periods use days. For example,
 `SKILL_STORAGE_POLICY={"user_state_bytes":21474836480,"history_days":30,"archive_days":90}`.
@@ -63,13 +64,15 @@ the actual Compose file, then recreate the Server. Preserve the existing volume/
 A missing or unwritable volume now returns `CONTENT_STORAGE_UNAVAILABLE`; do not create an
 ephemeral container directory as a substitute for persistent storage.
 
-Node 0.2.29 does not advertise managed Skill support. Node 0.2.30 adds
-an explicit default-off boolean `skill_manager_enabled` to the Node config. After upgrading both
-Worker and Helper to a release containing that change, opt in and restart `agent-remote-runtime`
-and `agent-remote-node`. The Helper verifies Native prerequisites and its real private state volume;
-the heartbeat then exposes `skill_manager.native` and diagnostic `skill_manager_checks`. This is
-independent of the Server API switch and is not evidence of real model acceptance. Docker Sandbox
-remains unavailable for managed Skills. See the Node repository's `docs/skill-capability-rollout.md`.
+Node Skill management defaults to enabled on new installs and when `skill_manager_enabled` is
+absent. An explicit `false` remains disabled across upgrades. Older installers wrote `false`, so
+migrate that legacy default once by setting `skill_manager_enabled` to `true` in the deployed Node
+config, preserving all other fields. Upgrade both Worker and Helper and restart
+`agent-remote-runtime` and `agent-remote-node`. Also change an older explicit
+`SKILL_MANAGER_ENABLED=false` in the Server environment to `true` and recreate the Server.
+The Helper still verifies Native prerequisites and its private state volume; a fresh heartbeat
+exposes `skill_manager.native` and diagnostic `skill_manager_checks`. Docker Sandbox remains
+unavailable for managed Skills. See the Node repository's `docs/skill-capability-rollout.md`.
 
 Device control remains disabled in the example. Select either the default
 `community-local-trust` profile documented in `community-local-trust-release.md` or the stricter
