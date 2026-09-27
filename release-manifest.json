@@ -7,10 +7,10 @@
       "version": "0.2.15"
     },
     "agent-remote-cli": {
-      "commit": "0f51c844832cfcaa0d878607b5456dd3e0d1b90e",
+      "commit": "0b50b0d69e6c6f859f25168497f53388ec535ead",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-cli",
-      "version": "0.2.32"
+      "version": "0.2.33"
     },
     "agent-remote-device": {
       "commit": "f8212b85e3e8d2103ee177e3293705c38b6101b0",
