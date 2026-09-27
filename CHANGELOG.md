@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.44 - 2026-09-27
+
+- chore: align default-on skill release dependencies (82254cb)
+- fix: enable skill management in default deployments (0fad380)
+
 ## v0.2.43 - 2026-09-27
 
 - fix(release): pin cli 0.2.33 with node 0.2.30 dependency (b875a95)
