@@ -4,7 +4,26 @@ The complete contract is [the reviewed design](skill-manager-design.zh-CN.md).
 This tracker records implementation evidence; a completed row cannot substitute for the full
 design, its commands, invariants, runtime backends, or acceptance cases.
 
-## Current delivery status — 2026-09-27
+## Production test repairs — 2026-09-27
+
+The follow-up composition selects Server **0.2.28** and Node **0.2.30**, retaining CLI **0.2.32**,
+Admin Web/Device **0.2.15** and Ego Browser **0.1.19**. Exact source identities belong to
+[the release manifest](../release-manifest.json). See [production findings](skill-production-troubleshooting.md).
+
+The Node now has an explicit default-off Native Skill opt-in, a real private-volume/dependency
+probe and strict Helper-to-heartbeat forwarding. Server library mutations omit unchanged global
+targets while retaining explicit reapplication, disable/remove cleanup and unfinished attempts.
+Upload filesystem failures return a structured storage error. Existing CLI 0.2.32 was checked
+against that new HTTP response. Empty unsupported Node reports remain compatible with the isolated
+lifecycle fixtures; they are not substituted for real supported reports in production.
+
+Final local Server gates passed **1864 tests, 104 skips**, at **91.50%** coverage. Node full local
+gates and Linux amd64 compilation/vet passed; its published archive checksum, version and default-off
+configuration were verified. No production configuration was changed in this repair phase.
+R46 genuine Docker Sandbox and R49 actual model discovery/learning/inheritance remain open;
+the new opt-in is not evidence that those acceptance cases passed.
+
+## Earlier delivery status — 2026-09-27
 
 Implementation and check-duration improvements have been committed and pushed to `main`.
 The published deployment bundle is **0.2.42**, selecting Server **0.2.27**, Node **0.2.29**,

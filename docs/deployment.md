@@ -57,6 +57,20 @@ Sizes use bytes and history periods use days. For example,
 All Server replicas must share the same database, content filesystem and policy. Do not repoint
 the content root to an empty directory when recreating or upgrading a Server.
 
+For an existing deployment, pulling a new image alone does not update the deployed Compose file.
+Merge the `skill-content` service mount and top-level volume declaration from the new bundle into
+the actual Compose file, then recreate the Server. Preserve the existing volume/project identity.
+A missing or unwritable volume now returns `CONTENT_STORAGE_UNAVAILABLE`; do not create an
+ephemeral container directory as a substitute for persistent storage.
+
+Node 0.2.29 does not advertise managed Skill support. Node 0.2.30 adds
+an explicit default-off boolean `skill_manager_enabled` to the Node config. After upgrading both
+Worker and Helper to a release containing that change, opt in and restart `agent-remote-runtime`
+and `agent-remote-node`. The Helper verifies Native prerequisites and its real private state volume;
+the heartbeat then exposes `skill_manager.native` and diagnostic `skill_manager_checks`. This is
+independent of the Server API switch and is not evidence of real model acceptance. Docker Sandbox
+remains unavailable for managed Skills. See the Node repository's `docs/skill-capability-rollout.md`.
+
 Device control remains disabled in the example. Select either the default
 `community-local-trust` profile documented in `community-local-trust-release.md` or the stricter
 `apple-developer-id` profile documented in `device-control-release-evidence.md`, then set the
