@@ -2,7 +2,15 @@
 
 The complete contract is [the reviewed design](skill-manager-design.zh-CN.md).
 This tracker records implementation evidence; a completed row cannot substitute for the full
-design, its commands, invariants, runtime backends, or acceptance cases.
+design's in-scope commands, invariants, runtime backends, or acceptance cases.
+
+## Current acceptance scope — 2026-09-28
+
+The user removed Docker Sandbox from the acceptance plan. Native and real Claude acceptance remain
+in scope; Docker Sandbox is no longer a pending item or completion blocker. Its support is not
+certified. The [current acceptance plan](skill-acceptance-plan.md) defines remaining work and takes
+precedence over all historical Sandbox requirements and blocked/completion statements below.
+R46's common negotiation and unsupported-backend refusal requirements remain in scope; R49 remains open.
 
 ## Installation defaults — 2026-09-27
 

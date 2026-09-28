@@ -5,6 +5,11 @@ coverage audit, not a claim that the complete product or either runtime backend 
 The authoritative overall record remains [implementation status](skill-manager-implementation-status.md).
 Requirements outside §11.1 are mapped in the [design-wide audit](skill-manager-requirement-audit.md).
 
+As of the user's 2026-09-28 scope decision, Docker Sandbox is excluded from the
+[current acceptance plan](skill-acceptance-plan.md). Its unverified status in historical evidence
+below is not a pending acceptance item or completion blocker. Native/model interleavings and
+unsupported-backend refusal remain required.
+
 Server transaction tests exercise real persisted models, service transactions, uploads and manifest
 reads. Some seed stopped sessions instead of running a tool. CLI contract tests run the actual CLI
 against controlled HTTP responses. Node primitive tests and opt-in Linux/systemd/kernel tests each

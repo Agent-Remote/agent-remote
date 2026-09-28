@@ -49,6 +49,10 @@ configuration and content, not actual Node deployment. Real bound-account takeov
 discovery/learning and next-session inheritance remain separate acceptance work. Docker Sandbox
 managed Skill support is not claimed.
 
+On 2026-09-28 the user removed Docker Sandbox from the
+[acceptance plan](skill-acceptance-plan.md). It is no longer a pending item or completion blocker;
+the real Claude/Native acceptance boundaries above remain unchanged.
+
 ## Repository checks
 
 Node full gates passed at 63.1% coverage. Server full gates passed with 1868 tests, 104 skips and
