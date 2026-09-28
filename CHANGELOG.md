@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.46 - 2026-09-28
+
+- fix(release): align skill inventory recovery versions (4a20dc3)
+
 ## v0.2.45 - 2026-09-28
 
 - docs: record production skill acceptance and align release composition (f99495e)
