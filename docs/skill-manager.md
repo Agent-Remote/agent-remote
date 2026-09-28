@@ -1,7 +1,7 @@
 # Skill 使用与运维
 
 Skill 管理默认开启，统一管理用户技能库、账号规则和会话学习状态。当前运行验收范围为 Native；
-实际 Claude 调用及学习闭环的未完成项见[验收状态](skill-acceptance-plan.md)。
+实际 Claude 调用及学习闭环的范围与结果见[验收状态](skill-acceptance-plan.md)。
 开发约束见[跨仓库契约](skill-manager-wire-v1.md)，本页只保留日常操作。
 
 ## 配置与升级
