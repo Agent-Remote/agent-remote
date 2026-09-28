@@ -2,6 +2,12 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.45 - 2026-09-28
+
+- docs: record production skill acceptance and align release composition (f99495e)
+- docs: consolidate skill documentation and current acceptance (74acf0a)
+- docs: exclude docker sandbox from skill acceptance scope (74aee4d)
+
 ## v0.2.44 - 2026-09-27
 
 - chore: align default-on skill release dependencies (82254cb)
