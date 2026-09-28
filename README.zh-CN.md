@@ -39,7 +39,9 @@ agent-remote 是一套开源、自托管系统，用于在可信远程环境中�
 - `docs/agent-remote-architecture.md`
 - `docs/agent-remote-implementation-appendix.md`
 - `docs/native-runtime-design.md`
-- [远端用户级 Skill 管理器方案与命令契约（设计草案）](docs/skill-manager-design.zh-CN.md)
+- [Skill 使用与运维](docs/skill-manager.md)
+- [Skill 跨仓库契约](docs/skill-manager-wire-v1.md)
+- [Skill 验收状态](docs/skill-acceptance-plan.md)
 - `docs/session-port-forwarding-design.md`
 - `docs/local-device-control-security-design.md`
 - `docs/local-device-control-binding-design.md`

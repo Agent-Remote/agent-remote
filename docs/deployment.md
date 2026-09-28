@@ -72,7 +72,7 @@ config, preserving all other fields. Upgrade both Worker and Helper and restart
 `SKILL_MANAGER_ENABLED=false` in the Server environment to `true` and recreate the Server.
 The Helper still verifies Native prerequisites and its private state volume; a fresh heartbeat
 exposes `skill_manager.native` and diagnostic `skill_manager_checks`. Docker Sandbox remains
-unavailable for managed Skills. See the Node repository's `docs/skill-capability-rollout.md`.
+unavailable for managed Skills. See the [Node Skill reference](https://github.com/Agent-Remote/agent-remote-node/blob/main/docs/skill-manager.md).
 
 Device control remains disabled in the example. Select either the default
 `community-local-trust` profile documented in `community-local-trust-release.md` or the stricter
