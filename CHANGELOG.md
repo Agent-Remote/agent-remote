@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.47 - 2026-09-28
+
+- fix(release): pin skill reclamation fixes and record reacceptance (81a5e0e)
+
 ## v0.2.46 - 2026-09-28
 
 - fix(release): align skill inventory recovery versions (4a20dc3)
