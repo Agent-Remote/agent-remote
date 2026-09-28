@@ -47,6 +47,7 @@ Node 导出绑定原用户 token、设备、SSH key 和快照，原 Node 在线�
    配置 committed、部署 prepared、会话 ready 和模型实际 loaded 是独立事实。
 4. 部署仅凭原 attempt、task record 和未过期租约准备；成功通过专用回执确认。
    失败终止依次保存 Server 撤权、Helper 持久 drain、Server 终态。superseded/expired 不是已排空。
+   领取后账号不可用的 `ACCOUNT_NOT_AVAILABLE` 映射为既有 `AUTHORIZATION_DENIED` 撤权原因，不能无限重领。
    重试仅作用于原操作中已结束且可重试的失败目标，不重放成功目标。
 5. managed 启动不能落回 legacy 解码或结果缓存。启动意图先于执行持久化，原 spec/boot/unit/UID/invocation
    与当前租约必须一致。恢复只确认已提交的原回执；历史 ready 不能重新授权进程或 broker。
