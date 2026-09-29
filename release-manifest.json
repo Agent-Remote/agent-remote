@@ -71,10 +71,10 @@
       "version": "0.2.37"
     },
     "agent-remote-server": {
-      "commit": "52e90f34d514c693e375c6d77d82ea89d2f90ae9",
+      "commit": "c96a8bad20011dba175c9621c00e3bcfdba5a349",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-server",
-      "version": "0.2.29"
+      "version": "0.2.30"
     }
   },
   "distribution_version": "0.2.48",
