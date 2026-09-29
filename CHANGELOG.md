@@ -2,6 +2,12 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.49 - 2026-09-29
+
+- chore(release): pin server 0.2.30 in production composition (35b8cff)
+- docs(skills): complete production acceptance report (1aa2424)
+- docs(skills): record native production reacceptance (9555bb1)
+
 ## v0.2.48 - 2026-09-28
 
 - fix(release): pin verified account disablement recovery (a26d8f2)
