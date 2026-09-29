@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.50 - 2026-09-29
+
+- fix: pin session readiness and skill takeover fixes (441f4a2)
+
 ## v0.2.49 - 2026-09-29
 
 - chore(release): pin server 0.2.30 in production composition (35b8cff)
