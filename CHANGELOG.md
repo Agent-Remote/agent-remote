@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.51 - 2026-09-29
+
+- fix(skills): pin helper recovery and revocation regression release (378b178)
+
 ## v0.2.50 - 2026-09-29
 
 - fix: pin session readiness and skill takeover fixes (441f4a2)
