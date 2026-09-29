@@ -49,6 +49,8 @@ Node 导出绑定原用户 token、设备、SSH key 和快照，原 Node 在线�
    失败终止依次保存 Server 撤权、Helper 持久 drain、Server 终态。superseded/expired 不是已排空。
    领取后账号不可用的 `ACCOUNT_NOT_AVAILABLE` 映射为既有 `AUTHORIZATION_DENIED` 撤权原因，不能无限重领。
    重试仅作用于原操作中已结束且可重试的失败目标，不重放成功目标。
+   已受理的待部署尝试（含重试后继）遇到 Helper 能力暂缺时保留原计划等待，完整新鲜能力恢复后继续；
+   等待期间不得派发任务或伪造 ready，受理时即不支持的目标不会因此自动执行。
 5. managed 启动不能落回 legacy 解码或结果缓存。启动意图先于执行持久化，原 spec/boot/unit/UID/invocation
    与当前租约必须一致。恢复只确认已提交的原回执；历史 ready 不能重新授权进程或 broker。
 6. 冻结前证明原进程与整个 cgroup 停写。正常零退出、被迫终止和未知结果不可混淆。
