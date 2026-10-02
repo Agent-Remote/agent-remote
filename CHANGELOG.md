@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.52 - 2026-10-02
+
+- chore: pin cli release 0.2.42 (8e3b63b)
+- chore: pin latest component releases (3c8e3e1)
+
 ## v0.2.51 - 2026-09-29
 
 - fix(skills): pin helper recovery and revocation regression release (378b178)
