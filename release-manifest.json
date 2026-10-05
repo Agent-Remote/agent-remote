@@ -65,10 +65,10 @@
       "wrapper_version": "0.1.19"
     },
     "agent-remote-node": {
-      "commit": "6edd1a49191b8cccaad7d409939d168a1d3a486b",
+      "commit": "22549e6191aa342a3bcb8667972bfa30e817f7b9",
       "release_workflow": "release.yml",
       "repository": "Agent-Remote/agent-remote-node",
-      "version": "0.2.39"
+      "version": "0.2.40"
     },
     "agent-remote-server": {
       "commit": "2b612c4e2b21da05da376d86b30729a7bac4ea46",
