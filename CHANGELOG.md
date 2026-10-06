@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.60 - 2026-10-06
+
+- fix(release): align attachment directory access versions (21d69d4)
+
 ## v0.2.59 - 2026-10-06
 
 - fix(release): pin stable ssh attachment cli (a4257e3)
