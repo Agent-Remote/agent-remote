@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.57 - 2026-10-06
+
+- chore(release): pin cli 0.2.49 (cd21226)
+
 ## v0.2.56 - 2026-10-05
 
 - chore(release): pin node and cli 0.2.46 (11f25c9)
