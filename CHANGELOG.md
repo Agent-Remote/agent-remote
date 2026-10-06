@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.61 - 2026-10-06
+
+- chore(release): certify clipboard fixes across cli and admin (2252922)
+
 ## v0.2.60 - 2026-10-06
 
 - fix(release): align attachment directory access versions (21d69d4)
