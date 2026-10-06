@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.58 - 2026-10-06
+
+- fix(release): select cli v0.2.50 for reliable terminal detach (b735063)
+
 ## v0.2.57 - 2026-10-06
 
 - chore(release): pin cli 0.2.49 (cd21226)
