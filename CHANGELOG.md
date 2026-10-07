@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.63 - 2026-10-07
+
+- fix(release): certify session startup and native temporary storage fixes (a8ffa6f)
+
 ## v0.2.62 - 2026-10-07
 
 - chore(release): adopt agent-remote-cli v0.2.54 (1f16339)
