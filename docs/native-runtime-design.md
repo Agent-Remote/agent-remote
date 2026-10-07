@@ -98,7 +98,13 @@ Bubblewrap 为每个 Native session 创建独立的 mount、PID、IPC 和 UTS na
 - `MemoryHigh`、`MemoryMax`、`CPUQuota`、`TasksMax` 和 `LimitNOFILE`
 - `KillMode=control-group`
 
-默认资源策略为宿主保留至少 512 MiB 或总内存的 20%，单 session 默认 CPUQuota 不超过 200%，`TasksMax=512`，`LimitNOFILE=8192`，临时目录上限 1 GiB。具体值由管理员 policy 覆盖。
+默认资源策略为宿主保留至少 512 MiB 或总内存的 20%，单 session 默认 CPUQuota 不超过 200%，`TasksMax=512`，`LimitNOFILE=8192`。新会话的 `/tmp` 使用独立磁盘 ext4 临时文件系统，镜像上限默认 16 GiB，按需占用宿主磁盘，实际可用空间扣除文件系统元数据。
+
+管理员 policy 的 `temporary_storage=disk`、`temporary_size_bytes` 控制磁盘临时空间（64 MiB 至 16 GiB）。镜像位于 root 私有会话目录，运行时仅能访问以 `nosuid,nodev` 挂载、属主为运行身份的 0700 内容目录；启动保留宿主磁盘水位检查，停止先卸载再删除。受管保存清理还校验 loop 设备对应的原始镜像 inode。安装器检查 e2fsprogs 和 loop 设备依赖。
+
+管理后台提供存储类型和容量设置，Server 在节点创建、更新接口校验新增字段后保存并随任务下发，Node 再独立校验本地限制。这些选项仅作用于 Native；Docker Sandbox 的临时空间继续由其自身存储管理。
+
+`temporary_storage=tmpfs` 可显式选择旧内存临时目录，继续使用 `tmpfs_size_bytes`（最多 1 GiB）。缺少新字段的历史会话 spec 按旧 tmpfs 处理；升级不替换运行中会话的挂载，新建会话后生效。
 
 ## 4. Runtime Backend 抽象
 
