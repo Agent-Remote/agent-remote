@@ -2,6 +2,11 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.62 - 2026-10-07
+
+- chore(release): adopt agent-remote-cli v0.2.54 (1f16339)
+- test(contracts): support split cli architecture (8b58389)
+
 ## v0.2.61 - 2026-10-06
 
 - chore(release): certify clipboard fixes across cli and admin (2252922)
