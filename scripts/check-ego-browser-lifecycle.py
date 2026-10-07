@@ -171,7 +171,7 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "bridge_upgrade_always_selects_the_fixed_profile_bootstrap",
                 "BridgeInstallerSource::ManagedBootstrap",
             ),
@@ -314,7 +314,7 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "maps_missing_admission_split_to_a_stable_capability_error",
                 "error_code=server_capability_unavailable",
                 "next_action=repair",
@@ -392,7 +392,7 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "candidate_selection_fails_closed_without_tty_and_for_ambiguous_prefixes",
                 "error_code=confirmation_required",
                 "next_action=select_session",
@@ -410,26 +410,26 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
         (
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "local_handoff_target_uses_exact_generation_without_server_lookup",
                 '("binding-local".to_owned(), 9)',
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "lifecycle_target_fails_closed_without_tty_when_multiple_are_eligible",
                 "state=multiple_bindings",
                 "next_action=select_binding",
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "lifecycle_target_automatically_selects_the_only_eligible_binding",
                 'assert_eq!(selected.id, "binding-only");',
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "lifecycle_target_interactive_index_selection_is_strict_and_bounded",
                 'parse_lifecycle_binding_selection(" 2\\n", 3)',
                 'for invalid in ["", "0", "4", "two", "1 2"]',
@@ -458,7 +458,7 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "retained_release_device_client_rejects_links_and_unsafe_modes",
                 "managed_device_client_at_root(&root)",
                 "std::fs::hard_link(&client, &hard_link)",
@@ -574,7 +574,7 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
         (
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "existing_bridge_setup_selects_only_the_current_release_installer",
                 "BridgeInstallerSource::Installed(installer)",
             ),
@@ -659,19 +659,19 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
         (
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "trust_confirmation_round_trips_as_owner_only_state",
                 "assert_eq!(load_trust_confirmation(&paths).unwrap(), Some(confirmation));",
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "legacy_trust_confirmation_requires_the_exact_new_profile_tuple",
                 "assert!(!trust_confirmation_matches(",
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "trust_confirmation_rejects_uppercase_or_wrong_pin",
                 "load_trust_confirmation(&paths).is_err()",
             ),
@@ -682,13 +682,13 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
         (
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "candidate_selection_fails_closed_without_tty_and_for_ambiguous_prefixes",
                 "error_code=confirmation_required",
             ),
             evidence(
                 "agent-remote-cli",
-                "src/ego_browser.rs",
+                "tests/unit/src/ego_browser.rs",
                 "candidate_fingerprint_detects_requery_drift_before_claim",
                 "assert!(!candidate_matches_selection(&selected, &drifted));",
             ),
@@ -795,7 +795,7 @@ SECTION_10_EVIDENCE_MATRIX: tuple[tuple[str, tuple[EvidenceReference, ...]], ...
             ),
             evidence(
                 "agent-remote-cli",
-                "src/main.rs",
+                "tests/unit/src/app/mod.rs",
                 "json_error_projection_is_stable_and_secret_free",
                 '.contains("do-not-leak"));',
             ),
@@ -1204,12 +1204,28 @@ def validate_root_documents() -> None:
 
 
 def validate_cli(path: Path) -> None:
-    main = read_text(path / "src" / "main.rs")
+    # Newer CLI releases keep workflow orchestration under src/app/. Read the
+    # split sources as one contract surface, while retaining compatibility with
+    # older releases whose implementation lived in src/main.rs.
+    app_dir = path / "src" / "app"
+    if app_dir.is_dir():
+        main = "\n".join(
+            read_text(app_dir / name)
+            for name in ("entry.rs", "device_node.rs", "account.rs", "sync.rs", "support.rs")
+        )
+    else:
+        main = read_text(path / "src" / "main.rs")
     api = read_text(path / "src" / "api.rs")
     state = read_text(path / "src" / "node_install_state.rs")
     node_release = read_text(path / "src" / "node_release.rs")
     release_dependencies = read_json_object(path / "release-dependencies.json")
     ego = read_text(path / "src" / "ego_browser.rs")
+    # Unit implementations live outside src/ while retaining the parent
+    # module's private visibility; include them for symbol-based lifecycle
+    # evidence that historically read inline test modules.
+    unit_ego = path / "tests" / "unit" / "src" / "ego_browser.rs"
+    if unit_ego.is_file():
+        ego += "\n" + read_text(unit_ego)
     contracts = read_text(path / "tests" / "cli_contract.rs")
 
     require_fields(
