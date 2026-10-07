@@ -71,6 +71,13 @@ Bubblewrap 为每个 Native session 创建独立的 mount、PID、IPC 和 UTS na
 
 其他用户、其他账户、node token、runtime helper 状态、Docker socket、宿主 `/home` 和无关 `/var` 路径不可见。
 
+系统文件按明确清单只读挂载，包含 `/etc/hosts`、NSS 与服务/协议数据库、动态链接器缓存、
+Debian/Ubuntu alternatives、系统版本、MIME、终端数据和 CA 证书。OpenJDK 公共运行配置及 Maven
+启动配置也在清单中；Java 管理密码和 Maven 仓库凭据不自动继承。`passwd`、`group`、DNS resolver
+与时区继续使用会话专用文件。`/etc/mtab` 指向会话自己的 `/proc/self/mounts`，`/var/tmp` 复用
+受容量限制的会话 `/tmp`，`/var/run` 指向私有 `/run`。安装器显式安装 `netbase`、`media-types`
+和 `tzdata`。新增挂载在升级 Runtime Helper 后新建会话时生效，不修改运行中的 namespace。
+
 ### 3.3 网络
 
 每个 session 使用独立 network namespace 和 veth。nftables 默认策略：
