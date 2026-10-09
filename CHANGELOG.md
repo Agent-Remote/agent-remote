@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.65 - 2026-10-09
+
+- fix(release): adopt cli input latency fix (ee9b86d)
+
 ## v0.2.64 - 2026-10-07
 
 - fix(release): adopt complete native system filesystem mounts (a61389b)
