@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.66 - 2026-10-09
+
+- perf(release): adopt cli terminal input and scrolling improvements (5ba09d3)
+
 ## v0.2.65 - 2026-10-09
 
 - fix(release): adopt cli input latency fix (ee9b86d)
