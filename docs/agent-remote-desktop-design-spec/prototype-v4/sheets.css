@@ -1,0 +1,86 @@
+/* Control Center sheet (⌥S / drag up the breathing bar), operation pages and
+ * the confirm dialog. One page template serves all ~25 management pages. */
+.cc {
+  position: absolute; left: 50%; bottom: 0; width: min(1080px, calc(100vw - 48px)); height: min(74vh, 760px);
+  margin-left: calc(min(1080px, calc(100vw - 48px)) / -2);
+  background: var(--glass-dock);
+  backdrop-filter: blur(60px) saturate(220%); -webkit-backdrop-filter: blur(60px) saturate(220%);
+  border: 1px solid var(--border-hairline); border-bottom: 0;
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  box-shadow: var(--specular-inset), var(--shadow-elevated);
+  display: flex; flex-direction: column; overflow: hidden; will-change: transform;
+}
+.cc-grab { height: 22px; flex: none; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; }
+.cc-grab i { width: 40px; height: 5px; border-radius: 99px; background: var(--text-tertiary); opacity: .45; }
+.cc-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 0 28px 14px; }
+.cc-head h1 { font-size: 22px; line-height: 1.15; letter-spacing: -0.015em; font-weight: 700; }
+.cc-head .grow { flex: 1; }
+.cc-search { width: 260px; padding: 7px 14px; border-radius: var(--r-pill); border: 1px solid var(--border-hairline); background: var(--code-preview-bg); outline: none; font-size: 12.5px; user-select: text; }
+.cc-search:focus { border-color: var(--accent); }
+.seg { display: flex; gap: 2px; padding: 3px; border-radius: var(--r-pill); background: var(--pill-bg); border: 1px solid var(--border-hairline); }
+.seg button { border: 0; background: transparent; padding: 4px 11px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+.seg button.active { background: var(--bg-canvas); color: var(--text-primary); font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,.08), var(--specular-inset); }
+:root[data-theme="kawaii"] .seg button.active { background: linear-gradient(135deg, #FFF5F9 0%, #F0F9FF 100%); color: #EC4899; }
+.acct { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: var(--r-pill); background: var(--pill-bg); border: 1px solid var(--border-hairline); }
+.close-x { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-hairline); background: var(--pill-bg); cursor: pointer; color: var(--text-secondary); }
+
+/* Pages slide inside the sheet: grid ⇄ page (push/pop along x, mirrored). */
+.cc-viewport { position: relative; flex: 1; min-height: 0; }
+.cc-page { position: absolute; inset: 0; overflow-y: auto; padding: 4px 28px 28px; will-change: transform, opacity; }
+.cc-page::-webkit-scrollbar { width: 0; }
+.group { margin-bottom: 22px; }
+.group h3 { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-tertiary); margin: 0 4px 10px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px; }
+.tile {
+  position: relative; min-height: 86px; padding: 14px 16px; border-radius: 18px; cursor: pointer;
+  background: var(--glass-card); border: 1px solid var(--border-hairline); box-shadow: var(--specular-inset);
+  display: flex; flex-direction: column; justify-content: space-between; gap: 8px;
+  transition: background-color .12s ease-out, border-color .12s ease-out;
+}
+.tile:hover { background: var(--glass-card-hover); border-color: var(--sector-stroke-hover); }
+.tile.wide { grid-column: span 2; }
+.tile .t { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.tile .s { font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; }
+.tile .s.warn { color: var(--warning); } .tile .s.bad { color: var(--danger); } .tile .s.good { color: var(--success); }
+.tile .glyph { width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; background: var(--pill-bg); border: 1px solid var(--border-hairline); }
+
+/* ---- Operation page template: context → observation → review → stages → receipt ---- */
+.crumb { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.crumb .back { border: 0; background: transparent; color: var(--accent-ink); font-weight: 600; font-size: 13px; cursor: pointer; padding: 4px 0; }
+.crumb h2 { font-size: 20px; letter-spacing: -0.012em; font-weight: 700; }
+.ctx { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.ctx span { font: 11px var(--font-mono); padding: 3px 10px; border-radius: 99px; background: var(--pill-bg); border: 1px solid var(--border-hairline); color: var(--text-secondary); }
+.ctx span b { font-family: var(--font-ui); font-weight: 600; color: var(--text-tertiary); margin-right: 5px; }
+.panel { padding: 16px 18px; border-radius: 18px; background: var(--glass-card); border: 1px solid var(--border-hairline); box-shadow: var(--specular-inset); margin-bottom: 14px; }
+.panel h4 { font-size: 12.5px; font-weight: 700; margin-bottom: 10px; }
+.kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 14px; font-size: 12.5px; }
+.kv dt { color: var(--text-secondary); } .kv dd { font-family: var(--font-mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.note { font-size: 12px; color: var(--text-secondary); margin-top: 10px; }
+.note.warn { color: var(--warning); }
+.review { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.stages { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.stage { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.stage i { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--text-tertiary); flex: none; }
+.stage.done i { background: var(--success); border-color: var(--success); }
+.stage.run i { border-color: var(--accent); border-top-color: transparent; }
+.stage.unknown i { border-color: var(--warning); border-style: dashed; }
+.stage.unknown { color: var(--warning); }
+.stage em { margin-left: auto; font-style: normal; color: var(--text-tertiary); font-size: 11.5px; }
+.banner { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; font-size: 12.5px; margin-bottom: 14px;
+  background: color-mix(in srgb, var(--warning) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); }
+.banner .grow { flex: 1; }
+
+/* ================= Confirm dialog (destructive or exact-target actions) ================= */
+.dialog-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.dialog {
+  width: 440px; padding: 24px; border-radius: var(--r-dialog);
+  background: var(--glass-hud);
+  backdrop-filter: blur(50px) saturate(210%); -webkit-backdrop-filter: blur(50px) saturate(210%);
+  border: 1px solid var(--border-hairline); box-shadow: var(--specular-inset), var(--shadow-elevated);
+  will-change: transform, opacity;
+}
+.dialog h3 { font-size: 18px; letter-spacing: -0.01em; margin-bottom: 8px; }
+.dialog p { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+.dialog .path { font: 11.5px var(--font-mono); color: var(--text-tertiary); margin-bottom: 18px; }
+.dialog .actions { justify-content: flex-end; }

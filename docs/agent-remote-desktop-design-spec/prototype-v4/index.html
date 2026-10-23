@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Remote Desktop — 重构高保真原型 v4</title>
+<!-- v4 = prototype-v3 tokens + real desktop features + apple-design spring physics.
+     Open this file directly; no network or build step. Spec: ../../agent-remote-desktop-redesign.zh-CN.md -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="overlays.css">
+<link rel="stylesheet" href="sheets.css">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <span class="sparkle s1">✦</span><span class="sparkle s2">✧</span><span class="sparkle s3">⋆</span><span class="sparkle s4">✦</span>
+  </div>
+
+  <!-- ===== Layer 0: Zen workspace ===== -->
+  <main class="workspace" id="workspace">
+    <div class="panes" id="panes"></div>
+    <footer class="zen-bar" id="zen-bar" title="点击或上拉打开控制中心 (⌥S)">
+      <div class="zen-context" id="zen-context"></div>
+      <div class="home-indicator"></div>
+    </footer>
+  </main>
+
+  <!-- ===== Layer 1.1: Agents dock (⌥A) ===== -->
+  <section class="layer" id="layer-agents" aria-label="项目 Agent">
+    <div class="scrim" data-dismiss></div>
+    <div class="dock" id="dock">
+      <div class="dock-header" id="dock-header"></div>
+      <div class="cards-row" id="cards"></div>
+      <div class="grabber-hit" id="dock-grab"><div class="grabber"></div></div>
+    </div>
+  </section>
+
+  <!-- ===== Layer 1.2: Create Agent wheel (⌥C) ===== -->
+  <section class="layer" id="layer-create" aria-label="新建 Agent">
+    <div class="radial-stage" data-dismiss>
+      <div class="wheel" id="wheel-create">
+        <div class="orbit" style="width:248px;height:248px"></div>
+        <svg class="wheel-svg" viewBox="0 0 490 490"></svg>
+        <div class="hud" id="hud-create"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Layer 2: Project wheel (⌥X) ===== -->
+  <section class="layer" id="layer-projects" aria-label="切换项目">
+    <div class="radial-stage" data-dismiss>
+      <div class="wheel" id="wheel-projects">
+        <div class="orbit" style="width:272px;height:272px"></div>
+        <svg class="wheel-svg" viewBox="0 0 490 490"></svg>
+        <div class="hud large" id="hud-projects"></div>
+      </div>
+      <div class="results" id="results" hidden></div>
+    </div>
+  </section>
+
+  <!-- ===== Control Center (⌥S) ===== -->
+  <section class="layer" id="layer-cc" aria-label="控制中心">
+    <div class="scrim" id="cc-scrim" data-dismiss></div>
+    <div class="cc" id="cc" role="dialog" aria-modal="true">
+      <div class="cc-grab" id="cc-grab"><i></i></div>
+      <div class="cc-head" id="cc-head"></div>
+      <div class="cc-viewport">
+        <div class="cc-page" id="cc-grid"></div>
+        <div class="cc-page" id="cc-detail"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Confirm dialog ===== -->
+  <section class="layer" id="layer-confirm" style="z-index:200">
+    <div class="scrim" id="confirm-scrim"></div>
+    <div class="dialog-stage"><div class="dialog" id="dialog" role="alertdialog" aria-modal="true"></div></div>
+  </section>
+
+  <div class="toast" id="toast" role="status"></div>
+  <div class="theme-veil" id="veil"></div>
+
+  <!-- ===== Prototype-only controls (not product UI) ===== -->
+  <nav class="proto top-left" id="proto">
+    <span class="tag">原型 ▸</span>
+    <button data-go="zen">0 Zen (Esc)</button>
+    <button data-go="agents">1.1 Agent ⌥A</button>
+    <button data-go="create">1.2 新建 ⌥C</button>
+    <button data-go="projects">2 项目 ⌥X</button>
+    <button data-go="more">2·更多</button>
+    <button data-go="cc">控制中心 ⌥S</button>
+    <span class="tag">|</span>
+    <button data-theme-set="light">☀</button><button data-theme-set="dark">☾</button><button data-theme-set="kawaii">✦</button>
+    <label><input type="checkbox" id="rm"> 减弱动效</label>
+    <label><input type="checkbox" id="rt"> 降低透明度</label>
+  </nav>
+
+<script src="physics.js"></script>
+<script src="data.js"></script>
+<script src="wheel.js"></script>
+<script src="views.js"></script>
+<script src="views-cc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

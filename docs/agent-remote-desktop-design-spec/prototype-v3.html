@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="kawaii">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent OS — Apple HIG 浅色 / 深色 / 次元 三态视觉设计稿</title>
+<style>
+  /* ================= 1. APPLE HIG 浅色模式 (Daylight Ceramic) ================= */
+  :root[data-theme="light"] {
+    --bg-canvas: #F5F5F7;
+    --bg-mesh-1: rgba(0, 113, 227, 0.045);
+    --bg-mesh-2: rgba(217, 101, 72, 0.04);
+    --bg-mesh-3: transparent;
+    
+    --text-primary: #1D1D1F;
+    --text-secondary: #6E6E73;
+    --text-tertiary: #86868B;
+
+    --glass-dock: rgba(255, 255, 255, 0.72);
+    --glass-card: rgba(255, 255, 255, 0.65);
+    --glass-card-hover: rgba(255, 255, 255, 0.92);
+    --glass-hud: linear-gradient(155deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 246, 249, 0.85) 100%);
+    
+    --sector-fill: rgba(255, 255, 255, 0.68);
+    --sector-fill-hover: rgba(255, 255, 255, 0.96);
+    --sector-stroke: rgba(0, 0, 0, 0.08);
+    --sector-stroke-hover: rgba(0, 0, 0, 0.18);
+    --wheel-shadow: drop-shadow(0 28px 60px rgba(15, 23, 42, 0.12)) drop-shadow(0 4px 12px rgba(15, 23, 42, 0.06));
+
+    --border-hairline: rgba(0, 0, 0, 0.075);
+    --specular-inset: inset 0 1px 0.5px rgba(255, 255, 255, 1), inset 0 -1px 1px rgba(0, 0, 0, 0.03);
+    --shadow-elevated: 0 20px 50px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
+
+    --code-bg: rgba(255, 255, 255, 0.85);
+    --code-preview-bg: rgba(242, 242, 247, 0.8);
+    --msg-user-bg: #FFFFFF;
+    --pill-bg: rgba(0, 0, 0, 0.045);
+    --backdrop-vignette: radial-gradient(circle at center, rgba(245, 245, 247, 0.35) 0%, rgba(229, 229, 234, 0.78) 100%);
+
+    --syn-kw: #AD3DA4;
+    --syn-fn: #326D74;
+    --syn-str: #D12F1B;
+    --syn-cmt: #707F8D;
+
+    --accent-claude: #D96548;
+    --accent-codex: #179A66;
+    --accent-gemini: #0066CC;
+    --accent-custom: #7839EE;
+    --kawaii-deco-opacity: 0;
+  }
+
+  /* ================= 2. APPLE HIG 深色模式 (Space Black Titanium) ================= */
+  :root[data-theme="dark"] {
+    --bg-canvas: #09090B;
+    --bg-mesh-1: rgba(56, 152, 255, 0.055);
+    --bg-mesh-2: rgba(232, 130, 103, 0.045);
+    --bg-mesh-3: transparent;
+
+    --text-primary: #F5F5F7;
+    --text-secondary: #A1A1A6;
+    --text-tertiary: #6E6E73;
+
+    --glass-dock: rgba(22, 22, 26, 0.68);
+    --glass-card: rgba(32, 32, 37, 0.58);
+    --glass-card-hover: rgba(46, 46, 54, 0.78);
+    --glass-hud: linear-gradient(155deg, rgba(38, 39, 46, 0.84) 0%, rgba(20, 20, 25, 0.90) 100%);
+
+    --sector-fill: rgba(30, 31, 37, 0.62);
+    --sector-fill-hover: rgba(52, 54, 65, 0.85);
+    --sector-stroke: rgba(255, 255, 255, 0.14);
+    --sector-stroke-hover: rgba(255, 255, 255, 0.48);
+    --wheel-shadow: drop-shadow(0 30px 70px rgba(0, 0, 0, 0.85)) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
+
+    --border-hairline: rgba(255, 255, 255, 0.11);
+    --specular-inset: inset 0 1px 0.5px rgba(255, 255, 255, 0.28), inset 0 -1px 2px rgba(0, 0, 0, 0.55);
+    --shadow-elevated: 0 24px 60px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.4);
+
+    --code-bg: rgba(16, 16, 20, 0.88);
+    --code-preview-bg: rgba(9, 9, 12, 0.65);
+    --msg-user-bg: rgba(255, 255, 255, 0.06);
+    --pill-bg: rgba(255, 255, 255, 0.08);
+    --backdrop-vignette: radial-gradient(circle at center, rgba(15, 16, 22, 0.45) 0%, rgba(4, 4, 6, 0.86) 100%);
+
+    --syn-kw: #FF7AB2;
+    --syn-fn: #6BDFFF;
+    --syn-str: #FF8170;
+    --syn-cmt: #7F8C98;
+
+    --accent-claude: #E88267;
+    --accent-codex: #34D399;
+    --accent-gemini: #47A1FF;
+    --accent-custom: #B06BF9;
+    --kawaii-deco-opacity: 0;
+  }
+
+  /* ================= 3. APPLE × 二次元高定模式 (Sakura Prism / 樱花虹彩亚克力) ================= */
+  :root[data-theme="kawaii"] {
+    --bg-canvas: #FFF8FA;
+    --bg-mesh-1: rgba(255, 120, 175, 0.16);
+    --bg-mesh-2: rgba(96, 197, 255, 0.15);
+    --bg-mesh-3: rgba(184, 136, 255, 0.13);
+
+    --text-primary: #3B2838;
+    --text-secondary: #8A6D83;
+    --text-tertiary: #B599AE;
+
+    --glass-dock: linear-gradient(180deg, rgba(255, 250, 253, 0.82) 0%, rgba(255, 240, 247, 0.68) 100%);
+    --glass-card: rgba(255, 255, 255, 0.72);
+    --glass-card-hover: rgba(255, 255, 255, 0.95);
+    --glass-hud: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 240, 248, 0.88) 55%, rgba(240, 249, 255, 0.90) 100%);
+
+    --sector-fill: rgba(255, 255, 255, 0.74);
+    --sector-fill-hover: rgba(255, 255, 255, 0.98);
+    --sector-stroke: rgba(255, 145, 190, 0.32);
+    --sector-stroke-hover: rgba(255, 105, 165, 0.75);
+    --wheel-shadow: drop-shadow(0 26px 55px rgba(236, 72, 153, 0.16)) drop-shadow(0 6px 18px rgba(96, 165, 250, 0.12));
+
+    --border-hairline: rgba(255, 140, 185, 0.24);
+    --specular-inset: inset 0 1.5px 1px rgba(255, 255, 255, 1), inset 0 -1.5px 2px rgba(255, 140, 185, 0.18);
+    --shadow-elevated: 0 20px 50px rgba(236, 72, 153, 0.11), 0 4px 14px rgba(139, 92, 246, 0.06);
+
+    --code-bg: rgba(255, 255, 255, 0.88);
+    --code-preview-bg: rgba(255, 242, 248, 0.75);
+    --msg-user-bg: linear-gradient(135deg, #FFF0F6 0%, #F3F8FF 100%);
+    --pill-bg: rgba(255, 120, 175, 0.10);
+    --backdrop-vignette: radial-gradient(circle at center, rgba(255, 248, 250, 0.3) 0%, rgba(255, 228, 240, 0.72) 100%);
+
+    --syn-kw: #EC4899;
+    --syn-fn: #0EA5E9;
+    --syn-str: #F97316;
+    --syn-cmt: #B599AE;
+
+    --accent-claude: #FF6B9E;
+    --accent-codex: #10B981;
+    --accent-gemini: #38BDF8;
+    --accent-custom: #A855F7;
+    --kawaii-deco-opacity: 1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-font-smoothing: antialiased; }
+  
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Display", "Hiragino Sans", "PingFang SC", sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    transition: background-color 0.45s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s ease;
+  }
+
+  /* ================= 二次元模式专属：极简背景星芒微粒与全息星轨装饰 ================= */
+  .kawaii-ambient-sparkles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: var(--kawaii-deco-opacity);
+    transition: opacity 0.5s ease;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .sparkle {
+    position: absolute;
+    color: var(--accent-claude);
+    opacity: 0.35;
+    font-size: 16px;
+    animation: floatSparkle 6s infinite ease-in-out;
+  }
+  .sparkle.s1 { top: 14%; left: 10%; font-size: 18px; color: #FF85B3; animation-delay: 0s; }
+  .sparkle.s2 { top: 22%; right: 14%; font-size: 14px; color: #60C5FF; animation-delay: 1.5s; }
+  .sparkle.s3 { bottom: 20%; left: 16%; font-size: 15px; color: #B888FF; animation-delay: 3s; }
+  .sparkle.s4 { bottom: 26%; right: 12%; font-size: 20px; color: #FF85B3; animation-delay: 2s; }
+  @keyframes floatSparkle {
+    0%, 100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0.25; }
+    50% { transform: translateY(-10px) scale(1.15) rotate(12deg); opacity: 0.55; }
+  }
+
+  /* ================= 右上角：Apple 三态主题切换器 ================= */
+  .theme-toggle-bar {
+    position: fixed;
+    top: 24px;
+    right: 28px;
+    z-index: 10000;
+    display: flex;
+    gap: 2px;
+    background: var(--glass-card);
+    backdrop-filter: blur(35px) saturate(200%);
+    -webkit-backdrop-filter: blur(35px) saturate(200%);
+    padding: 4px;
+    border-radius: 999px;
+    border: 1px solid var(--border-hairline);
+    box-shadow: var(--specular-inset), var(--shadow-elevated);
+    transition: all 0.3s ease;
+  }
+  .theme-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .theme-btn:hover { color: var(--text-primary); }
+  .theme-btn.active {
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08), var(--specular-inset);
+  }
+  :root[data-theme="kawaii"] .theme-btn.active {
+    background: linear-gradient(135deg, #FFF5F9 0%, #F0F9FF 100%);
+    color: #EC4899;
+    box-shadow: 0 3px 12px rgba(236, 72, 153, 0.18), var(--specular-inset);
+  }
+
+  /* ================= 底部：交互状态演示导览栏 ================= */
+  .prototype-switcher {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    gap: 6px;
+    background: var(--glass-dock);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    padding: 5px;
+    border-radius: 999px;
+    border: 1px solid var(--border-hairline);
+    box-shadow: var(--specular-inset), var(--shadow-elevated);
+  }
+  .prototype-switcher button {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 7px 15px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .prototype-switcher button:hover { color: var(--text-primary); }
+  .prototype-switcher button.active {
+    background: var(--pill-bg);
+    color: var(--text-primary);
+    box-shadow: var(--specular-inset);
+    font-weight: 600;
+  }
+
+  /* ================= 状态 0: 全屏无干扰工作区 (Zen Workspace) ================= */
+  .workspace {
+    width: 100vw;
+    height: 100vh;
+    padding: 6vh 12vw;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    z-index: 2;
+    transition: transform 0.55s cubic-bezier(0.19, 1, 0.22, 1), filter 0.55s cubic-bezier(0.19, 1, 0.22, 1);
+    background: 
+      radial-gradient(circle at 82% 14%, var(--bg-mesh-1), transparent 45%),
+      radial-gradient(circle at 18% 82%, var(--bg-mesh-2), transparent 48%),
+      radial-gradient(circle at 50% 45%, var(--bg-mesh-3), transparent 50%);
+  }
+  .workspace.scaled-down {
+    transform: scale(0.935) translateY(36px);
+    filter: blur(18px) saturate(140%);
+    opacity: 0.75;
+  }
+  .workspace.blurred {
+    transform: scale(0.965);
+    filter: blur(30px) saturate(160%);
+    opacity: 0.65;
+  }
+
+  .code-stream {
+    max-width: 840px;
+    margin: 24px auto 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .msg-user {
+    align-self: flex-end;
+    background: var(--msg-user-bg);
+    border: 1px solid var(--border-hairline);
+    box-shadow: var(--specular-inset), 0 8px 24px rgba(0, 0, 0, 0.04);
+    padding: 14px 22px;
+    border-radius: 24px 24px 6px 24px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--text-primary);
+    max-width: 72%;
+  }
+  .msg-agent {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .agent-header {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.2px;
+  }
+  .dot-claude {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-claude);
+    box-shadow: 0 0 10px var(--accent-claude);
+  }
+  
+  .code-box {
+    background: var(--code-bg);
+    backdrop-filter: blur(25px);
+    border: 1px solid var(--border-hairline);
+    box-shadow: var(--specular-inset), var(--shadow-elevated);
+    border-radius: 22px;
+    padding: 24px 28px;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.75;
+    color: var(--text-primary);
+    position: relative;
+    overflow: hidden;
+  }
+  .code-box::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #FF85B3, #60C5FF, #B888FF);
+    opacity: var(--kawaii-deco-opacity);
+    transition: opacity 0.3s;
+  }
+
+  .kw { color: var(--syn-kw); font-weight: 600; }
+  .fn { color: var(--syn-fn); font-weight: 500; }
+  .str { color: var(--syn-str); }
+  .cmt { color: var(--syn-cmt); font-style: italic; }
+
+  .zen-footer {
+    text-align: center;
+    padding-bottom: 62px;
+    opacity: 0.65;
+    transition: opacity 0.3s;
+  }
+  .zen-footer:hover { opacity: 1; }
+  .zen-context { font-size: 11.5px; letter-spacing: 0.4px; color: var(--text-secondary); margin-bottom: 9px; }
+  .home-indicator {
+    width: 134px; height: 4.5px;
+    background: var(--text-tertiary);
+    opacity: 0.4;
+    border-radius: 99px;
+    margin: 0 auto;
+  }
+  :root[data-theme="kawaii"] .home-indicator {
+    background: linear-gradient(90deg, #FF85B3, #60C5FF);
+    opacity: 0.65;
+  }
+
+  /* ================= 通用空间玻璃遮罩层 ================= */
+  .overlay-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 100;
+  }
+  .overlay-layer.active {
+    pointer-events: auto;
+    opacity: 1;
+  }
+
+  /* ================= 状态 1.1: 顶部多 Agent 预览抽屉 (Space + A) ================= */
+  .top-mission-dock {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 320px;
+    background: var(--glass-dock);
+    backdrop-filter: blur(60px) saturate(220%);
+    -webkit-backdrop-filter: blur(60px) saturate(220%);
+    border-bottom: 1px solid var(--border-hairline);
+    box-shadow: var(--specular-inset), var(--shadow-elevated);
+    transform: translateY(-102%);
+    transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 12px 7vw 0;
+  }
+  .overlay-layer.active .top-mission-dock {
+    transform: translateY(0);
+  }
+  .dock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--text-secondary);
+    max-width: 1020px;
+  }
+  .agent-cards-row {
+    display: flex;
+    gap: 22px;
+    align-items: center;
+    max-width: 1020px;
+  }
+  .agent-card {
+    flex: 1;
+    height: 188px;
+    background: var(--glass-card);
+    backdrop-filter: blur(40px);
+    border-radius: 22px;
+    border: 1px solid var(--border-hairline);
+    box-shadow: var(--specular-inset), var(--shadow-elevated);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+  }
+  .agent-card:hover, .agent-card.active-card {
+    transform: translateY(-7px) scale(1.03);
+    background: var(--glass-card-hover);
+    border-color: var(--sector-stroke-hover);
+  }
+  .agent-card:active {
+    transform: translateY(-2px) scale(0.98);
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .status-pill {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 3px 10px;
+    border-radius: 99px;
+    background: var(--pill-bg);
+    border: 1px solid var(--border-hairline);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pulse {
+    width: 6.5px; height: 6.5px; border-radius: 50%;
+    background: var(--accent-codex);
+    box-shadow: 0 0 8px var(--accent-codex);
+  }
+  .pulse.thinking {
+    background: var(--accent-claude);
+    box-shadow: 0 0 10px var(--accent-claude);
+    animation: blink 1.2s infinite ease-in-out;
+  }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .card-preview {
+    background: var(--code-preview-bg);
+    border-radius: 14px;
+    height: 92px;
+    padding: 10px 12px;
+    font-family: "SF Mono", monospace;
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-hairline);
+    overflow: hidden;
+    line-height: 1.55;
+  }
+  .card-footer {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    display: flex;
+    justify-content: space-between;
+    font-weight: 500;
+  }
+
+  /* ================= 状态 1.2 & 状态 2: 圆环径向菜单中心容器 ================= */
+  .radial-center-stage {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--backdrop-vignette);
+    backdrop-filter: blur(14px);
+  }
+
+  /* 遵循 apple-design Skill: 严禁从 scale(0) 弹出，从 0.92 开始弹簧展开 */
+  .radial-wheel {
+    position: relative;
+    width: 490px;
+    height: 490px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: scale(0.92);
+    transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .overlay-layer.active .radial-wheel {
+    transform: scale(1);
+  }
+
+  /* 二次元模式专属：中心星轨魔法刻度环 (Starlight Orbit Ring) */
+  .kawaii-orbit-ring {
+    position: absolute;
+    width: 248px;
+    height: 248px;
+    border-radius: 50%;
+    border: 1.5px dashed rgba(255, 115, 175, 0.45);
+    pointer-events: none;
+    opacity: var(--kawaii-deco-opacity);
+    animation: spinOrbit 28s linear infinite;
+    z-index: 5;
+  }
+  .kawaii-orbit-ring.large {
+    width: 272px;
+    height: 272px;
+  }
+  @keyframes spinOrbit {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* SVG 镜面玻璃扇区样式 */
+  .wheel-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: var(--wheel-shadow);
+    transition: filter 0.3s ease;
+  }
+  .sector-path {
+    fill: var(--sector-fill);
+    stroke: var(--sector-stroke);
+    stroke-width: 1.35px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    transform-origin: 245px 245px;
+  }
+  .sector-path:hover, .sector-path.hovered {
+    fill: var(--sector-fill-hover);
+    stroke: var(--sector-stroke-hover);
+    stroke-width: 1.8px;
+    transform: scale(1.038);
+  }
+  .sector-path:active {
+    transform: scale(0.985);
+  }
+  .sector-claude:hover { stroke: var(--accent-claude); }
+  .sector-codex:hover { stroke: var(--accent-codex); }
+  .sector-gemini:hover { stroke: var(--accent-gemini); }
+  .sector-custom:hover { stroke: var(--accent-custom); }
+
+  /* 扇区文字标签 */
+  .wheel-label {
+    position: absolute;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+  }
+  .wheel-label .title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.2px; }
+  .wheel-label .sub { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+  .wheel-label .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--pill-bg);
+    border: 1px solid var(--border-hairline);
+    color: var(--text-secondary);
+  }
+
+  /* 中心全息详情圆盘 (Apple VisionOS Glass Puck) */
+  .center-hud {
+    position: relative;
+    z-index: 10;
+    width: 214px;
+    height: 214px;
+    border-radius: 50%;
+    background: var(--glass-hud);
+    backdrop-filter: blur(50px) saturate(210%);
+    -webkit-backdrop-filter: blur(50px) saturate(210%);
+    border: 1px solid var(--border-hairline);
+    box-shadow: var(--specular-inset), var(--shadow-elevated);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+  .hud-large {
+    width: 240px;
+    height: 240px;
+  }
+  .hud-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+  .hud-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 7px;
+    letter-spacing: -0.2px;
+  }
+  .hud-path {
+    font-family: "SF Mono", monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--pill-bg);
+    padding: 4px 10px;
+    border-radius: 9px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-hairline);
+  }
+  .hud-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    align-items: center;
+  }
+  .git-pill {
+    background: var(--pill-bg);
+    border: 1px solid var(--border-hairline);
+    color: var(--accent-claude);
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 99px;
+  }
+
+  /* 搜索状态下的中心 HUD */
+  .search-input-box {
+    width: 100%;
+    background: var(--code-preview-bg);
+    border: 1px solid var(--border-hairline);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+    border-radius: 99px;
+    padding: 7px 14px;
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+    margin: 6px 0 10px;
+    text-align: center;
+  }
+  .open-folder-btn {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--pill-bg);
+    border: 1px solid var(--border-hairline);
+    box-shadow: var(--specular-inset);
+    padding: 5px 14px;
+    border-radius: 99px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .open-folder-btn:hover { transform: scale(1.05); }
+</style>
+</head>
+<body>
+
+  <!-- 二次元模式专属：极简微光星芒环境层 -->
+  <div class="kawaii-ambient-sparkles">
+    <span class="sparkle s1">✦</span>
+    <span class="sparkle s2">✧</span>
+    <span class="sparkle s3">⋆</span>
+    <span class="sparkle s4">✦</span>
+  </div>
+
+  <!-- ================= 右上角：Apple 浅色 / 深色 / 次元 三态切换开关 ================= -->
+  <div class="theme-toggle-bar">
+    <button class="theme-btn" id="theme-light" onclick="setTheme('light')">☀ 浅色 (Daylight)</button>
+    <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')">☾ 深色 (Midnight)</button>
+    <button class="theme-btn active" id="theme-kawaii" onclick="setTheme('kawaii')">✦ 次元 (Sakura Prism)</button>
+  </div>
+
+  <!-- ================= 状态 0: 全屏无干扰工作区 (基底) ================= -->
+  <main class="workspace" id="workspace">
+    <div class="code-stream">
+      <div class="msg-user">
+        帮我把 `Nebula-Core` 项目的分布式锁模块重构成基于 Redis Stream 的异步消费者模式，并确保高并发下的优雅退出 ✦
+      </div>
+      <div class="msg-agent">
+        <div class="agent-header">
+          <span class="dot-claude"></span>
+          <span id="agent-greeting">Claude 3.5 Sonnet &nbsp;·&nbsp; 正在守护 Nebula-Core ✧ (｡•̀ᴗ-)✧</span>
+        </div>
+        <div class="code-box">
+          <div class="cmt">// src/core/stream_lock.rs — 已为您重构异步消费与优雅停机逻辑</div>
+          <div><span class="kw">pub async fn</span> <span class="fn">acquire_stream_lease</span>(&amp;self, resource_id: &amp;<span class="str">str</span>) -&gt; Result&lt;LeaseGuard, LockError&gt; {</div>
+          <div>&nbsp;&nbsp;<span class="kw">let</span> payload = LeasePayload::new(self.node_id, Instant::now());</div>
+          <div>&nbsp;&nbsp;<span class="kw">let</span> entry_id: String = self.redis_pool</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;.<span class="fn">xadd_maxlen</span>(<span class="str">"nebula:locks:stream"</span>, StreamMaxlen::Approx(1024), &amp;payload)</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;.<span class="kw">await</span>?;</div>
+          <div>&nbsp;&nbsp;<span class="fn">Ok</span>(LeaseGuard::spawn_heartbeat(entry_id, self.shutdown_rx.clone()))</div>
+          <div>}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zen-footer">
+      <div class="zen-context">Project: <strong>Nebula-Core</strong> &nbsp;·&nbsp; Active Agent: <strong>Claude 3.5 Sonnet</strong> &nbsp;·&nbsp; 快捷键 [Space + A / C / X]</div>
+      <div class="home-indicator"></div>
+    </div>
+  </main>
+
+  <!-- ================= 状态 1.1: 顶部多 Agent 预览抽屉 (Space + A) ================= -->
+  <section class="overlay-layer" id="layer-agents">
+    <div class="top-mission-dock">
+      <div class="dock-header">
+        <span>✦ [SPACE + A] &nbsp;PROJECT: <strong>NEBULA-CORE</strong> — 3 ACTIVE AGENTS</span>
+        <span>松开 Space + A 或点击卡片即刻切入</span>
+      </div>
+      <div class="agent-cards-row">
+        <div class="agent-card active-card" onclick="switchView('zen')">
+          <div class="card-top">
+            <span style="color: var(--accent-claude);">✦ Claude 3.5 Sonnet</span>
+            <span class="status-pill"><span class="pulse"></span> 待命就绪</span>
+          </div>
+          <div class="card-preview">
+            &gt; refactoring stream_lock.rs<br>
+            + pub async fn acquire_stream_lease()<br>
+            ✓ All 42 unit tests passed (18ms) ♪
+          </div>
+          <div class="card-footer">
+            <span>Core / Redis Lock</span>
+            <span>刚刚活跃</span>
+          </div>
+        </div>
+
+        <div class="agent-card" onclick="switchView('zen')">
+          <div class="card-top">
+            <span style="color: var(--accent-codex);">✦ OpenAI Codex</span>
+            <span class="status-pill"><span class="pulse thinking"></span> 咏唱生成中...</span>
+          </div>
+          <div class="card-preview">
+            &gt; Generating gRPC protobuf definitions...<br>
+            message LeaseRequest {<br>
+            &nbsp;&nbsp;string resource_uuid = 1;<br>
+            }
+          </div>
+          <div class="card-footer">
+            <span>API / Protobuf</span>
+            <span>耗时 4.2s</span>
+          </div>
+        </div>
+
+        <div class="agent-card" onclick="switchView('zen')">
+          <div class="card-top">
+            <span style="color: var(--accent-gemini);">✦ Gemini 2.5 Pro</span>
+            <span class="status-pill"><span class="pulse"></span> 等待指令</span>
+          </div>
+          <div class="card-preview">
+            ? 允许执行: cargo bench --bench lock<br>
+            [Y/n] Waiting for master permission...
+          </div>
+          <div class="card-footer">
+            <span>Benchmark 压测</span>
+            <span>3分钟前</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 状态 1.2: 新建 Agent 4扇区圆环 (Space + C) ================= -->
+  <section class="overlay-layer" id="layer-create">
+    <div class="radial-center-stage">
+      <div class="radial-wheel" id="wheel-create">
+        <div class="kawaii-orbit-ring"></div>
+        <svg class="wheel-svg" viewBox="0 0 490 490" id="svg-create"></svg>
+        <div class="center-hud" id="hud-create">
+          <div class="hud-tag">✦ SPACE + C ✦</div>
+          <div class="hud-title" id="create-title">新建 Agent</div>
+          <div class="hud-path" id="create-desc">滑动鼠标选择模型契约</div>
+          <div class="hud-meta" id="create-meta">当前所属: Nebula-Core</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 状态 2: 项目管理 8扇区圆环 (Space + X) ================= -->
+  <section class="overlay-layer" id="layer-projects">
+    <div class="radial-center-stage">
+      <div class="radial-wheel" id="wheel-projects">
+        <div class="kawaii-orbit-ring large"></div>
+        <svg class="wheel-svg" viewBox="0 0 490 490" id="svg-projects"></svg>
+        <div class="center-hud hud-large" id="hud-projects"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 底部演示切换导航栏 -->
+  <nav class="prototype-switcher">
+    <button class="active" id="btn-zen" onclick="switchView('zen')">0. 初始无干扰界面 (ESC)</button>
+    <button id="btn-agents" onclick="switchView('agents')">1.1 项目Agent预览 (Space+A)</button>
+    <button id="btn-create" onclick="switchView('create')">1.2 新建Agent圆环 (Space+C)</button>
+    <button id="btn-projects" onclick="switchView('projects')">2.1 项目管理圆环 (Space+X)</button>
+    <button id="btn-more" onclick="switchView('more')">2.2 悬停[更多]搜索项目</button>
+  </nav>
+
+<script>
+  // 切换浅色 / 深色 / 次元 三种主题
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.getElementById('theme-light').classList.toggle('active', theme === 'light');
+    document.getElementById('theme-dark').classList.toggle('active', theme === 'dark');
+    document.getElementById('theme-kawaii').classList.toggle('active', theme === 'kawaii');
+
+    const greeting = document.getElementById('agent-greeting');
+    if (theme === 'kawaii') {
+      greeting.innerHTML = 'Claude 3.5 Sonnet &nbsp;·&nbsp; 正在守护 Nebula-Core ✧ (｡•̀ᴗ-)✧';
+    } else {
+      greeting.innerHTML = 'Claude 3.5 Sonnet &nbsp;·&nbsp; 正在守护 Nebula-Core';
+    }
+  }
+
+  // 极坐标生成高精密环形扇区
+  function polarToCartesian(cx, cy, r, angleInDegrees) {
+    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+    return {
+      x: cx + (r * Math.cos(angleInRadians)),
+      y: cy + (r * Math.sin(angleInRadians))
+    };
+  }
+
+  function createAnnularSectorPath(cx, cy, rInner, rOuter, startAngle, endAngle) {
+    const p1 = polarToCartesian(cx, cy, rOuter, endAngle);
+    const p2 = polarToCartesian(cx, cy, rOuter, startAngle);
+    const p3 = polarToCartesian(cx, cy, rInner, startAngle);
+    const p4 = polarToCartesian(cx, cy, rInner, endAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+    return [
+      "M", p1.x, p1.y,
+      "A", rOuter, rOuter, 0, largeArcFlag, 0, p2.x, p2.y,
+      "L", p3.x, p3.y,
+      "A", rInner, rInner, 0, largeArcFlag, 1, p4.x, p4.y,
+      "Z"
+    ].join(" ");
+  }
+
+  // 初始化 Space + C (4扇区创建 Agent 圆环)
+  const createModels = [
+    { name: "Claude 3.5", sub: "架构与深度编码", cls: "sector-claude", desc: "Anthropic 旗舰 · 200K 上下文", colorVar: "var(--accent-claude)" },
+    { name: "Codex", sub: "极速补全与脚本", cls: "sector-codex", desc: "OpenAI o3-mini / Codex 引擎", colorVar: "var(--accent-codex)" },
+    { name: "Gemini Pro", sub: "超长上下文分析", cls: "sector-gemini", desc: "Google 2M Token 全库扫描", colorVar: "var(--accent-gemini)" },
+    { name: "Local / MCP", sub: "私有与自定义模型", cls: "sector-custom", desc: "Ollama / DeepSeek 本地连接", colorVar: "var(--accent-custom)" }
+  ];
+
+  const svgCreate = document.getElementById('svg-create');
+  const wheelCreate = document.getElementById('wheel-create');
+
+  createModels.forEach((m, i) => {
+    const startAngle = i * 90 - 45 + 2;
+    const endAngle = (i + 1) * 90 - 45 - 2;
+    const pathData = createAnnularSectorPath(245, 245, 115, 220, startAngle, endAngle);
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", pathData);
+    path.setAttribute("class", `sector-path ${m.cls}`);
+    
+    path.addEventListener('mouseenter', () => {
+      const titleEl = document.getElementById('create-title');
+      titleEl.innerText = m.name;
+      titleEl.style.color = m.colorVar;
+      document.getElementById('create-desc').innerText = m.sub;
+      document.getElementById('create-meta').innerText = m.desc;
+    });
+    path.addEventListener('click', () => switchView('zen'));
+    svgCreate.appendChild(path);
+
+    const midAngle = (startAngle + endAngle) / 2;
+    const labelPos = polarToCartesian(245, 245, 168, midAngle);
+    const label = document.createElement('div');
+    label.className = 'wheel-label';
+    label.style.left = `${labelPos.x}px`;
+    label.style.top = `${labelPos.y}px`;
+    label.style.transform = 'translate(-50%, -50%)';
+    label.innerHTML = `<span class="title">${m.name}</span><span class="sub">${m.sub}</span>`;
+    wheelCreate.appendChild(label);
+  });
+
+  // 初始化 Space + X (8扇区项目管理圆环)
+  const projectsData = [
+    { name: "··· 更多", badge: "Search / Open", isMore: true },
+    { name: "Nebula-Core", badge: "🦀 Rust · 3 AI", path: "~/dev/nebula-core", branch: "⎇ feat/redis-lock", lastAgent: "Claude 3.5 Sonnet", lang: "Rust" },
+    { name: "Kawaii-UI", badge: "🌸 Vue · 2 AI", path: "~/work/sakura-prism-ui", branch: "⎇ main (clean)", lastAgent: "Codex", lang: "TypeScript" },
+    { name: "Quant-Bot", badge: "🐍 Py · 1 AI", path: "~/quant/alpha-engine", branch: "⎇ backtest-v4", lastAgent: "Gemini 2.5 Pro", lang: "Python" },
+    { name: "Hyper-Gate", badge: "🐹 Go · 2 AI", path: "~/infra/hyper-gateway", branch: "⎇ fix/rate-limit", lastAgent: "Claude 3.5 Sonnet", lang: "Go" },
+    { name: "iOS-Client", badge: "🕊️ Swift · 1 AI", path: "~/mobile/VisionApp", branch: "⎇ spatial-audio", lastAgent: "Claude 3.5 Sonnet", lang: "Swift" },
+    { name: "Kernel-Lab", badge: "⚙️ C++ · 0 AI", path: "~/os/kernel-lab", branch: "⎇ master", lastAgent: "无 (点击新建空白态)", lang: "C++" },
+    { name: "Docs-Wiki", badge: "📝 MD · 1 AI", path: "~/docs/architecture", branch: "⎇ draft-2026", lastAgent: "Codex", lang: "Markdown" }
+  ];
+
+  const svgProjects = document.getElementById('svg-projects');
+  const wheelProjects = document.getElementById('wheel-projects');
+  const hudProjects = document.getElementById('hud-projects');
+  const projectPaths = [];
+
+  function renderProjectHud(proj) {
+    if (proj.isMore) {
+      hudProjects.innerHTML = `
+        <div class="hud-tag">✦ SPACE + X · SPOTLIGHT ✦</div>
+        <div class="hud-title" style="font-size:15px;">搜索或打开项目</div>
+        <input type="text" class="search-input-box" placeholder="输入项目名或路径..." value="kawaii" />
+        <button class="open-folder-btn" onclick="switchView('zen')">+ 打开本地文件夹...</button>
+      `;
+    } else {
+      hudProjects.innerHTML = `
+        <div class="hud-tag">✦ ${proj.lang} PROJECT (SPACE+X) ✦</div>
+        <div class="hud-title">${proj.name}</div>
+        <div class="hud-path">${proj.path}</div>
+        <div class="hud-meta" style="margin-bottom:7px;">
+          <span class="git-pill">${proj.branch}</span>
+        </div>
+        <div style="font-size:11px; color:var(--text-tertiary);">上次驻留: <strong style="color:var(--text-primary);">${proj.lastAgent}</strong></div>
+      `;
+    }
+  }
+
+  projectsData.forEach((p, i) => {
+    const step = 360 / 8;
+    const startAngle = i * step - (step / 2) + 1.5;
+    const endAngle = (i + 1) * step - (step / 2) - 1.5;
+    const pathData = createAnnularSectorPath(245, 245, 126, 232, startAngle, endAngle);
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", pathData);
+    path.setAttribute("class", "sector-path");
+    
+    path.addEventListener('mouseenter', () => {
+      projectPaths.forEach(el => el.classList.remove('hovered'));
+      path.classList.add('hovered');
+      renderProjectHud(p);
+    });
+    path.addEventListener('click', () => {
+      if (!p.isMore) switchView('zen');
+    });
+
+    svgProjects.appendChild(path);
+    projectPaths.push(path);
+
+    const midAngle = (startAngle + endAngle) / 2;
+    const labelPos = polarToCartesian(245, 245, 180, midAngle);
+    const label = document.createElement('div');
+    label.className = 'wheel-label';
+    label.style.left = `${labelPos.x}px`;
+    label.style.top = `${labelPos.y}px`;
+    label.style.transform = 'translate(-50%, -50%)';
+    label.innerHTML = `<span class="title" style="font-size:13px;">${p.name}</span><span class="badge">${p.badge}</span>`;
+    wheelProjects.appendChild(label);
+  });
+
+  // 界面状态切换机
+  function switchView(mode) {
+    const ws = document.getElementById('workspace');
+    const lAgents = document.getElementById('layer-agents');
+    const lCreate = document.getElementById('layer-create');
+    const lProjects = document.getElementById('layer-projects');
+
+    ws.className = 'workspace';
+    lAgents.classList.remove('active');
+    lCreate.classList.remove('active');
+    lProjects.classList.remove('active');
+    document.querySelectorAll('.prototype-switcher button').forEach(b => b.classList.remove('active'));
+
+    if (mode === 'zen') {
+      document.getElementById('btn-zen').classList.add('active');
+    } else if (mode === 'agents') {
+      ws.classList.add('scaled-down');
+      lAgents.classList.add('active');
+      document.getElementById('btn-agents').classList.add('active');
+    } else if (mode === 'create') {
+      ws.classList.add('blurred');
+      lCreate.classList.add('active');
+      document.getElementById('btn-create').classList.add('active');
+    } else if (mode === 'projects') {
+      ws.classList.add('blurred');
+      lProjects.classList.add('active');
+      document.getElementById('btn-projects').classList.add('active');
+      projectPaths.forEach(el => el.classList.remove('hovered'));
+      projectPaths[2].classList.add('hovered'); // 默认高亮 Kawaii-UI 项目
+      renderProjectHud(projectsData[2]);
+    } else if (mode === 'more') {
+      ws.classList.add('blurred');
+      lProjects.classList.add('active');
+      document.getElementById('btn-more').classList.add('active');
+      projectPaths.forEach(el => el.classList.remove('hovered'));
+      projectPaths[0].classList.add('hovered');
+      renderProjectHud(projectsData[0]);
+    }
+  }
+
+  // 支持真实键盘快捷键预览: Space+A / Space+C / Space+X (或单按 A / C / X), ESC 返回
+  window.addEventListener('keydown', (e) => {
+    if (document.activeElement.tagName === 'INPUT') {
+      if (e.key === 'Escape') {
+        document.activeElement.blur();
+        switchView('zen');
+      }
+      return;
+    }
+    if (e.key === 'Escape') switchView('zen');
+    if (e.key === 'a' || e.key === 'A') switchView('agents');
+    if (e.key === 'c' || e.key === 'C') switchView('create');
+    if (e.key === 'x' || e.key === 'X') switchView('projects');
+  });
+</script>
+</body>
+</html>

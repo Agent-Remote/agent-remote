@@ -1,0 +1,166 @@
+/* Agent Remote Desktop — prototype v4 design tokens.
+ * §1 copies prototype-v3 verbatim (the optical/colour baseline); do not edit
+ * these values without updating prototype-v3 first. §2 adds the tokens v3 did
+ * not define (accent, semantic states, solid fallbacks); see the redesign doc §5. */
+
+/* ================= §1 v3 baseline: light (Daylight Ceramic) ================= */
+:root[data-theme="light"] {
+  --bg-canvas: #F5F5F7;
+  --bg-mesh-1: rgba(0, 113, 227, 0.045);
+  --bg-mesh-2: rgba(217, 101, 72, 0.04);
+  --bg-mesh-3: transparent;
+  --text-primary: #1D1D1F;
+  --text-secondary: #6E6E73;
+  --text-tertiary: #86868B;
+  --glass-dock: rgba(255, 255, 255, 0.72);
+  --glass-card: rgba(255, 255, 255, 0.65);
+  --glass-card-hover: rgba(255, 255, 255, 0.92);
+  --glass-hud: linear-gradient(155deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 246, 249, 0.85) 100%);
+  --sector-fill: rgba(255, 255, 255, 0.68);
+  --sector-fill-hover: rgba(255, 255, 255, 0.96);
+  --sector-stroke: rgba(0, 0, 0, 0.08);
+  --sector-stroke-hover: rgba(0, 0, 0, 0.18);
+  --wheel-shadow: drop-shadow(0 28px 60px rgba(15, 23, 42, 0.12)) drop-shadow(0 4px 12px rgba(15, 23, 42, 0.06));
+  --border-hairline: rgba(0, 0, 0, 0.075);
+  --specular-inset: inset 0 1px 0.5px rgba(255, 255, 255, 1), inset 0 -1px 1px rgba(0, 0, 0, 0.03);
+  --shadow-elevated: 0 20px 50px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --code-bg: rgba(255, 255, 255, 0.85);
+  --code-preview-bg: rgba(242, 242, 247, 0.8);
+  --msg-user-bg: #FFFFFF;
+  --pill-bg: rgba(0, 0, 0, 0.045);
+  --backdrop-vignette: radial-gradient(circle at center, rgba(245, 245, 247, 0.35) 0%, rgba(229, 229, 234, 0.78) 100%);
+  --syn-kw: #AD3DA4;
+  --syn-fn: #326D74;
+  --syn-str: #D12F1B;
+  --syn-cmt: #707F8D;
+  --accent-claude: #D96548;
+  --accent-codex: #179A66;
+  --accent-gemini: #0066CC;
+  --accent-custom: #7839EE;
+  --kawaii-deco-opacity: 0;
+}
+
+/* ================= §1 v3 baseline: dark (Space Black Titanium) ================= */
+:root[data-theme="dark"] {
+  --bg-canvas: #09090B;
+  --bg-mesh-1: rgba(56, 152, 255, 0.055);
+  --bg-mesh-2: rgba(232, 130, 103, 0.045);
+  --bg-mesh-3: transparent;
+  --text-primary: #F5F5F7;
+  --text-secondary: #A1A1A6;
+  --text-tertiary: #6E6E73;
+  --glass-dock: rgba(22, 22, 26, 0.68);
+  --glass-card: rgba(32, 32, 37, 0.58);
+  --glass-card-hover: rgba(46, 46, 54, 0.78);
+  --glass-hud: linear-gradient(155deg, rgba(38, 39, 46, 0.84) 0%, rgba(20, 20, 25, 0.90) 100%);
+  --sector-fill: rgba(30, 31, 37, 0.62);
+  --sector-fill-hover: rgba(52, 54, 65, 0.85);
+  --sector-stroke: rgba(255, 255, 255, 0.14);
+  --sector-stroke-hover: rgba(255, 255, 255, 0.48);
+  --wheel-shadow: drop-shadow(0 30px 70px rgba(0, 0, 0, 0.85)) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
+  --border-hairline: rgba(255, 255, 255, 0.11);
+  --specular-inset: inset 0 1px 0.5px rgba(255, 255, 255, 0.28), inset 0 -1px 2px rgba(0, 0, 0, 0.55);
+  --shadow-elevated: 0 24px 60px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --code-bg: rgba(16, 16, 20, 0.88);
+  --code-preview-bg: rgba(9, 9, 12, 0.65);
+  --msg-user-bg: rgba(255, 255, 255, 0.06);
+  --pill-bg: rgba(255, 255, 255, 0.08);
+  --backdrop-vignette: radial-gradient(circle at center, rgba(15, 16, 22, 0.45) 0%, rgba(4, 4, 6, 0.86) 100%);
+  --syn-kw: #FF7AB2;
+  --syn-fn: #6BDFFF;
+  --syn-str: #FF8170;
+  --syn-cmt: #7F8C98;
+  --accent-claude: #E88267;
+  --accent-codex: #34D399;
+  --accent-gemini: #47A1FF;
+  --accent-custom: #B06BF9;
+  --kawaii-deco-opacity: 0;
+}
+
+/* ================= §1 v3 baseline: kawaii (Sakura Prism) ================= */
+:root[data-theme="kawaii"] {
+  --bg-canvas: #FFF8FA;
+  --bg-mesh-1: rgba(255, 120, 175, 0.16);
+  --bg-mesh-2: rgba(96, 197, 255, 0.15);
+  --bg-mesh-3: rgba(184, 136, 255, 0.13);
+  --text-primary: #3B2838;
+  --text-secondary: #8A6D83;
+  --text-tertiary: #B599AE;
+  --glass-dock: linear-gradient(180deg, rgba(255, 250, 253, 0.82) 0%, rgba(255, 240, 247, 0.68) 100%);
+  --glass-card: rgba(255, 255, 255, 0.72);
+  --glass-card-hover: rgba(255, 255, 255, 0.95);
+  --glass-hud: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 240, 248, 0.88) 55%, rgba(240, 249, 255, 0.90) 100%);
+  --sector-fill: rgba(255, 255, 255, 0.74);
+  --sector-fill-hover: rgba(255, 255, 255, 0.98);
+  --sector-stroke: rgba(255, 145, 190, 0.32);
+  --sector-stroke-hover: rgba(255, 105, 165, 0.75);
+  --wheel-shadow: drop-shadow(0 26px 55px rgba(236, 72, 153, 0.16)) drop-shadow(0 6px 18px rgba(96, 165, 250, 0.12));
+  --border-hairline: rgba(255, 140, 185, 0.24);
+  --specular-inset: inset 0 1.5px 1px rgba(255, 255, 255, 1), inset 0 -1.5px 2px rgba(255, 140, 185, 0.18);
+  --shadow-elevated: 0 20px 50px rgba(236, 72, 153, 0.11), 0 4px 14px rgba(139, 92, 246, 0.06);
+  --code-bg: rgba(255, 255, 255, 0.88);
+  --code-preview-bg: rgba(255, 242, 248, 0.75);
+  --msg-user-bg: linear-gradient(135deg, #FFF0F6 0%, #F3F8FF 100%);
+  --pill-bg: rgba(255, 120, 175, 0.10);
+  --backdrop-vignette: radial-gradient(circle at center, rgba(255, 248, 250, 0.3) 0%, rgba(255, 228, 240, 0.72) 100%);
+  --syn-kw: #EC4899;
+  --syn-fn: #0EA5E9;
+  --syn-str: #F97316;
+  --syn-cmt: #B599AE;
+  --accent-claude: #FF6B9E;
+  --accent-codex: #10B981;
+  --accent-gemini: #38BDF8;
+  --accent-custom: #A855F7;
+  --kawaii-deco-opacity: 1;
+}
+
+/* ================= §2 v4 supplements (not in v3; contrast-checked, see doc §5.2) =================
+ * --accent: focus rings, borders, glows (non-text, ≥3:1). --accent-fill: primary button fill
+ * with --accent-text (≥4.5:1). --accent-ink: accent-coloured text on the canvas (≥4.5:1). */
+:root[data-theme="light"] {
+  --accent: #0071E3; --accent-fill: #0071E3; --accent-ink: #0066CC; --accent-text: #FFFFFF;
+  --danger: #D70015; --danger-fill: #D70015; --warning: #B25000; --success: var(--accent-codex);
+  --surface-solid: #FFFFFF; --surface-solid-raised: #F2F2F5;
+  --scrim: rgba(15, 23, 42, 0.18);
+  --terminal-bg: #FCFCFD;   /* code-bg composited over canvas: opaque, never blurred */
+}
+:root[data-theme="dark"] {
+  --accent: #3898FF; --accent-fill: #0A6CD9; --accent-ink: #3898FF; --accent-text: #FFFFFF;
+  --danger: #FF6961; --danger-fill: #C62828; --warning: #FFB340; --success: var(--accent-codex);
+  --surface-solid: #1C1C1F; --surface-solid-raised: #26262B;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --terminal-bg: #0F0F13;
+}
+:root[data-theme="kawaii"] {
+  --accent: #EC4899; --accent-fill: #C81E6F; --accent-ink: #C81E6F; --accent-text: #FFFFFF;
+  --danger: #E11D48; --danger-fill: #E11D48; --warning: #C2410C; --success: var(--accent-codex);
+  --surface-solid: #FFF4F8; --surface-solid-raised: #FFFFFF;
+  --scrim: rgba(120, 40, 90, 0.14);
+  --terminal-bg: #FFFDFE;
+}
+:root {
+  /* Tool → accent: the four v3 accents mapped onto the real providers. */
+  --tool-claude: var(--accent-claude);
+  --tool-codex: var(--accent-codex);
+  --tool-fclaude: var(--accent-gemini);
+  --tool-advanced: var(--accent-custom);
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable", "Segoe UI", "Hiragino Sans", "PingFang SC", "Microsoft YaHei UI", "Noto Sans CJK SC", system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --r-pill: 999px; --r-sheet: 28px; --r-dialog: 24px; --r-card: 22px;
+  --r-pane: 16px; --r-preview: 14px; --r-control: 10px;
+}
+
+/* Accessibility fallbacks (apple-design §14): frost becomes solid, borders gain contrast. */
+:root[data-transparency="reduced"] {
+  --glass-dock: var(--surface-solid);
+  --glass-card: var(--surface-solid-raised);
+  --glass-card-hover: var(--surface-solid);
+  --glass-hud: var(--surface-solid);
+  --sector-fill: var(--surface-solid-raised);
+  --sector-fill-hover: var(--surface-solid);
+}
+@media (prefers-contrast: more) {
+  :root { --border-hairline: var(--text-secondary); --specular-inset: none; }
+}
