@@ -289,6 +289,7 @@ internal/terminalhost/
 | R2 Zen + 三层 | layers/chord/zen/dock/两个圆环；迁移快捷键与命令面板；移除 toolbar/sidebar/details | **2026-10-23 完成（macOS headless）**：Zen、⌥A/⌥C/⌥X/⌥S 与控制中心最小版（宫格仍打开整页）；视图构建 p95 0.032 ms（R1 为 0.045 ms）。fclaude 扇区改为打开现有新建对话框完成审阅（非直接提交）。待补：三平台原生主机验证真实 app、抽屉上推关闭、呼吸条上拉、⌃⌥ 设置 |
 | R3 控制中心 | Sheet、宫格、搜索索引、页面注册表；全部现有页面迁入并套用操作页模板 | **2026-10-23 完成（macOS headless）**：注册表收录 25 个原页面＋项目详情，从任何入口打开都推入 Sheet；页头、上下文条、Well 记录卡、Stages、未知结果横幅统一；搜索与命令面板共用同一索引；呼吸条上拉、抽屉上推关闭。上下文条只在远程管理页显示服务器/设备（其他页面显示各自查询到的上下文，不用缓存）。能力门禁、「不自动查询」与 CLI 调用未改。待补：⌃⌥ 设置、命令面板 HUD 材质、景深随拖拽插值 |
 | R4 收敛 | 无障碍、性能回退、i18n 长文本（en-XA）、900×600 最小窗口、三平台视觉验收 | **2026-10-23 headless 部分完成**：§10.1 纯键盘、900×600 下三语言（en、zh-Hans、en-XA）的层与页面、§10.2 逐帧中途反向（修复 R3 反向时 Sheet 缺一帧）、§10.3 无 scale(0)、§10.5 新增表面对比度（新增 PillText，次元 Success/Solid 微调）、§10.7 分状态视图构建 P95 ≤0.07 ms、GPU 慢帧回退（BlurBudget）、Linux/Windows arm64 截图基线。待原生主机：真实键盘与输入法组字、BlurBudget 实际触发、输入反馈 P95、读屏器、amd64/X11/Wayland |
+| R5 收尾 | ⌃⌥ 设置、命令面板 HUD、景深随拖拽；原生与真实 CLI 验收 | **2026-10-23 脚本部分完成**：Linux X11、Linux Wayland、Windows（arm64 与 x86_64，含微软拼音空闲/组字）的 OS 级组合键注入真实 app，Agent 零泄漏；真实 CLI 0.2.58 + 本地 Server 下 21 个宫格中 19 个正常、1 个按能力隐藏（正确）、Skills 因 CLI `skills.list` 参数校验缺陷失败；修复 Device 页两处误报。待人工：物理键盘、macOS 输入法、读屏器、触控板手感、设计确认（`tests/manual-acceptance/checklist.md`） |
 
 每阶段同时提交 en/zh-Hans 文案与 `tests/` 下测试，遵守 `bash scripts/check.sh`。
 
