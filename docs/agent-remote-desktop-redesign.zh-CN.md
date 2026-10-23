@@ -100,7 +100,7 @@ any      --dragEnd(project(y,v))-->   nearest(open, closed)
 | --- | --- | --- | --- |
 | 12 点 | Claude · 本地 | `--accent-claude` | 立即在项目目录启动 |
 | 3 点 | Codex · 本地 | `--accent-codex` | 立即启动 |
-| 6 点 | fclaude · 远程 | `--accent-gemini` | 打开现有结构化创建审阅（确认对话框），不直接提交 |
+| 6 点 | fclaude · 远程 | `--accent-gemini` | 打开新建会话对话框（已选 fclaude）完成审阅后启动，不直接提交 |
 | 9 点 | 高级… | `--accent-custom` | 打开完整创建面板：工具、名称、JSON 参数、继续历史、分屏方向 |
 
 - HUD 显示：标签（本地/远程 AGENT）、工具名（工具色）、动作说明、可执行文件版本或登录状态、⇧ 分屏提示。
@@ -286,7 +286,7 @@ internal/terminalhost/
 | --- | --- | --- |
 | R0 原型验证 | ① 三平台 spike：⌥+字母在终端聚焦时被 app 取得、`Modifiers()` 松开可观察、Windows Alt 不触发菜单栏、macOS 不输入 å；② 工作区 `Blur` 对流式终端的帧耗时；③ 扇区路径绘制与命中 | **2026-10-23 完成（非正式目标主机）**：①② ③ 均通过，前提是采用 `OnKey` 路线；GPU 模糊 p95 ≤13 ms，CPU 渲染 17 ms 超预算，启用 scrim 回退。待补：输入法组字中的组合键人工复测、windows/linux amd64 与真实 X11/Wayland |
 | R1 Token 与组件 | tokens.go、motion.go、chrome/*；设置页外观分段与新开关 | **2026-10-23 完成（macOS）**：9 张组件基线（3 主题 × 默认/降低透明度/高对比）＋ Sheet 减弱动效对比；WCAG 单测覆盖全部承诺组合。顺带修复「减少动效」实际仍播放 500 ms 弹簧的既有缺陷。Windows/Linux 基线待目标主机录制 |
-| R2 Zen + 三层 | layers/chord/zen/dock/两个圆环；迁移快捷键与命令面板；移除 toolbar/sidebar/details | 本地 Codex/Claude 日常路径全部可键盘完成；输入延迟 p95 不劣于现状 |
+| R2 Zen + 三层 | layers/chord/zen/dock/两个圆环；迁移快捷键与命令面板；移除 toolbar/sidebar/details | **2026-10-23 完成（macOS headless）**：Zen、⌥A/⌥C/⌥X/⌥S 与控制中心最小版（宫格仍打开整页）；视图构建 p95 0.032 ms（R1 为 0.045 ms）。fclaude 扇区改为打开现有新建对话框完成审阅（非直接提交）。待补：三平台原生主机验证真实 app、抽屉上推关闭、呼吸条上拉、⌃⌥ 设置 |
 | R3 控制中心 | Sheet、宫格、搜索索引、页面注册表；全部现有页面迁入并套用操作页模板 | 26 页均可达；能力门禁与「不自动查询」不变；CLI 覆盖表无回退 |
 | R4 收敛 | 无障碍、性能回退、i18n 长文本（en-XA）、900×600 最小窗口、三平台视觉验收 | 第 10 节验收全部通过 |
 
