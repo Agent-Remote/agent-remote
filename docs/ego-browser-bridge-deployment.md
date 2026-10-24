@@ -22,8 +22,8 @@ match.
 
 Release prerequisite: use the exact `agent-remote-server` version and commit in
 the verified root [`release-manifest.json`](../release-manifest.json). The
-manifest, not a version copied from this runbook, binds the Bridge admission fix
-to the candidate and schema-9 evidence. Keep that root component pin until a
+manifest, not a version copied from this runbook, binds the schema-9 Bridge
+admission fix to the candidate/evidence. Keep that root component pin until a
 reviewed replacement is published; do not substitute an older Server release
 as the production Bridge control plane.
 
@@ -52,9 +52,10 @@ as the production Bridge control plane.
    single-user canary. Enable production admission only after every acceptance
    item and signed release gate is complete.
 
-The component record describes the Bridge readiness selected by the verified
-root manifest, including its `production_ready` field. The exact distribution version and tag-bound schema-9 evidence
-are recorded there. Step 8 still cannot authorize production enablement until its exact
+The component record describes the published Bridge promotion with
+`production_ready=true` and no blockers. The exact distribution version and
+tag-bound schema-9 evidence are the ones recorded in the verified root
+manifest. Step 8 still cannot authorize production enablement until its exact
 deployment bundle is installed and the final logged-in canary is complete; the
 feature flag remains disabled by default.
 
