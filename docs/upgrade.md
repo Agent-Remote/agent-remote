@@ -1,15 +1,15 @@
 # Upgrade
 
-The coordinated Community upgrade procedure for the session full-trust release is documented in
-[`session-full-trust-community-upgrade.md`](session-full-trust-community-upgrade.md). It includes
-the required commit, push, CI, prepare-release sequence for every repository, component pinning,
-deployment configuration, manual macOS installation, acceptance checks, and rollback steps.
+The coordinated Community upgrade procedure is documented in
+[`session-full-trust-community-upgrade.md`](session-full-trust-community-upgrade.md). It uses the
+verified root manifest, current component pins, target-host acceptance and explicit rollback steps.
 
 ## Control Plane
 
 The signed device-control release evidence is part of the root deployment bundle, not a separately
 expiring lease. Upgrade the Server image and the read-only evidence file from the same root release;
-do not copy an evidence file from another version. Schema 9 has no `expires_at`; the Server verifies
+do not copy an evidence file from another version. The root manifest uses schema 4 and the signed
+device-control evidence uses schema 9; schema 9 has no `expires_at`; the Server verifies
 the exact root composition and signature at startup. A schema 1-7 file is migration-only and must be
 replaced by a current schema 9 file before enabling device control on the upgraded release. Already
 issued schema 8 evidence remains permanently verifiable for its exact signed composition, but is not
@@ -47,10 +47,10 @@ curl -fsSL https://raw.githubusercontent.com/Agent-Remote/agent-remote-node/main
 ```
 
 The current `agent-remote node install --node <node-id-or-prefix>` command is the managed install
-path. It authenticates the exact Node archive, checksum, and Sigstore bundle, transfers and installs
-that release over one protected SSH stdin channel, and only then sends the short-lived join code over
-a separate SSH invocation. The CLI pins Node `0.2.22`; the managed installer accepts only its exact
-published, tag-bound release assets and Sigstore evidence. Do not bypass the managed verifier.
+path. It authenticates the exact Node archive, checksum, and Sigstore bundle selected by the verified
+root manifest, transfers and installs that release over one protected SSH stdin channel, and only
+then sends the short-lived join code over a separate SSH invocation. Do not bypass the managed
+verifier or substitute a version copied from this document.
 
 The Node installer selects an unused dynamic WireGuard UDP port for new installations and preserves it on later upgrades. Installations still using the legacy `51820` default are migrated automatically. After that migration, allow the UDP port printed by the installer in any host or provider firewall, wait for the Node heartbeat to publish the new endpoint, and run `agent-remote wireguard config` followed by a tunnel restart on every client. Use `--rotate-wireguard-listen-port` to select another random high port when an upstream route starts filtering the current one; always verify a real client handshake because a locally unused port does not prove Internet reachability.
 

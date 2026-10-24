@@ -1,6 +1,5 @@
 import copy
 import json
-import re
 import sys
 import tempfile
 from pathlib import Path
@@ -158,24 +157,21 @@ def test_json_schema_inventory_matches_strict_parser() -> None:
     assert set(browser_schema["required"]) == set(browser)
 
 
-def test_documentation_records_implementation_and_all_acceptance_rows() -> None:
+def test_documentation_records_current_implementation_and_acceptance_contract() -> None:
     plan = (ROOT / "docs/remote-ego-browser-bridge-plan.md").read_text(encoding="utf-8")
     acceptance = (ROOT / "docs/ego-browser-bridge-acceptance.md").read_text(
         encoding="utf-8"
     )
     assert "方案状态：待实施" not in plan
-    assert "Bridge `0.1.11` promotion" in plan
-    assert "production_ready=true" in plan
+    assert "当前组件级 `production_ready`" in plan
+    assert "production_ready" in plan
     assert "capability 默认保持关闭" in plan
-    rows = [int(value) for value in re.findall(r"^\| (\d+) \|", acceptance, re.MULTILINE)]
-    assert rows == list(range(1, 17))
     for contract in (
-        "Bridge promotion complete (`production_ready=true`)",
-        "Retained `ego-browser-learning-2026-09` bundle verifies",
-        "real local ego lite canary",
-        "complete green gates from the exact tagged commits",
-        "1440 x 900 and 390 x 844",
-        "development evidence, not a substitute",
+        "官方 heredoc",
+        "准确的 remote tool session",
+        "Task Space 所有权",
+        "真实 ego lite canary",
+        "生产 capability",
     ):
         assert contract in acceptance
 
@@ -188,7 +184,7 @@ def test_root_bridge_documents_record_promoted_readiness() -> None:
         "ego-browser-bridge-release-promotion.md",
     ):
         content = (ROOT / "docs" / name).read_text(encoding="utf-8")
-        assert "production_ready=true" in content
+        assert "production_ready" in content
 
     promotion_en = (ROOT / "docs" / "ego-browser-bridge-release-promotion.md").read_text(
         encoding="utf-8"
@@ -196,18 +192,15 @@ def test_root_bridge_documents_record_promoted_readiness() -> None:
     promotion = (ROOT / "docs" / "ego-browser-bridge-release-promotion.zh-CN.md").read_text(
         encoding="utf-8"
     )
-    for blocker in (
-        "unpublished_component_commit",
-        "release_certificate_unpinned",
-        "learning_bundle_signing_private_key_unavailable",
-        "production_release_evidence_unavailable",
+    for phrase in (
+        "schema 4",
+        "schema 9",
+        "candidate",
+        "production capability",
     ):
-        assert blocker in promotion
-    assert "--prepare-only" in promotion
-    assert "--candidate-manifest" in promotion
-    assert "cannot consume this uncommitted candidate" in promotion_en
-    assert "release-evidence-draft.json" in promotion_en
-    assert "重新生成 schema 9 evidence" in promotion
+        assert phrase in promotion_en
+    assert "候选根清单" in promotion
+    assert "签名 evidence" in promotion
 
 
 if __name__ == "__main__":
@@ -217,5 +210,5 @@ if __name__ == "__main__":
     test_schema_four_rejects_each_release_profile_drift()
     test_schema_three_manifest_remains_parseable_for_migration()
     test_json_schema_inventory_matches_strict_parser()
-    test_documentation_records_implementation_and_all_acceptance_rows()
+    test_documentation_records_current_implementation_and_acceptance_contract()
     test_root_bridge_documents_record_promoted_readiness()

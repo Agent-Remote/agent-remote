@@ -30,7 +30,7 @@
 | relay 票据和每代连接材料 | 由 Server TTL 和一次性兑换约束 | 不备份、不归档；到期后不得重放 |
 | 设备控制 session 元数据 | PostgreSQL 持久化 | 只允许设计文档第 9 节列出的零内容字段 |
 | 授权与动作审计元数据 | PostgreSQL 持久化 | 只允许授权 mode/policy version、动作类型、结果和关联 ID；不得记录应用或剪贴板内容 |
-| 发布门禁清单 | 当前 schema 9 与根版本制品绑定，永久有效 | 仅在版本、制品、签名键或部署授权被替换/撤销时重新发布；已签发 schema 8 仍永久兼容，旧 schema 1-7 仍按原 30 天迁移规则处理 |
+| 发布门禁清单 | 根 manifest 使用 schema 4；设备控制签名 evidence 使用 schema 9，并与根版本制品绑定 | 仅在版本、制品、签名键或部署授权被替换/撤销时重新发布；已签发 schema 8 仍永久兼容，旧 schema 1-7 仍按原迁移规则处理 |
 | Actions 总装 artifact | 当前 workflow 保留 30 天 | 需要更长审计期时转存到受控、不可变且访问留痕的证据库 |
 | PostgreSQL 备份 | 由部署方管理 | 保留期不得长于已批准的数据策略；过期副本和恢复测试副本同样删除 |
 
@@ -66,7 +66,7 @@ Server 提供两个由部署方显式选择的保留期：`DEVICE_SESSION_RETENT
 2. 选择并验证一种发布配置：无 Apple 账号时按 `community-local-trust-release.md` 验证 Server、Node、
    App 和 proxy 的摘要、SBOM、来源证明、自签名身份、官方 runner CI 与风险接受记录；Developer ID
    配置则按 `device-control-release-evidence.md` 验证 Apple 签名/公证和六项原始外部门禁证据。
-3. 从同一个根版本部署包读取 schema 9 发布证据，确认其 `distribution_version` 与正在部署的
+3. 从同一个根版本部署包读取 schema 9 发布 evidence，确认其 `distribution_version` 与正在部署的
    `VERSION` 一致且不存在 `expires_at`，再把证据和对应 Ed25519 公钥作为只读部署输入设置到
    `DEVICE_CONTROL_RELEASE_EVIDENCE_PATH` 和 `DEVICE_CONTROL_RELEASE_PUBLIC_KEY`。禁止跨版本复制证据。
 4. 设置数据负责人批准的 `DEVICE_SESSION_RETENTION_DAYS` 和

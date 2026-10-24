@@ -104,7 +104,7 @@ values, use the verified root [`release-manifest.json`](../release-manifest.json
 and its schema; this security document remains authoritative for the stricter
 trust and fail-closed rules.
 
-The root schema-v4 composition records the published Bridge `0.1.11` commit,
+The root schema-v4 composition records the exact published Bridge commit,
 certificate pin, learning-bundle digest, and nested-signature evidence with
 `production_ready=true` and an empty blocker list. The root release workflow
 still verifies those facts, binds schema 9 evidence to the exact root tag, and

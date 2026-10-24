@@ -1,58 +1,37 @@
 # Skill 验收状态
 
-更新：2026-09-29。**Native 生产功能验收及本机容量边界补测通过**，本轮约定范围已完成。
-Docker Sandbox 不在范围内；替代主机恢复按用户要求免测并接受，不标记为实测通过。
+更新：2026-10-24。本文只记录当前 Server、Node、CLI 和 Desktop 代码已经提供的 Skill 合同与可复核证据。历史版本号、旧测试目录和已删除的本机路径不属于当前验收记录。
 
-## 环境与结果
+## 当前实现
 
-实际版本：Server **0.2.29**、Node/Helper **0.2.37**、CLI **0.2.39**。
-发行组合为主仓库 **0.2.48**；六个组件 tag commit 与 manifest 一致，CLI→Node、
-CLI/Node→Device/Ego Browser 的实际依赖文件匹配。未改动生产部署的 evidence/env 配对。
+- Server 持有 Skill 配置、版本、快照、发布、冲突、保留和删除回执；请求使用 owner-scoped 上下文和不可重放的 caller key。
+- Node/Helper 负责受控运行时、工作区权限、快照准备、发布和清理；无法证明终止或清理时保留 `pending`，不会伪造成功。
+- CLI 负责登录上下文、同步、Skill 操作和恢复查询；未知结果只查询原始请求 key，不用新 key 重放。
+- Desktop 只展示当前账户、项目、会话和操作收据，不保存凭据、原始命令或 Skill 内容。
+- Mutagen 同步链已在一次性 Docker 环境通过双向传输、暂停/恢复、冲突处理、显式 resolve/reset，以及 Node 和 Mutagen 重启恢复。
 
-| 范围 | 本轮实测结果 |
-| --- | --- |
-| 默认启动闭环 | WireGuard → Mutagen → `fclaude` → 实际 Skill 调用/写入 → 正常退出发布 → 新会话继承通过，全程不使用 SSH 转发替代路径 |
-| 工作区同步 | 正常 `Documents/Git` 工作区的初次及增量双向同步通过；`/private/tmp` 曾漏报新增文件事件，改用正常工作目录复测，未以“已连接”冒充同步成功 |
-| 安装与规则 | 本地/Git、批量安装/更新、check、stage/activate、pin/unpin、rollback、各级启停继承、移除重装纪元及非法输入拒绝通过 |
-| 隔离 | 跨用户越权拒绝、双账号版本及学习隔离、账号首次接管通过 |
-| 学习与冲突 | Read/Edit/Write、Server/Worker/Helper 重启继承、并发冲突、自定义解决、reset/restore、版本迁移及 incoming 解决通过 |
-| 异常与停止 | SIGKILL 保留未正常退出内容、35 秒 Worker HTTPS 中断后保存、旧纪元迟到写入隔离通过；`stop/stop-status` 的 detached 内容可导出、恢复并在新会话继承 |
-| 查询与导出 | list/info/diff、会话有效配置、Server 检查点及默认 SSH 的 Node 冲突快照导出通过；摘要、二进制、链接、空目录和权限一致 |
-| 保留期与删除 | 仅回拨测试记录时间戳：普通历史 31 天可清理；归档 31 天保护、91 天可清理；普通 prune 后后台物理删除 3 棵测试树对应的 29 字节独有内容 |
-| 禁用与回收 | 领取前、领取后禁用均收敛；后者以 `AUTHORIZATION_DENIED` 完成撤权失败确认。19 个测试会话的 Node 工作树和对象全部自动回收 |
+## 当前质量证据
 
-保留期测试未改变系统时间或生产策略，未使用 `--all-unreferenced`。
-后台只执行已提交删除任务，不声称存在自动定时历史 prune。
-中断执行中的 Claude 可产生 `detached/unclean`，CLI 返回需处理状态；不冒充正常发布。
-Node 已回收的本地副本不再可导出，应使用保留的 Server 检查点。
+最近一次质量门禁结果：
 
-## 自动化回归与修复
+- Server：2266 passed，127 skipped，覆盖率 91.68%；Ruff、Mypy 和 docstring 检查通过。
+- CLI：1404 passed，4 skipped；静态检查、合同测试和安装器检查通过。
+- Node：`go test ./...` 通过。
+- Desktop：`bash scripts/check.sh` 和 workbench probe 通过。
+- Docker sync-chain：真实 Linux sshd、Server、Node、worker/helper、Mutagen 和重启恢复通过。
 
-- Server 全量门禁：**1868 通过、104 跳过，覆盖率 91.50%**；Skill 专项初轮 1470 通过、74 跳过。
-- 一次性 PostgreSQL 补测：**61 通过、2 跳过**；两个真实 Native 用例的独立自动化入口未运行，其场景由上表生产实测覆盖。
-- CLI：**608 通过**；默认忽略的 **100001 条目恢复测试另行通过**。
-- Node：Skill 管理、导出、Helper、Worker 四组 Go 回归通过。
-- 本机完整字节与文件数量边界：**2 GiB 包、20 GiB 状态、100000 独立对象上传、100000 文件下载全部通过**。
-  上传完整提交及临时索引回收通过；下载逐项核对大小、SHA-256、ETag，完成 132 次租约续期并验证撤权后拒绝访问；两者重复完整清单读取均为零。
+这些结果证明代码合同和同步链边界，不等同于目标主机上的真实 Claude/SSH/tmux 会话或生产 Skill 发布证据。
 
-发现并修复两处 PostgreSQL 测试隔离问题：部署预约断言限定当前账号，排空结果断言及故障注入限定当前任务，
-避免其他用例留下的行导致误报。容量 HTTP 夹具显式设置 `TCP_NODELAY`，消除小响应的额外等待；
-上传以 8 路有界并发覆盖全部独立对象，保留真实 HTTP、数据库事务、磁盘落盘及逐项断言。
-同用户存储锁仍按生产规则串行执行，不绕过持久化或权限检查。
-CI 另暴露迁移测试重配全局日志的问题，已稳定复现并修复测试隔离；相同执行顺序由两项日志断言失败变为三项全部通过。
-修改仅涉及测试，未修改运行逻辑或重新发布生产版本。
-容量管线、磁盘不足、断电和备份恢复等历史专项证据继续保留，不冒充本轮全部重复执行。
+## 仍需的发布证据
 
-## 恢复与证据
+1. 在一次性 Server/Node/SSH/tmux/fclaude 环境完成 Skill 创建、保存、恢复、停止、删除和清理回执闭环。
+2. 将真实 session、attachment 和同步证据绑定到最终发布组合。
+3. 在目标主机完成 Agent TUI、IME、附件、输入反馈和长时间运行验证。
 
-临时用户、4 个测试账号、19 个会话及 2 个工作区已清理；绑定账号按授权限定范围 SQL 清理。
-原有 3 个远端工作区/同步、设备和账号身份完整保留；本机原有 6 条同步及暂停状态、配置和操作记录恢复。
-原 Claude 仍为 1724 个文件，内容及权限除 `.claude/.credentials.json` 正常 OAuth 续期外一致；
-保留续期凭据以保证原账号可用，未恢复过期凭据。未回退审计、generation 和删除回执。
-状态字节、配额预留、外键孤儿、待删除任务、测试 namespace 均为零；原 1270 字节归档保留，服务正常。
-远端私有基线、测试凭据、临时工作目录及 SSH 管理连接已清理。
-本机容量测试数据、一次性数据库及执行容器已清理，私有恢复备份已删除，仅保留验收记录。
+验收必须使用临时凭据、临时 home、一次性数据库、一次性工作区和临时容器。结束后删除测试用户、会话、文件、容器、镜像、socket、日志和 evidence 目录；不得使用生产凭据或真实工作区。
 
-证据：本机私有目录 `/tmp/skill-final-20260929`；上轮证据 `/tmp/skill-reacceptance-20260928`。
-WireGuard 当前依赖 Clash 对服务器 UDP 51433 的指定转发规则，所选代理须支持 UDP。
-操作见[使用与运维](skill-manager.md)、[备份恢复](backup-restore.md)及[跨仓库契约](skill-manager-wire-v1.md)。
+## 相关入口
+
+- Skill 合同：[`skill-manager.md`](skill-manager.md)、[`skill-manager-wire-v1.md`](skill-manager-wire-v1.md)
+- 备份与恢复：[`backup-restore.md`](backup-restore.md)
+- 跨仓远程验收：`../agent-remote-desktop/docs/remote-interop-acceptance.md`

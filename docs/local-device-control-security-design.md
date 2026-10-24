@@ -97,7 +97,7 @@ Remote Native Runtime
 | GUI executor   | 截图、鼠标、键盘、窗口隐藏和恢复                 | Anthropic 凭据、设备长期凭据、任意网络目标            |
 
 
-Network broker 与 GUI executor 只通过版本化 XPC 或 owner-only 本地 IPC 通信。正式实现前必须用签名安装包验证 App Sandbox、TCC、ScreenCaptureKit、Accessibility 和进程拆分能够同时满足要求；验证失败时不得把两个权限集合无条件合并，而应重新评审边界。
+Network broker 与 GUI executor 只通过版本化 XPC 或 owner-only 本地 IPC 通信。正式发布门禁要求在签名安装包上验证 App Sandbox、TCC、ScreenCaptureKit、Accessibility 和进程拆分能够同时满足要求；证据缺失或失败时不得把两个权限集合无条件合并。
 
 ### 4.2 远端组件
 

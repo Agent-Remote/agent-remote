@@ -1,6 +1,6 @@
 # agent-remote-desktop 前端界面与交互重构方案
 
-状态：设计定稿待评审（2026-10-23）。视觉与交互以 [prototype-v4](agent-remote-desktop-design-spec/prototype-v4/index.html) 为可运行基准，色彩与光学材质 1:1 继承 [prototype-v3](agent-remote-desktop-design-spec/prototype-v3.html)，动效遵循 `.claude/skills/apple-design`。本方案只替换 desktop 的**呈现层与操作逻辑**；产品约束、CLI 契约、i18n、`tests/` 布局、安全语义继续以[产品与技术方案](agent-remote-desktop-design.zh-CN.md)为准。
+状态：设计已定稿并已实现（2026-10-24）。视觉与交互以 [prototype-v4](agent-remote-desktop-design-spec/prototype-v4/index.html) 为基准，色彩与光学材质继承 [prototype-v3](agent-remote-desktop-design-spec/prototype-v3.html)，动效遵循 Apple Design 的可中断交互与减弱动效规则。当前代码与发布门禁以同级仓库 [implementation-status.md](../../agent-remote-desktop/docs/implementation-status.md) 为准。本方案只定义 desktop 的**呈现层与操作逻辑**；产品约束、CLI 契约、i18n、`tests/` 布局和安全语义继续以[产品与技术方案](agent-remote-desktop-design.zh-CN.md)为准。
 
 ## 1. 已拍板的决策与原因
 
@@ -13,20 +13,11 @@
 
 技术栈说明：v3 规范写的是 `motion/react`，但 desktop 为 mygo 原生 Go（AGENTS.md 强制）。本方案把每条 Web 规则翻译为 mygo 的等价能力（§6、§7），不引入 WebView。
 
-## 2. 现状盘点（已逐项核对代码）
+## 2. 当前实现边界
 
-当前布局：顶栏（品牌/搜索/专注/主题/新建）＋侧栏（项目、10 个导航按钮、会话列表、进行中操作入口、立绘）＋内容区（标签栏、1–4 分屏、详情栏）＋状态栏。`a.page` 字符串切换 26 个页面，`ui.Modal` 承载 10 个对话框。
+当前代码已经采用 Zen 工作区和控制中心结构：工作区承载 1–4 个本地或远程终端面板，Agent 抽屉管理会话，项目圆环管理项目，控制中心承载远程、项目、连接与系统页面。页面从任意入口统一推入控制中心 Sheet；业务 worker、CLI 合同、确认和回执语义保持不变。
 
-| 区域 | 现有功能 | 新归宿 |
-| --- | --- | --- |
-| 工作台 | 项目增删选、会话新建/命名/参数、标签拖拽、1–4 分屏、焦点、隐藏、停止、历史会话继续、文件拖放、终端字体 | Layer 0 / 1.1 / 1.2 / 2 |
-| 远程 | 远程会话库存（筛选、创建、停止、删除、恢复、attach）、账户（创建/绑定/验证/停用/详情）、默认账户、配置导入、运行时恢复、开发凭据、Skills（目录/启停/状态/冲突/详情）、登录/注销 | 控制中心 · 远程 |
-| 项目 | 同步 6 动作＋旧映射恢复、端口转发、项目详情 | 控制中心 · 当前项目 |
-| 连接与设备 | WireGuard 配置/检查/状态/隧道、设备、ego-browser（绑定/请求/生命周期/删除）、节点安装、Mutagen 运行环境 | 控制中心 · 连接与设备 |
-| 系统 | 操作中心、环境诊断、命令诊断、依赖、本地初始化、初始化向导、能力说明＋通用 CLI 表单、设置（语言/工具/外观/动效/字体） | 控制中心 · 系统 |
-| 全局 | 命令面板 `⌘⇧P`、退出确认、关窗后台、托盘 | 保留；命令面板改用 HUD 材质 |
-
-全部业务 worker、`poll*`、CLI 契约、确认/回执语义**不改**；重构只移动入口并统一外观。
+正式发布仍受平台和服务证据约束。Windows amd64、Linux amd64 的 X11/Wayland、受保护 WireGuard broker、真实 Server/Node/SSH/fclaude 链路、Agent TUI/IME/附件及端到端性能测量，必须以同级仓库实施状态中的最新记录为准。
 
 ## 3. 交互层级与状态机
 
@@ -284,12 +275,12 @@ internal/terminalhost/
 
 | 阶段 | 内容 | 通过条件 |
 | --- | --- | --- |
-| R0 原型验证 | ① 三平台 spike：⌥+字母在终端聚焦时被 app 取得、`Modifiers()` 松开可观察、Windows Alt 不触发菜单栏、macOS 不输入 å；② 工作区 `Blur` 对流式终端的帧耗时；③ 扇区路径绘制与命中 | **2026-10-23 完成（非正式目标主机）**：①② ③ 均通过，前提是采用 `OnKey` 路线；GPU 模糊 p95 ≤13 ms，CPU 渲染 17 ms 超预算，启用 scrim 回退。待补：输入法组字中的组合键人工复测、windows/linux amd64 与真实 X11/Wayland |
-| R1 Token 与组件 | tokens.go、motion.go、chrome/*；设置页外观分段与新开关 | **2026-10-23 完成（macOS）**：9 张组件基线（3 主题 × 默认/降低透明度/高对比）＋ Sheet 减弱动效对比；WCAG 单测覆盖全部承诺组合。顺带修复「减少动效」实际仍播放 500 ms 弹簧的既有缺陷。Windows/Linux 基线待目标主机录制 |
-| R2 Zen + 三层 | layers/chord/zen/dock/两个圆环；迁移快捷键与命令面板；移除 toolbar/sidebar/details | **2026-10-23 完成（macOS headless）**：Zen、⌥A/⌥C/⌥X/⌥S 与控制中心最小版（宫格仍打开整页）；视图构建 p95 0.032 ms（R1 为 0.045 ms）。fclaude 扇区改为打开现有新建对话框完成审阅（非直接提交）。待补：三平台原生主机验证真实 app、抽屉上推关闭、呼吸条上拉、⌃⌥ 设置 |
-| R3 控制中心 | Sheet、宫格、搜索索引、页面注册表；全部现有页面迁入并套用操作页模板 | **2026-10-23 完成（macOS headless）**：注册表收录 25 个原页面＋项目详情，从任何入口打开都推入 Sheet；页头、上下文条、Well 记录卡、Stages、未知结果横幅统一；搜索与命令面板共用同一索引；呼吸条上拉、抽屉上推关闭。上下文条只在远程管理页显示服务器/设备（其他页面显示各自查询到的上下文，不用缓存）。能力门禁、「不自动查询」与 CLI 调用未改。待补：⌃⌥ 设置、命令面板 HUD 材质、景深随拖拽插值 |
-| R4 收敛 | 无障碍、性能回退、i18n 长文本（en-XA）、900×600 最小窗口、三平台视觉验收 | **2026-10-23 headless 部分完成**：§10.1 纯键盘、900×600 下三语言（en、zh-Hans、en-XA）的层与页面、§10.2 逐帧中途反向（修复 R3 反向时 Sheet 缺一帧）、§10.3 无 scale(0)、§10.5 新增表面对比度（新增 PillText，次元 Success/Solid 微调）、§10.7 分状态视图构建 P95 ≤0.07 ms、GPU 慢帧回退（BlurBudget）、Linux/Windows arm64 截图基线。待原生主机：真实键盘与输入法组字、BlurBudget 实际触发、输入反馈 P95、读屏器、amd64/X11/Wayland |
-| R5 收尾 | ⌃⌥ 设置、命令面板 HUD、景深随拖拽；原生与真实 CLI 验收 | **2026-10-23 脚本部分完成**：Linux X11、Linux Wayland、Windows（arm64 与 x86_64，含微软拼音空闲/组字）的 OS 级组合键注入真实 app，Agent 零泄漏；真实 CLI 0.2.58 + 本地 Server 下 21 个宫格中 19 个正常、1 个按能力隐藏（正确）、Skills 因 CLI `skills.list` 参数校验缺陷失败；修复 Device 页两处误报。待人工：物理键盘、macOS 输入法、读屏器、触控板手感、设计确认（`tests/manual-acceptance/checklist.md`） |
+| R0 原型验证 | 三平台组合键、终端吞键、景深和性能回退 | 已实现并有 Go/mygo 与 macOS 原生探针证据；其它目标主机仍按发布矩阵验收 |
+| R1 Token 与组件 | 主题、材质、动效、可读性和 i18n 基础 | 已实现；catalog、对比度和组件回归通过 |
+| R2 Zen + 三层 | 工作区、抽屉、圆环、控制中心入口和会话布局 | 已实现；键盘、拖拽、最小窗口和持久化回归通过 |
+| R3 控制中心 | Sheet、页面注册表、搜索、操作摘要和统一页面模板 | 已实现；页面入口统一进入控制中心 |
+| R4 收敛 | 无障碍、长文本、响应式、性能回退和多语言 | 已实现代码与自动化检查；真实目标主机仍需运行时证据 |
+| R5/R6 验收 | ⌃⌥ 修饰键、HUD、景深拖拽、人工键盘/IME/读屏器检查 | 设计与实现已完成；正式发布仍受平台、远程链路和性能门禁约束 |
 
 每阶段同时提交 en/zh-Hans 文案与 `tests/` 下测试，遵守 `bash scripts/check.sh`。
 

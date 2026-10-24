@@ -2,7 +2,7 @@
 
 ## 实现状态
 
-0.0.4 已完成本文所述的跨仓库基础实现：控制面 backend policy、账户 backend 固定与迁移、session 中性 runtime 标识与 interrupted 恢复、管理端 runtime policy、CLI replacement 流程、node root helper、Native isolation、受管 Claude runtime 和一键安装器。Docker Sandbox 继续作为显式兼容 backend，浏览器容器 capability 与 Claude Native Runtime 相互独立。
+当前代码已完成本文所述的跨仓库基础实现：控制面 backend policy、账户 backend 固定与迁移、session 中性 runtime 标识与 interrupted 恢复、管理端 runtime policy、CLI replacement 流程、node root helper、Native isolation、受管 Claude runtime 和一键安装器。Docker Sandbox 继续作为显式兼容 backend，浏览器容器 capability 与 Claude Native Runtime 相互独立。
 
 ## 1. 背景与目标
 

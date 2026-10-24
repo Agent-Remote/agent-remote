@@ -2,7 +2,7 @@
 
 Production device control stays disabled by default. An evidence workflow only assembles and signs
 a release-bound approval manifest; running it does not change Server configuration or enable the
-capability. The current schema 9 manifest is permanently valid for the exact signed release
+capability. The current schema 9 evidence document is permanently valid for the exact signed release
 composition. It has no `expires_at` field and is revoked only by replacing or disabling the
 corresponding release, signing key, or deployment capability.
 

@@ -391,9 +391,16 @@ DELETE /port-forwards/{forward_id}
   "remote_port": 5173,
   "local_port": 5173,
   "client_instance_id": "ci_01K...",
+  "caller_request_id": "018f2c3e-9c50-7e0b-b3cf-2df9bb8b1c7d",
   "ttl_seconds": 28800
 }
 ```
+
+`caller_request_id` 是同一用户范围内的原始创建键，与 CLI 进程的
+`client_instance_id` 分开。Server 按请求键和无凭据意图摘要原子去重：相同意图的
+重试返回同一个 `forward_id` 并签发新的短期一次性 connection token；意图不同或原
+转发已经进入终态时拒绝请求。CLI 在 transport failure 后可使用同一请求体重试，不能
+生成新键猜测另一个转发。旧客户端省略该字段时保留兼容路径，但不具备创建恢复保证。
 
 创建响应：
 
@@ -440,6 +447,8 @@ Node API 只接受节点凭证。redeem 必须同时验证当前 node、SSH key/
 | remote_port | integer | 固定目标端口 |
 | requested_local_port | integer | 审计和用户体验元数据 |
 | client_instance_id | text | CLI 进程实例，限制长度 |
+| caller_request_id | uuid, nullable | 用户范围内稳定的创建原键；同键只绑定一个意图 |
+| caller_intent_digest | text, nullable | Server 规范化创建意图摘要，不含 token 或应用流量 |
 | status | text | 状态枚举 |
 | policy_snapshot | jsonb | 创建时非敏感策略摘要 |
 | bytes_up | bigint | 聚合计数 |

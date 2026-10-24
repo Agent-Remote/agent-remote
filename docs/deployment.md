@@ -92,7 +92,8 @@ following deployment-owned values after that profile's release gates pass:
   otherwise falls back atomically to v1. Set it to `false` only as an emergency rollback for new
   generations; active generations never downgrade in place.
 - `DEVICE_SESSION_AUTHORIZATION_MODE=per_application_approval`: the compatibility default. Change
-  it to `session_full_trust` only after the schema 9 root composition, Server, Node, Device app,
+it to `session_full_trust` only after the schema 4 root composition and its schema 9 evidence,
+Server, Node, Device app,
   and embedded proxy have all been upgraded and verified. The setting applies only to new claims;
   stop and recreate an existing binding instead of changing its authorization in place.
 
@@ -176,10 +177,10 @@ upgrade, and rollback order. The full local-execution boundary is documented in
 release gates are tracked in
 [`ego-browser-bridge-acceptance.md`](ego-browser-bridge-acceptance.md).
 
-The current root manifest records the published Bridge `0.1.11` release,
-certificate pin, learning-bundle digest, and `production_ready=true` with no
-Bridge blockers. Its distribution version and tag-bound schema-9 evidence are
-authoritative; do not substitute a version copied from this guide. Keep
+The current root manifest records the exact published Bridge release, certificate
+pin, learning-bundle digest, and component readiness fields. Its distribution
+version and tag-bound schema-9 evidence are authoritative; do not substitute a
+version copied from this guide. Keep
 `EGO_BROWSER_BRIDGE_ENABLED=false` until the exact deployment bundle is
 installed and the final artifact-bound canary is complete. A
 successful Node wrapper installation or development-mode test is not

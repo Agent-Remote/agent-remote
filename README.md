@@ -4,108 +4,76 @@
 
 English | [中文](README.zh-CN.md)
 
-agent-remote is an open-source, self-hosted system for running AI coding agents from trusted remote environments while keeping local developer workflows close to native usage.
+`agent-remote` is an open-source, self-hosted system for running AI coding agents in trusted remote environments while keeping the local workflow close to a native terminal.
 
-The project is designed for individuals and small teams that want Claude Code first, with room for future tools such as Codex. A local command such as `fclaude` connects to a remote node through WireGuard, keeps project files synchronized with Mutagen, and attaches to a long-lived tmux-backed agent shell. Claude can run in the default Linux-native isolation runtime without KVM or Docker, while Docker Sandbox remains an optional compatible backend.
+## Components
 
-## Repositories
+| Repository | Responsibility |
+| --- | --- |
+| `agent-remote-server` | FastAPI control plane for users, devices, accounts, nodes, sessions, synchronization and audit data. |
+| `agent-remote-node` | Poll-based Go runtime on a VPS node. It does not expose a public control HTTP API. |
+| `agent-remote-cli` | Rust local CLI and launchers: `agent-remote`, `fclaude`, WireGuard, SSH, Mutagen and desktop-control contracts. |
+| `agent-remote-desktop` | Native Go/mygo workbench for local Codex/Claude and remote `fclaude` sessions. |
+| `agent-remote-admin-web` | React/Vite administration console. |
+| `agent-remote-device` | Swift macOS Device app and managed MCP proxy. |
+| `agent-remote-ego-browser` | macOS Bridge, Device Client, Linux wrapper and release tooling for explicit full-trust browser control. |
 
-- `agent-remote`: project-level deployment bundle, architecture, and cross-repository documentation.
-- `agent-remote-server`: Python 3.13 control-plane API for users, devices, nodes, sessions, sync, browser tasks, and audit data.
-- `agent-remote-admin-web`: React/Vite administrative console.
-- `agent-remote-node`: Go node runtime deployed on VPS hosts.
-- `agent-remote-cli`: Rust local CLI and tool launchers such as `agent-remote` and `fclaude`.
-- `agent-remote-device`: Swift macOS device application and Rust managed MCP proxy.
-- `agent-remote-ego-browser`: independent macOS Bridge, Device Client, Linux
-  wrapper, protocol, and release tooling for explicit full-trust control of a
-  user's existing ego lite runtime.
+## Runtime model
 
-## Runtime Model
+- WireGuard provides the private device-to-node path.
+- Mutagen synchronizes a selected project workspace.
+- The control plane selects an administrator-approved `native` or `docker_sandbox` backend for each tool account.
+- The node runs the selected Agent in an isolated runtime and keeps its shell in tmux.
+- SSH attaches the local terminal to the authorized tmux session.
+- The desktop shares CLI configuration, credentials and structured operation contracts; it does not maintain a second credential store.
 
-- WireGuard provides the local-to-node private network path.
-- Mutagen provides project file synchronization.
-- The control plane pins each tool account to an administrator-approved `native` or `docker_sandbox` backend.
-- Native Runtime uses per-user Linux identities, systemd cgroups, Bubblewrap, network namespaces, and nftables; it does not require KVM or Docker.
-- Docker Sandbox remains available on nodes that explicitly enable and report that capability.
-- tmux keeps remote agent shells alive across local disconnects.
-- SSH is used for native terminal attachment and forced-command node access.
-- Remote temporary browser sessions use node-side browser containers and VPS network identity.
-- `Agent Remote Device.app` uses its device credential to list and claim a currently running remote
-  Claude session; rebind revokes old device control without stopping remote Claude.
-- The independent ego-browser Bridge lets one explicitly selected remote
-  `fclaude` session run full-trust Node.js heredocs against local ego lite over
-  an outbound encrypted relay. It is not a Task Space sandbox.
+The desktop is still under development. Its redesign is implemented, but a formal release still requires the platform, broker, remote-chain and performance evidence listed in its implementation status.
 
 ## Documentation
 
-- `docs/agent-remote-architecture.md`
-- `docs/agent-remote-implementation-appendix.md`
-- `docs/native-runtime-design.md`
-- [Skill usage and operations (Chinese)](docs/skill-manager.md)
-- [Skill cross-repository contract (Chinese)](docs/skill-manager-wire-v1.md)
-- [Skill acceptance status (Chinese)](docs/skill-acceptance-plan.md)
-- `docs/session-port-forwarding-design.md`
-- `docs/local-device-control-security-design.md`
-- `docs/local-device-control-binding-design.md`
-- `docs/device-full-trust-refactor-plan.md`
-- `docs/local-device-control-release-gate-status.md`
-- `docs/device-control-operations-runbook.md`
-- `docs/deployment.md`
-- `docs/ego-browser-bridge-security.md`
-- `docs/ego-browser-bridge-deployment.md`
-- `docs/ego-browser-bridge-acceptance.md`
-- `docs/ego-browser-bridge-release-promotion.md`
-- `docs/ego-browser-humanized-lifecycle.md` (the unified ego-lite install, registration, upgrade, and daily-use contract)
+Use the current code contracts as the source of truth:
 
-Computer Use v2 的完整优化方案以
-`docs/local-device-control-security-design.md` 第 6.5 节为架构与安全事实源；协议状态机、benchmark
-和模型调用规则分别位于 sibling Device 仓库的 `docs/protocol.md`、
-`docs/optimization-benchmark.md` 和 `skills/agent-remote-device/`。默认协商、能力降级和紧急回滚按
-`docs/device-control-operations-runbook.md` 执行，不能只修改 skill 提示词或单个组件配置。
+- Product and cross-repository plan: `docs/agent-remote-desktop-design.zh-CN.md`
+- Desktop implementation and release status: `../agent-remote-desktop/docs/implementation-status.md`
+- Deployment and upgrade: `docs/deployment.md`, `docs/upgrade.md`
+- Runtime architecture: `docs/agent-remote-architecture.md`, `docs/native-runtime-design.md`
+- Session forwarding: `docs/session-port-forwarding-design.md`
+- Device-control security and operations: `docs/local-device-control-security-design.md`, `docs/device-control-operations-runbook.md`
+- Ego-browser lifecycle and release: `docs/ego-browser-humanized-lifecycle.md`, `docs/ego-browser-bridge-release-promotion.md`
+- Skills: `docs/skill-manager.md`, `docs/skill-manager-wire-v1.md`, `docs/skill-acceptance-plan.md`
 
-## Cross-Repository Tests
+Historical planning notes are retained only when they explain a current compatibility or migration boundary. They are not implementation status.
 
-With the server, node, and device repositories checked out as sibling directories, run the real
-device-control data path through FastAPI/WebSocket, the Go Node bridge, Rust nested TLS, and the
-Swift Network.framework peer. The current harness negotiates the complete v2 capability set and
-verifies an `observe(auto)` AX-full response without a screenshot:
+## Cross-repository checks
+
+Run the component checks in each sibling repository. The root repository also provides contract and release-evidence scripts, for example:
 
 ```sh
-scripts/run-local-device-control-e2e.sh
+python3 -m pytest
+bash scripts/run-local-device-control-e2e.sh
+python3 scripts/check-device-control-release-readiness.py
 ```
 
-The harness uses loopback-only `http/ws` for its temporary control plane. Production device
-credentials and relay clients continue to require `https/wss`.
+Use temporary homes, test credentials and disposable server/node data for acceptance runs. Do not use a production credential or a real user workspace.
 
-## Releases
+The root repository keeps these cross-repository and release script entry points:
 
-Each component repository has its own release version and cadence. Its `prepare-release` workflow
-updates only repository-owned version files and `CHANGELOG.md`, commits and tags the immutable
-source, and dispatches that component's release workflow.
+```sh
+bash scripts/run-local-device-control-e2e.sh
+bash scripts/run-session-port-forwarding-e2e.sh
+python3 scripts/check-device-control-release-readiness.py
+scripts/prepare-release.sh <version>
+scripts/update-changelog.sh <version>
+```
 
-Release workflows publish deployment archives, CLI/node binaries, GHCR images, and GitHub Release notes.
-Device-control production evidence has a separate protected assembly flow documented in
-`docs/device-control-release-evidence.md`. The root `release-manifest.json` certifies one exact,
-independently versioned production composition, including each artifact-signing workflow identity.
-A root release verifies every pinned tag, commit, artifact, and compatibility gate, embeds the
-signed schema 9 multi-architecture evidence in the same deployment bundle as the release manifest,
-and pins deployed images by digest. The evidence has no time expiry and is valid only for that exact
-signed composition; already issued schema 8 evidence remains permanently verifiable for its own
-exact composition. The release never enables the capability automatically.
+They operate on disposable test data or release metadata; they do not publish a release by themselves.
 
-The schema-v4 composition also records the exact promoted ego-browser Bridge
-release and its security evidence. Its Bridge component declares
-`release_published=true`, `production_ready=true`, and an empty blocker list;
-the exact commit, profile/version tuple, artifact and Bridge-manifest digests,
-certificate pin, ego lite installer tuple, learning-bundle digest, platform,
-origin selector, admission policy, and nested evidence are immutable inputs to
-the root release. The current certified root release
-binds those inputs to tag-bound schema 9 evidence. Operators must still install
-the exact certified bundle and complete the final artifact-bound canary before
-enabling the capability. The release never enables it automatically.
+## Release policy
+
+Each repository has its own version and release workflow. A root composition release must pin the exact component commits, artifacts, schemas and compatibility evidence. The desktop formal targets are `darwin/arm64`, `windows/amd64` and `linux/amd64`; macOS uses the project community self-signing identity, while Windows/Linux do not require publisher code signing. Apple Developer ID and notarization are outside this release policy.
+
+Do not publish a release until every required native, remote, security and compatibility gate is green and reviewed by the user.
 
 ## License
 
-agent-remote is licensed under GPL-3.0-only. See `LICENSE`.
-
-Third-party dependency notices are listed in `THIRD_PARTY_NOTICES.md`.
+GPL-3.0-only. Third-party notices are in `THIRD_PARTY_NOTICES.md`.
