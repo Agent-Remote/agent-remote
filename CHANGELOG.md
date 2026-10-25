@@ -2,6 +2,17 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.67 - 2026-10-25
+
+- chore(release): adopt component releases (3320c55)
+- docs: restore executable ego-browser lifecycle contract (08f22b2)
+- feat: finalize remote control contracts and documentation (d8261d2)
+- docs: record desktop redesign R5 scripted acceptance (d2e603d)
+- docs: record desktop redesign R4 results (a5cda67)
+- docs: record desktop redesign R3 results (fa262f0)
+- docs: record desktop redesign R2 results (2d6fa21)
+- docs: add desktop UI redesign plan and prototype (046b61c)
+
 ## v0.2.66 - 2026-10-09
 
 - perf(release): adopt cli terminal input and scrolling improvements (5ba09d3)
