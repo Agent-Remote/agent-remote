@@ -2,6 +2,10 @@
 
 All notable changes to this repository are recorded here.
 
+## v0.2.68 - 2026-10-26
+
+- chore: prepare v0.2.68 from v0.2.67 with repository-owned version metadata only.
+
 ## v0.2.67 - 2026-10-25
 
 - chore(release): adopt component releases (3320c55)
